@@ -1,6 +1,7 @@
-# Sippet
+![Sippet](http://sippet.github.io/sippet/public/apple-touch-icon-144-precomposed.png)
+=========
 
-**TODO: Add description**
+An Elixir library designed to be used as SIP protocol middleware.
 
 ## Installation
 
