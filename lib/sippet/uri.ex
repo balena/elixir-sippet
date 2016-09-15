@@ -1,4 +1,9 @@
 defmodule Sippet.URI do
+  @moduledoc """
+  Utilities for working with SIP-URIs.
+  This module provides functions for working with URIs (for example, parsing
+  SIP-URIs, encoding parameters or header strings).
+  """
 
   defstruct [
     scheme: nil, userinfo: nil,
@@ -18,7 +23,8 @@ defmodule Sippet.URI do
 
   @doc """
   Returns the default port for a given SIP scheme.
-  If the scheme is unknown to the `URI` module, this function returns `nil`.
+  If the scheme is unknown to the `Sippet.URI` module, this function returns
+  `nil`.
   ## Examples
       iex> Sippet.URI.default_port("sip")
       5060
@@ -53,22 +59,31 @@ defmodule Sippet.URI do
   """
   @spec encode_parameters(term) :: binary
   def encode_parameters(enumerable) do
-    Enum.map_join(enumerable, "", fn (x) -> ";" <> encode_paramchar_pair(x) end)
+    wrap("encode_parameters/1", ";", ";", enumerable, &encode_paramchar/1)
   end
 
-  defp encode_paramchar_pair({key, _}) when is_list(key) do
-    raise ArgumentError, "encode_parameters/1 keys cannot be lists, "
+  defp wrap(function_name, first_character, separator, enumerable, encode) do
+    first_character <> Enum.map_join(enumerable, separator,
+      &encode_pair(function_name, encode, &1))
+  end
+
+  defp encode_pair(function_name, _encode, {key, _}) when is_list(key) do
+    raise ArgumentError, function_name <> " keys cannot be lists, "
                          <> "got: #{inspect key}"
   end
 
-  defp encode_paramchar_pair({_, value}) when is_list(value) do
-    raise ArgumentError, "encode_parameters/1 values cannot be lists, "
+  defp encode_pair(function_name, _encode, {_, value}) when is_list(value) do
+    raise ArgumentError, function_name <> " values cannot be lists, "
                          <> "got: #{inspect value}"
   end
 
-  defp encode_paramchar_pair({key, value}) do
-    encode_paramchar(Kernel.to_string(key)) <>
-      "=" <> encode_paramchar(Kernel.to_string(value))
+  defp encode_pair(_function_name, encode, {key, nil}) do
+    encode.(Kernel.to_string(key))
+  end
+
+  defp encode_pair(_function_name, encode, {key, value}) do
+    encode.(Kernel.to_string(key)) <>
+      "=" <> encode.(Kernel.to_string(value))
   end
 
   @doc """
@@ -84,23 +99,31 @@ defmodule Sippet.URI do
   """
   @spec decode_parameters(binary) :: map
   def decode_parameters(parameters, map \\ %{}) do
+    unwrap("decode_parameters/1", ";", ";", parameters, map)
+  end
+
+  defp unwrap(function_name, first_character, separator, string, map) do
+    middle = remove_first_char(function_name, string, first_character)
+    decode_into_map(middle, map, separator)
+  end
+
+  defp remove_first_char(function_name, string, first_character) do
     cond do
-      parameters == "" -> map
-      String.starts_with?(parameters, ";") ->
-        decode_parameters_into_map(
-            String.slice(parameters, 1, String.length(parameters)-1), map)
+      string == "" -> ""
+      String.starts_with?(string, first_character) ->
+        String.slice(string, 1, String.length(string)-1)
       :otherwise ->
         raise ArgumentError,
-            "decode_parameters/1 string has to start with ';', "
-            <> "got: #{inspect parameters}"
+            function_name <> " string has to start with '"
+            <> first_character <> "', got: #{inspect string}"
     end
   end
-  
-  defp decode_parameters_into_map(parameters, map) do
-    case decode_next_pair(parameters, ";") do
+
+  defp decode_into_map(parameters, map, separator) do
+    case decode_next_pair(parameters, separator) do
       nil -> map
       {{key, value}, rest} ->
-        decode_parameters_into_map(rest, Map.put(map, key, value))
+        decode_into_map(rest, Map.put(map, key, value), separator)
     end
   end
 
@@ -125,6 +148,20 @@ defmodule Sippet.URI do
   end
 
   @doc """
+  Returns a stream of two-element tuples representing key-value pairs in the
+  given `parameters`.
+  Key and value in each tuple will be binaries and will be percent-unescaped.
+  ## Examples
+      iex> Sippet.URI.parameters_decoder(";foo=1;bar=2") |> Enum.to_list()
+      [{"foo", "1"}, {"bar", "2"}]
+  """
+  @spec parameters_decoder(binary) :: Enumerable.t
+  def parameters_decoder(parameters) when is_binary(parameters) do
+    middle = remove_first_char("parameters_decoder/1", parameters, ";")
+    Stream.unfold(middle, &decode_next_pair(&1, ";"))
+  end
+
+  @doc """
   Encodes an enumerable into a "headers" string.
   Takes an enumerable that enumerates as a list of two-element tuples (e.g., a
   map or a keyword list) and returns a string in the form of
@@ -143,26 +180,7 @@ defmodule Sippet.URI do
   """
   @spec encode_headers(term) :: binary
   def encode_headers(enumerable) do
-    cond do
-      Enum.empty?(enumerable) -> ""
-      :otherwise -> "?" <> Enum.map_join(enumerable, "&", &encode_hnv_pair/1) 
-    end
-  end
-
-  defp encode_hnv_pair({key, _}) when is_list(key) do
-    raise ArgumentError, "encode_headers/1 keys cannot be lists, got: #{inspect key}"
-  end
-
-  defp encode_hnv_pair({_, value}) when is_list(value) do
-    raise ArgumentError, "encode_headers/1 values cannot be lists, got: #{inspect value}"
-  end
-
-  defp encode_hnv_pair({key, value}) do
-    cond do
-      is_nil(value) -> encode_hnvchar(Kernel.to_string(key))
-      :otherwise -> encode_hnvchar(Kernel.to_string(key)) <>
-          "=" <> encode_hnvchar(Kernel.to_string(value)) 
-    end
+    wrap("encode_headers/1", "?", "&", enumerable, &encode_hnvchar/1)
   end
 
   @doc """
@@ -178,24 +196,21 @@ defmodule Sippet.URI do
   """
   @spec decode_headers(binary) :: map
   def decode_headers(headers, map \\ %{}) do
-    cond do
-      headers == "" -> map
-      String.starts_with?(headers, "?") ->
-        decode_headers_into_map(
-            String.slice(headers, 1, String.length(headers)-1), map)
-      :otherwise ->
-        raise ArgumentError,
-            "decode_headers/1 string has to start with ';', "
-            <> "got: #{inspect headers}"
-    end
+    unwrap("decode_headers/1", "?", "&", headers, map)
   end
 
-  defp decode_headers_into_map(headers, map) do
-    case decode_next_pair(headers, "&") do
-      nil -> map
-      {{key, value}, rest} ->
-        decode_headers_into_map(rest, Map.put(map, key, value))
-    end
+  @doc """
+  Returns a stream of two-element tuples representing key-value pairs in the
+  given `headers`.
+  Key and value in each tuple will be binaries and will be percent-unescaped.
+  ## Examples
+      iex> Sippet.URI.headers_decoder("?foo=1&bar=2") |> Enum.to_list()
+      [{"foo", "1"}, {"bar", "2"}]
+  """
+  @spec headers_decoder(binary) :: Enumerable.t
+  def headers_decoder(headers) when is_binary(headers) do
+    middle = remove_first_char("headers_decoder/1", headers, "?")
+    Stream.unfold(middle, &decode_next_pair(&1, "&"))
   end
 
   @doc """
@@ -264,8 +279,8 @@ defmodule Sippet.URI do
   @doc """
   Checks if the character is an "param-unreserved" character in a SIP-URI.
   ## Examples
-      iex> Sippet.URI.char_unreserved?(?~)
-      true
+      iex> Sippet.URI.char_param_unreserved?(?~)
+      false
   """
   @spec char_param_unreserved?(char) :: boolean
   def char_param_unreserved?(char) when char in 0..0x10FFFF do
@@ -348,7 +363,7 @@ defmodule Sippet.URI do
   end
 
   @doc """
-  Returns the string representation of the given `URI` struct.
+  Returns the string representation of the given `Sippet.URI` struct.
       iex> Sippet.URI.to_string(Sippet.URI.parse("sip:foo@bar.com"))
       "sip:foo@bar.com"
       iex> Sippet.URI.to_string(%URI{scheme: "foo", host: "bar.baz"})
