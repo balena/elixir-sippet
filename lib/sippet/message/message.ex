@@ -153,10 +153,8 @@ defmodule Sippet.Message do
   def delete_header_front(message, header) do
     case get_header(message, header) do
       nil -> message
-      values -> case values do
-        [_] -> delete_header(message, header)
-        [_|tail] -> put_in(message, [:headers, header], tail)
-      end
+      [_] -> delete_header(message, header)
+      [_|tail] -> put_in(message, [:headers, header], tail)
     end
   end
 
@@ -167,12 +165,14 @@ defmodule Sippet.Message do
   def delete_header_back(message, header) do
     case get_header(message, header) do
       nil -> message
-      values -> case values do
-        [_] -> delete_header(message, header)
-        values -> put_in(message, [:headers, header],
-            List.delete(values, List.last(values)))
-      end
+      [_] -> delete_header(message, header)
+      values -> put_in(message, [:headers, header], do_remove_last(values))
     end
+  end
+
+  defp do_remove_last(list) do
+    [_ | tail] = Enum.reverse(list)
+    Enum.reverse(tail)
   end
 
   @doc """
@@ -369,9 +369,13 @@ defmodule Sippet.Message do
       when is_function(fun, 1) do
     update_header(message, header, [initial],
         fn [] -> [initial]
-           values -> List.delete(values, List.last(values))
-             ++ fun.(List.last(values))
+           values -> do_update_last(values, fun)
         end)
+  end
+
+  defp do_update_last(values, fun) do
+    [head|tail] = Enum.reverse(values)
+    Enum.reduce(tail, [fun.(head)], fn(x, acc) -> [x|acc] end)
   end
 
   @doc """
@@ -424,11 +428,11 @@ defmodule Sippet.Message do
   @spec pop_header_back(message, header, any) :: {value | any, message}
   def pop_header_back(message, header, default \\ nil) do
     {values, new_headers} = Map.pop(message.headers, header, [])
-    case values do
+    case Enum.reverse(values) do
       [] -> {default, put_in(message, [:headers, header], new_headers)}
       [value] -> {value, put_in(message, [:headers, header], new_headers)}
-      values -> {List.last(values), put_in(message, [:headers, header],
-          List.delete(values, List.last(values)))}
+      [head|tail] -> {head, put_in(message, [:headers, header],
+          Enum.reverse(tail))}
     end
   end
 
@@ -531,10 +535,11 @@ defmodule Sippet.Message do
   end
 
   defp do_get_and_update_header_back(values, fun) do
-    last = List.last(values)
+    [last|tail] = Enum.reverse(values)
     case fun.(last) do
-      {get, new_value} -> {get, List.delete(values, last) ++ [new_value]}
-      :pop -> {last, List.delete(values, last)}
+      {get, new_value} -> {get, Enum.reduce(tail, [new_value],
+          fn(x, acc) -> [x|acc] end)}
+      :pop -> {last, Enum.reverse(last)}
     end
   end
 
