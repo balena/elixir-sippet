@@ -86,7 +86,7 @@ defmodule Sippet.Message do
   def put_new_header(message, header, value) do
     case has_header?(message, header) do
       true -> message
-      false -> put_in(message, [:headers, header], [value])
+      false -> %{message | headers: Map.put(message.headers, header, [value])}
     end
   end
 
@@ -99,10 +99,10 @@ defmodule Sippet.Message do
   expensive to calculate or generally difficult to setup and teardown again).
   """
   @spec put_new_lazy_header(message, header, (() -> value)) :: message
-  def put_new_lazy_header(message, header, fun) do
+  def put_new_lazy_header(message, header, fun) when is_function(fun, 0) do
     case has_header?(message, header) do
       true -> message
-      false -> put_in(message, [:headers, header], [fun.()])
+      false -> %{message | headers: Map.put(message.headers, header, [fun.()])}
     end
   end
 
@@ -114,12 +114,12 @@ defmodule Sippet.Message do
   """
   @spec put_header_front(message, header, value) :: message
   def put_header_front(message, header, value) do
-    head = case value do
-      nil -> []
-      _ -> [value]
+    existing = get_header(message, header, [])
+    new_list = case value do
+      nil -> existing
+      _ -> [value|existing]
     end
-    put_in(message, [:headers, header],
-        head ++ get_header(message, header, []))
+    %{message | headers: Map.put(message.headers, header, new_list)}
   end
 
   @doc """
@@ -130,12 +130,12 @@ defmodule Sippet.Message do
   """
   @spec put_header_back(message, header, value) :: message
   def put_header_back(message, header, value) do
-    tail = case value do
-      nil -> []
-      _ -> [value]
+    existing = get_header(message, header, [])
+    new_list = case value do
+      nil -> existing
+      _ -> List.foldr(existing, [value], fn(x, acc) -> [x|acc] end)
     end
-    put_in(message, [:headers, header],
-        get_header(message, header, []) ++ tail)
+    %{message | headers: Map.put(message.headers, header, new_list)}
   end
 
   @doc """
@@ -154,7 +154,7 @@ defmodule Sippet.Message do
     case get_header(message, header) do
       nil -> message
       [_] -> delete_header(message, header)
-      [_|tail] -> put_in(message, [:headers, header], tail)
+      [_|tail] -> %{message | headers: Map.put(message.headers, header, tail)}
     end
   end
 
@@ -166,7 +166,8 @@ defmodule Sippet.Message do
     case get_header(message, header) do
       nil -> message
       [_] -> delete_header(message, header)
-      values -> put_in(message, [:headers, header], do_remove_last(values))
+      values -> %{message | headers:
+          Map.put(message.headers, header, do_remove_last(values))}
     end
   end
 
@@ -332,10 +333,8 @@ defmodule Sippet.Message do
   """
   @spec update_header(message, header, [value],
             ([value] -> [value])) :: message
-  def update_header(message, header, [initial], fun)
-      when is_function(fun, 1) do
-    put_in(message, [:headers, header],
-        Map.update(message.headers, header, initial, fun))
+  def update_header(message, header, initial, fun) do
+    %{message | headers: Map.update(message.headers, header, initial, fun)}
   end
 
   @doc """
@@ -374,8 +373,8 @@ defmodule Sippet.Message do
   end
 
   defp do_update_last(values, fun) do
-    [head|tail] = Enum.reverse(values)
-    Enum.reduce(tail, [fun.(head)], fn(x, acc) -> [x|acc] end)
+    [last|tail] = Enum.reverse(values)
+    Enum.reduce(tail, [fun.(last)], fn(x, acc) -> [x|acc] end)
   end
 
   @doc """
@@ -390,7 +389,7 @@ defmodule Sippet.Message do
   @spec pop_header(message, header, any) :: {any, message}
   def pop_header(message, header, default \\ nil) do
     {get, new_headers} = Map.pop(message.headers, header, default)
-    {get, put_in(message, [:headers], new_headers)}
+    {get, %{message | headers: new_headers}}
   end
 
   @doc """
@@ -408,9 +407,12 @@ defmodule Sippet.Message do
   def pop_header_front(message, header, default \\ nil) do
     {values, new_headers} = Map.pop(message.headers, header, [])
     case values do
-      [] -> {default, put_in(message, [:headers, header], new_headers)}
-      [value] -> {value, put_in(message, [:headers, header], new_headers)}
-      [head|tail] -> {head, put_in(message, [:headers, header], tail)}
+      [] ->
+          {default, %{message | headers: new_headers}}
+      [value] ->
+          {value, %{message | headers: new_headers}}
+      [head|tail] ->
+          {head, %{message | headers: Map.put(message.headers, header, tail)}}
     end
   end
 
@@ -429,10 +431,13 @@ defmodule Sippet.Message do
   def pop_header_back(message, header, default \\ nil) do
     {values, new_headers} = Map.pop(message.headers, header, [])
     case Enum.reverse(values) do
-      [] -> {default, put_in(message, [:headers, header], new_headers)}
-      [value] -> {value, put_in(message, [:headers, header], new_headers)}
-      [head|tail] -> {head, put_in(message, [:headers, header],
-          Enum.reverse(tail))}
+      [] ->
+          {default, %{message | headers: new_headers}}
+      [value] ->
+          {value, %{message | headers: new_headers}}
+      [last|tail] ->
+          {last, %{message | headers:
+              Map.put(message.headers, header, Enum.reverse(tail))}}
     end
   end
 
@@ -454,7 +459,7 @@ defmodule Sippet.Message do
                 {get, message} when get: [value]
   def get_and_update_header(message, header, fun) when is_function(fun, 1) do
     {get, new_headers} = Map.get_and_update(message.headers, header, fun)
-    {get, put_in(message, [:headers], new_headers)}
+    {get, %{message | headers: new_headers}}
   end
 
   @doc """
@@ -477,7 +482,7 @@ defmodule Sippet.Message do
       when is_function(fun, 1) do
     {get, new_headers} = Map.get_and_update(message.headers, header,
         &do_get_and_update_header_front(&1, fun))
-    {get, put_in(message, [:headers], new_headers)}
+    {get, %{message | headers: new_headers}}
   end
 
   defp do_get_and_update_header_front(nil, fun) do
@@ -524,7 +529,7 @@ defmodule Sippet.Message do
       when is_function(fun, 1) do
     {get, new_headers} = Map.get_and_update(message.headers, header,
         &do_get_and_update_header_back(&1, fun))
-    {get, put_in(message, [:headers], new_headers)}
+    {get, %{message | headers: new_headers}}
   end
 
   defp do_get_and_update_header_back([], fun) do
