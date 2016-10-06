@@ -11,8 +11,8 @@ defmodule Sippet.Message do
   """
 
   alias Sippet.URI, as: URI
-  alias Sippet.RequestLine, as: RequestLine
-  alias Sippet.StatusLine, as: StatusLine
+  alias Sippet.Message.RequestLine, as: RequestLine
+  alias Sippet.Message.StatusLine, as: StatusLine
 
   defstruct [
     start_line: nil,
@@ -548,4 +548,55 @@ defmodule Sippet.Message do
     end
   end
 
+  @doc """
+  Parses a SIP message header block as received by the transport layer. In
+  order to correctly set the message body, you have to verify the
+  `:content_length` header; if it exists, it must reflect the body size, if the
+  transport is datagram based, the body is the remaining of the packet,
+  otherwise it is a protocol error.
+  """
+  def parse(data) when is_binary(data) do
+    [start_line | headers] = String.split(data, ~r{\r?\n}, trim: true)
+    %__MODULE__{
+      start_line: do_parse_start_line(start_line),
+      headers: do_parse_headers(headers)
+    }
+  end
+
+  defp do_parse_start_line(start_line) do
+    case String.split(start_line, " ", parts: 3) do
+      [method, request_uri, "SIP/2.0"] ->
+          RequestLine.build(method, request_uri)
+      ["SIP/2.0", status_code, reason_phrase] ->
+          StatusLine.build(String.to_integer(status_code), reason_phrase)
+    end
+  end
+
+  defp do_parse_headers(headers) do
+    Enum.reduce(headers, %{}, &do_parse_headers_internal/2)
+  end
+
+  defp do_parse_headers_internal(data, acc) do
+    {header, value} = do_parse_header(data)
+    Map.put(acc, header, Map.get(acc, header, []) ++ [value])
+  end
+
+  defp do_parse_header(data) do
+    [header_string, value] = String.split(data, ~r{ *: *}, parts: 2)
+    header = do_header_to_atom(header_string)
+    {header, do_value_to_struct(header, value)}
+  end
+
+  defp do_header_to_atom(string) do
+    string
+    |> String.replace("-", "_")
+    |> String.downcase()
+    |> String.to_atom()
+  end
+
+  defp do_value_to_struct(header, string) do
+    case header do
+      _ -> %Sippet.Headers.Generic{value: string}
+    end
+  end
 end
