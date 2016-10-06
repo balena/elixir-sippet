@@ -13,6 +13,9 @@ defmodule Sippet.Message do
   alias Sippet.URI, as: URI
   alias Sippet.Message.RequestLine, as: RequestLine
   alias Sippet.Message.StatusLine, as: StatusLine
+  alias Sippet.Headers.Generic, as: Generic
+  alias Sippet.Headers.Numeric, as: Numeric
+  alias Sippet.Headers.SingleToken, as: SingleToken
 
   defstruct [
     start_line: nil,
@@ -577,14 +580,14 @@ defmodule Sippet.Message do
   end
 
   defp do_parse_headers_internal(data, acc) do
-    {header, value} = do_parse_header(data)
-    Map.put(acc, header, Map.get(acc, header, []) ++ [value])
+    {header, values} = do_parse_header(data)
+    Map.put(acc, header, Map.get(acc, header, []) ++ values)
   end
 
   defp do_parse_header(data) do
-    [header_string, value] = String.split(data, ~r{ *: *}, parts: 2)
+    [header_string, string] = String.split(data, ~r{ *: *}, parts: 2)
     header = do_header_to_atom(header_string)
-    {header, do_value_to_struct(header, value)}
+    {header, do_value_to_struct_list(header, string)}
   end
 
   defp do_header_to_atom(string) do
@@ -619,9 +622,14 @@ defmodule Sippet.Message do
     end
   end
 
-  defp do_value_to_struct(header, string) do
+  defp do_value_to_struct_list(header, string) do
     case header do
-      _ -> %Sippet.Headers.Generic{value: string}
+      :content_length -> Numeric.from_string(string)
+      :expires -> Numeric.from_string(string)
+      :max_forwards -> Numeric.from_string(string)
+      :call_id -> SingleToken.from_string(string)
+      :priority -> SingleToken.from_string(string)
+      _ -> Generic.from_string(string)
     end
   end
 end
