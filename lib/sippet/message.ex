@@ -588,10 +588,35 @@ defmodule Sippet.Message do
   end
 
   defp do_header_to_atom(string) do
+    if String.length(string) == 1 do
+      case string do
+        "a" -> :accept_contact
+        "u" -> :allow_events
+        "i" -> :call_id
+        "m" -> :contact
+        "e" -> :content_encoding
+        "l" -> :content_length
+        "c" -> :content_type
+        "o" -> :event
+        "f" -> :from
+        "y" -> :identity
+        "n" -> :identity_info
+        "r" -> :refer_to
+        "b" -> :referred_by
+        "j" -> :reject_contact
+        "d" -> :request_disposition
+        "s" -> :subject
+        "k" -> :supported
+        "t" -> :to
+        "v" -> :via
+        other -> raise "unknown header abbreviation, got: #{inspect(other)}"
+      end
+    else
     string
-    |> String.replace("-", "_")
-    |> String.downcase()
-    |> String.to_atom()
+      |> String.replace("-", "_")
+      |> String.downcase()
+      |> String.to_atom()
+    end
   end
 
   defp do_value_to_struct(header, string) do
