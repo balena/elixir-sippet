@@ -27,22 +27,18 @@ defmodule Sippet.Parser do
 
   def parse_parameters(string) do
     {_, rest} = string |> skip_to(';')
-    if rest == "" do
-      %{}
-    else
-      do_parse_parameters(%{}, rest)
-    end
+    do_parse_name_values(%{}, rest, ';')
   end
 
-  defp do_parse_parameters(params, "") do
+  defp do_parse_name_values(params, "", _) do
     params
   end
 
-  defp do_parse_parameters(params, string) do
+  defp do_parse_name_values(params, string, separator) do
     {_, rest} = string |> skip()
-    {name_value, rest} = rest |> skip_to(';')
+    {name_value, rest} = rest |> skip_to(separator)
     {name, value} = do_parse_param(name_value)
-    do_parse_parameters(Map.put(params, name, value), rest)
+    do_parse_name_values(Map.put(params, name, value), rest, separator)
   end
 
   defp do_parse_param(name_value) do
@@ -64,12 +60,24 @@ defmodule Sippet.Parser do
   end
 
   def parse_auth_scheme(string) do
+    {_, rest} = string |> skip(@lws)
+    if rest == "", do: raise "missing authentication scheme"
+    rest |> skip_not_in(@lws)
   end
 
   def parse_auth_params(string) do
+    {_, rest} = string |> skip_to(',')
+    do_parse_name_values(%{}, rest, ',')
   end
 
   def parse_uri(string) do
+    {_, rest} = string |> skip_to('<')
+    if rest == "", do: raise "invalid uri"
+    {_, rest} = rest |> skip()
+    {uri, rest} = rest |> skip_to('>')
+    if rest == "", do: raise "unclosed '<'"
+    {_, rest} = rest |> skip()
+    {uri, rest}
   end
 
   def parse_contact(string) do
