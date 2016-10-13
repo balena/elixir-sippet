@@ -1,5 +1,5 @@
 defmodule Sippet.Headers.Numeric do
-  @behavior Sippet.Header
+  @behaviour Sippet.Header
 
   defstruct [
     value: 0

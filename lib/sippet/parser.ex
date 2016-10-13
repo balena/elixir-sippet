@@ -53,8 +53,12 @@ defmodule Sippet.Parser do
         if rest == "", do: raise "invalid parameter"
         {_, rest} = rest |> skip()
         {_, value} = rest |> skip(@lws)
-        String.trim(value)
-        # TODO(balena): unquote value
+        maybe_result = String.trim(value)
+        if maybe_result |> String.starts_with?("\"") do
+          unquote_string(maybe_result)
+        else
+          maybe_result
+        end
       end
     {name, value}
   end
@@ -165,12 +169,11 @@ defmodule Sippet.Parser do
     do_is_token(string)
   end
 
-  def do_is_token("") do
+  defp do_is_token("") do
     true
   end
 
-  def do_is_token(string) do
-    <<char :: size(8)>> <> rest = string
+  defp do_is_token(<<char :: size(8)>> <> rest) do
     cond do
       char >= 0x80 -> false
       char <= 0x1f -> false
@@ -178,5 +181,46 @@ defmodule Sippet.Parser do
       char in '()<>@,;:\\"/[]?={} \t' -> false
       :otherwise -> do_is_token(rest)
     end
+  end
+
+  def quote_string(string) do
+    do_quote_string(string, "")
+  end
+
+  defp do_quote_string("", escaped) do
+    "\"" <> escaped <> "\""
+  end
+
+  defp do_quote_string(<<char :: size(8)>> <> rest, escaped) do
+    possibly_escaped = case char do
+      '"' -> "\\\""
+      '\\' -> "\\\\"
+      other -> other
+    end
+    do_quote_string(rest, escaped <> possibly_escaped)
+  end
+
+  def unquote_string(<<char :: size(8)>> <> rest) do
+    if char != '"', do: raise "invalid quoted-string"
+    do_unquote_string(rest, "")
+  end
+
+  defp do_unquote_string("\"", unescaped) do
+    unescaped
+  end
+
+  defp do_unquote_string("", _) do
+    raise "quoted-string does not end with '\"'"
+  end
+
+  defp do_unquote_string(<<char :: size(8)>> <> rest, unescaped) do
+    {possibly_unescaped, rest} =
+        if char == '\\' do
+          <<unescaped_char :: size(8)>> <> without_next_char = rest
+          {unescaped_char, without_next_char}
+        else
+          {char, rest}
+        end
+    do_unquote_string(rest, unescaped <> to_string(possibly_unescaped))
   end
 end
