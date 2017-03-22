@@ -15,3 +15,10 @@ erl_crash.dump
 
 # Also ignore archive artifacts (built via "mix archive.build").
 *.ez
+
+# Ignore generated NIF libraries
+/priv
+
+# Ignore rebar3 binary and lock file
+/rebar.lock
+/support/rebar3

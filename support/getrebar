@@ -1,0 +1,108 @@
+#!/usr/bin/env escript
+%% -*- mode: erlang;erlang-indent-level: 4;indent-tabs-mode: nil -*-
+%% ex: ft=erlang ts=4 sw=4 et
+%%
+%% Copyright (c) 2010-2017 Tuncer Ayaz
+%% Copyright (c) 2014 Kenji Rikitake
+%% Copyright (c) 2017 G. B. Versiani
+%%
+%% Permission to use, copy, modify, and distribute this software for any
+%% purpose with or without fee is hereby granted, provided that the above
+%% copyright notice and this permission notice appear in all copies.
+%%
+%% THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+%% WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+%% MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+%% ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+%% WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+%% ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+%% OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+%%
+-include_lib("kernel/include/file.hrl").
+
+main(_) ->
+    case os:find_executable("rebar3") of
+        false ->
+            start_apps(),
+            case obtain(bin) of
+                {ok, Rebar} -> found(Rebar);
+                _ -> halt(1)
+            end;
+        RebarInPATH -> found(RebarInPATH)
+    end.
+
+found(Rebar) ->
+    io:format("~s", [Rebar]),
+    halt(0).
+
+%%
+%% Internal funs
+%%
+rebar_bin_url() ->
+    "https://s3.amazonaws.com/rebar3/rebar3".
+
+obtain(bin) ->
+    SupDir = filename:dirname(escript:script_name()),
+    Rebar = SupDir++"/rebar3",
+    case is_escript(Rebar) of
+        true -> {ok, Rebar};
+        false ->
+            ok = idelete(Rebar),
+            try download(rebar_bin_url(), Rebar) of
+                ok ->
+                    case is_escript(Rebar) of
+                        true ->
+                            ok = file:change_mode(Rebar, 8#700),
+                            {ok, Rebar};
+                        false -> false
+                    end;
+                _ -> {error, download_failed}
+            catch
+                _:_ -> {error, unknown}
+            end
+    end.
+
+start_apps() ->
+    ok = application:start(crypto),
+    ok = application:start(asn1),
+    ok = application:start(public_key),
+    ok = application:start(ssl),
+    ok = application:start(inets),
+    ok = configure_http().
+
+configure_http() ->
+    case os:getenv("http_proxy") of
+        "http://" ++ Proxy ->
+            [Host, Port] = string:tokens(Proxy, ":"),
+            httpc:set_options([{proxy, {Host, Port}}]);
+        _ -> ok
+    end.
+
+idelete(File) ->
+    case file:delete(File) of
+        ok -> ok;
+        {error, enoent} -> ok
+    end.
+
+download(Url, File) ->
+    HttpOpts = [{autoredirect, true}, {timeout, 30000}],
+    Opts = [{stream, File}],
+    case httpc:request(get, {Url, []}, HttpOpts, Opts) of
+        {ok, saved_to_file} -> ok;
+        {ok, {{_, _Code, _}, _, _}} -> false;
+        {ok, {_Code, _}} -> false;
+        _ -> false
+    end.
+
+is_escript(File) ->
+    case filelib:is_regular(File) of
+        true ->
+            {ok, IOD} = file:open(File, [read]),
+            Line = file:read_line(IOD),
+            ok = file:close(IOD),
+            case Line of
+                {ok, "#!/usr/bin/env escript\n"} -> true;
+                _ -> false
+            end;
+        false -> false
+    end.
