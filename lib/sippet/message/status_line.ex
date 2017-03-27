@@ -1,7 +1,8 @@
 defmodule Sippet.Message.StatusLine do
   defstruct [
     status_code: nil,
-    reason_phrase: nil
+    reason_phrase: nil,
+    version: nil
   ]
 
   def build(status_code)
@@ -13,7 +14,8 @@ defmodule Sippet.Message.StatusLine do
     when is_binary(reason_phrase),
     do: %__MODULE__{
       status_code: do_raise_if_invalid(status_code),
-      reason_phrase: reason_phrase}
+      reason_phrase: reason_phrase,
+      version: {2, 0}}
 
   defp do_raise_if_invalid(status_code) do
     if status_code < 100 || status_code >= 700 do

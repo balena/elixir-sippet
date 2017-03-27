@@ -8,7 +8,7 @@ defmodule Sippet.Mixfile do
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
      compilers: [:make, :elixir, :app], # Add the make compiler
-     aliases: aliases, # Configure aliases
+     aliases: aliases(), # Configure aliases
      deps: deps()]
   end
 
@@ -41,7 +41,7 @@ end
 # Make tasks
 
 defmodule Mix.Tasks.Compile.Make do
-  @shortdoc "Compiles helper in c_src"
+  # Compiles helper in c_src
 
   def run(_) do
     {result, _error_code} = System.cmd("make", [], stderr_to_stdout: true)
@@ -52,7 +52,7 @@ defmodule Mix.Tasks.Compile.Make do
 end
 
 defmodule Mix.Tasks.Clean.Make do
-  @shortdoc "Cleans helper in c_src"
+  # Cleans helper in c_src
 
   def run(_) do
     {result, _error_code} = System.cmd("make", ['clean'], stderr_to_stdout: true)

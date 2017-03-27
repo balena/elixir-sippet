@@ -22,3 +22,6 @@ erl_crash.dump
 # Ignore rebar3 binary and lock file
 /rebar.lock
 /support/rebar3
+
+# C/C++ NIF modules
+*.o

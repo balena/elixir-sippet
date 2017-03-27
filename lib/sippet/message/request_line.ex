@@ -3,19 +3,22 @@ defmodule Sippet.Message.RequestLine do
 
   defstruct [
     method: nil,
-    request_uri: nil
+    request_uri: nil,
+    version: nil
   ]
 
   @type t :: %__MODULE__{
     method: atom,
-    request_uri: URI.t
+    request_uri: URI.t,
+    version: {number, number}
   }
 
   def build(method, %URI{} = request_uri)
     when is_atom(method),
     do: %__MODULE__{
         method: do_raise_if_unknown_method(method),
-        request_uri: request_uri}
+        request_uri: request_uri,
+        version: {2, 0}}
   
   def build(method, request_uri)
     when is_binary(request_uri)
