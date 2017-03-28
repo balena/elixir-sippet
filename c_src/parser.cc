@@ -302,132 +302,133 @@ ERL_NIF_TERM ParseAuthParams(ErlNifEnv* env, Tokenizer* tok) {
   return result;
 }
 
-#if 0
-template<class HeaderType>
-bool ParseUri(Tokenizer* tok, std::unique_ptr<HeaderType>* header) {
-  tok->SkipTo('<');
-  if (tok->EndOfInput()) {
-    DVLOG(1) << "invalid uri";
-    return false;
+ERL_NIF_TERM ParseComment(ErlNifEnv* env, Tokenizer* tok) {
+  tok->SkipTo('(');
+  if (tok->EndOfInput())
+    return enif_make_atom(env, "invalid_comment");
+
+  std::string::const_iterator comment_start = tok->Skip();
+  std::string::const_iterator comment_end = tok->end();
+
+  int lparen = 1;
+  while (!tok->EndOfInput()) {
+    if (*tok->current() == ')') {
+      if (--lparen == 0) {
+        comment_end = tok->current();
+        tok->Skip();
+        break;
+      }
+    } else if (*tok->current() == '(') {
+      lparen++;
+    }
+    tok->Skip();
   }
-  std::string::const_iterator uri_start = tok->Skip();
-  std::string::const_iterator uri_end = tok->SkipTo('>');
-  if (tok->EndOfInput()) {
-    DVLOG(1) << "unclosed '<'";
-    return false;
-  }
-  tok->Skip();
-  std::string uri(uri_start, uri_end);
-  (*header)->push_back(typename HeaderType::value_type(GURL(uri)));
-  return true;
+
+  if (comment_end == tok->end())
+    return enif_make_atom(env, "invalid_comment");
+
+  TrimLWS(&comment_start, &comment_end);
+  StringPiece comment(comment_start, comment_end);
+  return MakeString(env, comment);
 }
 
-template<class HeaderType, typename Builder>
-bool ParseContact(Tokenizer* tok, std::unique_ptr<HeaderType>* header,
-    Builder builder) {
-  std::string display_name;
-  GURL address;
+ERL_NIF_TERM ParseUri(ErlNifEnv* env, Tokenizer* tok) {
+  tok->SkipTo('<');
+  if (tok->EndOfInput())
+    return enif_make_atom(env, "invalid_uri");
+  std::string::const_iterator uri_start = tok->Skip();
+  std::string::const_iterator uri_end = tok->SkipTo('>');
+  if (tok->EndOfInput())
+    return enif_make_atom(env, "unclosed_laquot");
+  tok->Skip();
+  StringPiece uri(uri_start, uri_end);
+  return MakeString(env, uri);
+}
+
+ERL_NIF_TERM ParseContact(ErlNifEnv* env, Tokenizer* tok) {
+  std::string::const_iterator display_name_start, display_name_end;
+  StringPiece address;
   tok->Skip(SIP_LWS);
-  if (net::HttpUtil::IsQuote(*tok->current())) {
+  if (IsQuote(*tok->current())) {
     // contact-param = quoted-string LAQUOT addr-spec RAQUOT
-    std::string::const_iterator display_name_start = tok->current();
+    display_name_start = tok->current();
     tok->Skip();
     for (; !tok->EndOfInput(); tok->Skip()) {
       if (*tok->current() == '\\') {
         tok->Skip();
         continue;
       }
-      if (net::HttpUtil::IsQuote(*tok->current()))
+      if (IsQuote(*tok->current()))
         break;
     }
-    if (tok->EndOfInput()) {
-      DVLOG(1) << "unclosed quoted-string";
-      return false;
-    }
-    display_name.assign(display_name_start, tok->Skip());
+    if (tok->EndOfInput())
+      return enif_make_atom(env, "unclosed_qstring");
+    display_name_end = tok->Skip();
     tok->SkipTo('<');
-    if (tok->EndOfInput()) {
-      DVLOG(1) << "missing address";
-      return false;
-    }
+    if (tok->EndOfInput())
+      return enif_make_atom(env, "missing_address");
     std::string::const_iterator address_start = tok->Skip();
     tok->SkipTo('>');
-    if (tok->EndOfInput()) {
-      DVLOG(1) << "unclosed '<'";
-      return false;
-    }
-    address = GURL(std::string(address_start, tok->current()));
+    if (tok->EndOfInput())
+      return enif_make_atom(env, "unclosed_laquot");
+    address = StringPiece(address_start, tok->current());
   } else {
     Tokenizer laquot(tok->current(), tok->end());
     laquot.SkipTo('<');
     if (!laquot.EndOfInput()) {
       // contact-param = *(token LWS) LAQUOT addr-spec RAQUOT
-      display_name.assign(tok->current(), laquot.current());
-      base::TrimString(display_name, SIP_LWS, &display_name);
+      display_name_start = tok->current();
+      display_name_end = laquot.current();
+      TrimLWS(&display_name_start, &display_name_end);
       std::string::const_iterator address_start = laquot.Skip();
       laquot.SkipTo('>');
-      if (laquot.EndOfInput()) {
-        DVLOG(1) << "unclosed '<'";
-        return false;
-      }
-      address = GURL(std::string(address_start, laquot.current()));
+      if (laquot.EndOfInput())
+        return enif_make_atom(env, "unclosed_laquot");
+      address = StringPiece(address_start, laquot.current());
       tok->set_current(laquot.Skip());
-    } else if (net::HttpUtil::IsToken(tok->current(), tok->current()+1)) {
+    } else if (IsToken(tok->current(), tok->current() + 1)) {
+      display_name_start = display_name_end = tok->end();
       std::string::const_iterator address_start = tok->current();
-      address = GURL(std::string(address_start, tok->SkipNotIn(SIP_LWS ";")));
+      address = StringPiece(address_start, tok->SkipNotIn(SIP_LWS));
     } else {
-      DVLOG(1) << "invalid char found";
-      return false;
+      return enif_make_atom(env, "invalid_char_found");
     }
   }
 
-  display_name = net::HttpUtil::Unquote(display_name);
-  builder(header, address, display_name);
-  return true;
+  std::string display_name(Unquote(display_name_start, display_name_end));
+  return enif_make_tuple2(env, MakeString(env, display_name),
+      MakeString(env, address));
 }
 
-template<class HeaderType>
-bool ParseStar(Tokenizer* tok, std::unique_ptr<HeaderType>* header) {
+bool ParseStar(ErlNifEnv* env, Tokenizer* tok, ERL_NIF_TERM* term) {
   Tokenizer star(tok->current(), tok->end());
   star.Skip(SIP_LWS);
   if (star.EndOfInput())
     return false;
   if (*star.current() != '*')
     return false;
-  header->reset(new HeaderType(HeaderType::All));
+  *term = MakeString(env, "*");
   return true;
 }
 
-template<class HeaderType, typename Builder>
-bool ParseWarning(Tokenizer* tok, std::unique_ptr<HeaderType>* header,
-    Builder builder) {
+ERL_NIF_TERM ParseWarning(ErlNifEnv* env, Tokenizer* tok) {
   std::string::const_iterator code_start = tok->Skip(SIP_LWS);
-  if (tok->EndOfInput()) {
-    DVLOG(1) << "empty input";
-    return false;
-  }
-  std::string code_string(code_start, tok->SkipNotIn(SIP_LWS));
+  if (tok->EndOfInput())
+    return enif_make_atom(env, "empty_input");
+  StringPiece code_string(code_start, tok->SkipNotIn(SIP_LWS));
   int code = 0;
-  if (!base::StringToInt(code_string, &code)
-      || code < 100 || code > 999) {
-    DVLOG(1) << "invalid code";
-    return false;
-  }
+  if (!StringToInt(code_string, &code)
+      || code < 100 || code > 999)
+    return enif_make_atom(env, "invalid_code");
   std::string::const_iterator agent_start = tok->Skip(SIP_LWS);
-  if (tok->EndOfInput()) {
-    DVLOG(1) << "empty warn-agent";
-    return false;
-  }
-  std::string agent(agent_start, tok->SkipNotIn(SIP_LWS));
+  if (tok->EndOfInput())
+    return enif_make_atom(env, "empty_warn_agent");
+  StringPiece agent(agent_start, tok->SkipNotIn(SIP_LWS));
   tok->Skip(SIP_LWS);
-  if (tok->EndOfInput()) {
-    DVLOG(1) << "missing warn-text";
-    return false;
-  }
-  if (!net::HttpUtil::IsQuote(*tok->current())) {
-    DVLOG(1) << "invalid warn-text";
-    return false;
-  }
+  if (tok->EndOfInput())
+    return enif_make_atom(env, "missing_warn_text");
+  if (*tok->current() != '"')
+    return enif_make_atom(env, "invalid_warn_text");
   std::string::const_iterator text_start = tok->current();
   tok->Skip();
   for (; !tok->EndOfInput(); tok->Skip()) {
@@ -435,79 +436,59 @@ bool ParseWarning(Tokenizer* tok, std::unique_ptr<HeaderType>* header,
       tok->Skip();
       continue;
     }
-    if (net::HttpUtil::IsQuote(*tok->current()))
+    if (*tok->current() == '"')
       break;
   }
-  if (tok->EndOfInput()) {
-    DVLOG(1) << "unclosed quoted-string";
-    return false;
-  }
+  if (tok->EndOfInput())
+    return enif_make_atom(env, "unclosed_qstring");
   std::string text(text_start, tok->Skip());
-  text = net::HttpUtil::Unquote(text);
-  builder(header, static_cast<unsigned>(code), agent, text);
-  return true;
+  text = Unquote(text.begin(), text.end());
+  return enif_make_tuple3(env, enif_make_int(env, code),
+      MakeString(env, agent), MakeString(env, text));
 }
 
-template<class HeaderType, typename Builder>
-bool ParseVia(Tokenizer* tok, std::unique_ptr<HeaderType>* header,
-    Builder builder) {
+ERL_NIF_TERM ParseVia(ErlNifEnv* env, Tokenizer* tok) {
   std::string::const_iterator version_start = tok->Skip(SIP_LWS);
   if ((tok->end() - tok->current() < 3)
       || !LowerCaseEqualsASCII(
-          base::StringPiece(tok->current(), tok->current() + 3), "sip")) {
-    DVLOG(1) << "unknown SIP-version";
-    return false;
-  }
+          StringPiece(tok->current(), tok->current() + 3), "sip"))
+    return enif_make_atom(env, "unknown_version");
   tok->SkipTo('/');
   tok->Skip();
-  if (tok->EndOfInput()) {
-    DVLOG(1) << "missing SIP-version";
-    return false;
-  }
-  Version version = ParseVersion(version_start, tok->SkipTo('/'));
-  if (version < Version(2, 0)) {
-    DVLOG(1) << "invalid SIP-version";
-    return false;
-  }
+  if (tok->EndOfInput())
+    return enif_make_atom(env, "missing_version");
+  ERL_NIF_TERM version = ParseVersion(env, version_start, tok->SkipTo('/'));
   std::string::const_iterator protocol_start = tok->Skip();
-  if (tok->EndOfInput()) {
-    DVLOG(1) << "missing sent-protocol";
-    return false;
-  }
+  if (tok->EndOfInput())
+    return enif_make_atom(env, "missing_sent_protocol");
   std::string protocol(protocol_start, tok->SkipNotIn(SIP_LWS));
-  protocol = base::ToUpperASCII(protocol);
+  protocol = ToLowerASCII(protocol);
   std::string::const_iterator sentby_start = tok->Skip(SIP_LWS);
-  if (tok->EndOfInput()) {
-    DVLOG(1) << "missing sent-by";
-    return false;
-  }
-  std::string sentby_string(sentby_start, tok->SkipTo(';'));
-  base::TrimString(sentby_string, SIP_LWS, &sentby_string);
-  if (sentby_string.empty()) {
-    DVLOG(1) << "missing sent-by";
-    return false;
-  }
+  if (tok->EndOfInput())
+    return enif_make_atom(env, "missing_sentby");
+  std::string::const_iterator sentby_end = tok->SkipTo(';');
+  TrimLWS(&sentby_start, &sentby_end);
+  StringPiece sentby_string(sentby_start, sentby_end);
+  if (sentby_string.empty())
+    return enif_make_atom(env, "missing_sentby");
   std::string host;
   int port;
-  if (!net::ParseHostAndPort(sentby_string, &host, &port)) {
-    DVLOG(1) << "invalid sent-by";
-    return false;
-  }
+  if (!ParseHostAndPort(sentby_string.as_string(), &host, &port))
+    return enif_make_atom(env, "invalid_sentby");
   if (port == -1) {
-    if (protocol == "UDP" || protocol == "TCP")
+    if (protocol == "udp" || protocol == "tcp")
       port = 5060;
-    else if (protocol == "TLS")
+    else if (protocol == "tls")
       port = 5061;
     else
       port = 0;
   }
   if (host[0] == '[')  // remove brackets from IPv6 addresses
     host = host.substr(1, host.size()-2);
-  net::HostPortPair sentby(host, port);
-  builder(header, version, protocol, sentby);
-  return true;
+  return enif_make_tuple3(env, version,
+      MakeLowerCaseExistingAtomOrString(env, protocol),
+      enif_make_tuple2(env, MakeString(env, host), enif_make_int(env, port)));
 }
-#endif
 
 ERL_NIF_TERM ParseSingleToken(ErlNifEnv* env,
     std::string::const_iterator values_begin,
@@ -590,22 +571,25 @@ ERL_NIF_TERM ParseMultipleTypeSubtypeParams(ErlNifEnv* env,
   return result;
 }
 
-#if 0
-template<class HeaderType>
-std::unique_ptr<Header> ParseMultipleUriParams(
+ERL_NIF_TERM ParseMultipleUriParams(ErlNifEnv* env,
     std::string::const_iterator values_begin,
     std::string::const_iterator values_end) {
-  std::unique_ptr<HeaderType> retval(new HeaderType);
-  net::HttpUtil::ValuesIterator it(values_begin, values_end, ',');
+  ERL_NIF_TERM result = enif_make_list(env, 0);
+  ValuesIterator it(values_begin, values_end, ',');
   while (it.GetNext()) {
     Tokenizer tok(it.value_begin(), it.value_end());
-    if (!ParseUri(&tok, &retval)
-        || !ParseParameters(&tok, &retval, MultipleParamSetter<HeaderType>()))
-      return std::unique_ptr<Header>();
+    ERL_NIF_TERM uri = ParseUri(env, &tok);
+    if (enif_is_atom(env, uri))
+      return uri;
+    ERL_NIF_TERM parameters = ParseParameters(env, &tok);
+    if (enif_is_atom(env, parameters))
+      return parameters;
+    result = enif_make_list_cell(env,
+        enif_make_tuple2(env, uri, parameters), result);
   }
-  return std::move(retval);
+  enif_make_reverse_list(env, result, &result);
+  return result;
 }
-#endif
 
 ERL_NIF_TERM ParseSingleInteger(ErlNifEnv* env,
     std::string::const_iterator values_begin,
@@ -639,51 +623,50 @@ ERL_NIF_TERM ParseSchemeAndAuthParams(ErlNifEnv* env,
   return enif_make_tuple2(env, scheme, parameters);
 }
 
-#if 0
-template<class HeaderType>
-std::unique_ptr<Header> ParseSingleContactParams(
+ERL_NIF_TERM ParseSingleContactParams(ErlNifEnv* env,
     std::string::const_iterator values_begin,
     std::string::const_iterator values_end) {
-  std::unique_ptr<HeaderType> retval;
   Tokenizer tok(values_begin, values_end);
-  if (!ParseContact(&tok, &retval, SingleBuilder<HeaderType>())
-      || !ParseParameters(&tok, &retval, SingleParamSetter<HeaderType>()))
-    return std::unique_ptr<Header>();
-  return std::move(retval);
+  ERL_NIF_TERM contact = ParseContact(env, &tok);
+  if (enif_is_atom(env, contact))
+    return contact;
+  ERL_NIF_TERM parameters = ParseParameters(env, &tok);
+  if (enif_is_atom(env, parameters))
+    return parameters;
+  int arity;
+  const ERL_NIF_TERM *name_and_address;
+  enif_get_tuple(env, contact, &arity, &name_and_address);
+  return enif_make_tuple3(env, name_and_address[0], name_and_address[1],
+      parameters);
 }
 
-template<class HeaderType>
-std::unique_ptr<Header> ParseMultipleContactParams(
+ERL_NIF_TERM ParseMultipleContactParams(ErlNifEnv* env,
     std::string::const_iterator values_begin,
     std::string::const_iterator values_end) {
-  std::unique_ptr<HeaderType> retval(new HeaderType);
-  net::HttpUtil::ValuesIterator it(values_begin, values_end, ',');
+  ERL_NIF_TERM result = enif_make_list(env, 0);
+  ValuesIterator it(values_begin, values_end, ',');
   while (it.GetNext()) {
-    Tokenizer tok(it.value_begin(), it.value_end());
-    if (!ParseContact(&tok, &retval, MultipleBuilder<HeaderType>())
-        || !ParseParameters(&tok, &retval, MultipleParamSetter<HeaderType>()))
-      return std::unique_ptr<Header>();
+    ERL_NIF_TERM value = ParseSingleContactParams(env, it.value_begin(),
+        it.value_end());
+    if (enif_is_atom(env, value))
+      return value;
+    result = enif_make_list_cell(env, value, result);
   }
-  return std::move(retval);
+  enif_make_reverse_list(env, result, &result);
+  return result;
 }
 
-template<class HeaderType>
-std::unique_ptr<Header> ParseStarOrMultipleContactParams(
+ERL_NIF_TERM ParseStarOrMultipleContactParams(ErlNifEnv* env,
     std::string::const_iterator values_begin,
     std::string::const_iterator values_end) {
-  std::unique_ptr<HeaderType> retval(new HeaderType);
-  net::HttpUtil::ValuesIterator it(values_begin, values_end, ',');
-  while (it.GetNext()) {
-    Tokenizer tok(it.value_begin(), it.value_end());
-    if (!ParseStar(&tok, &retval)) {
-      if (!ParseContact(&tok, &retval, MultipleBuilder<HeaderType>())
-          || !ParseParameters(&tok, &retval, MultipleParamSetter<HeaderType>()))
-        return std::unique_ptr<Header>();
-    }
+  Tokenizer tok(values_begin, values_end);
+  ERL_NIF_TERM star;
+  if (ParseStar(env, &tok, &star)) {
+    return star;
+  } else {
+    return ParseMultipleContactParams(env, values_begin, values_end);
   }
-  return std::move(retval);
 }
-#endif
 
 ERL_NIF_TERM ParseTrimmedUtf8(ErlNifEnv* env,
     std::string::const_iterator values_begin,
@@ -769,132 +752,128 @@ ERL_NIF_TERM ParseDate(ErlNifEnv* env,
   return result;
 }
 
-#if 0
-template<class HeaderType>
-std::unique_ptr<Header> ParseTimestamp(
+ERL_NIF_TERM ParseTimestamp(ErlNifEnv* env,
     std::string::const_iterator values_begin,
     std::string::const_iterator values_end) {
-  std::unique_ptr<HeaderType> retval;
   Tokenizer tok(values_begin, values_end);
-  do {
-    std::string::const_iterator timestamp_start = tok.Skip(SIP_LWS);
-    if (tok.EndOfInput()) {
-      DVLOG(1) << "missing timestamp";
-      break;
-    }
-    std::string timestamp_string(timestamp_start, tok.SkipNotIn(SIP_LWS));
-    double timestamp = .0;
-    if (!base::StringToDouble(timestamp_string, &timestamp)) {
-      DVLOG(1) << "invalid timestamp";
-      break;
-    }
-    // delay is optional
-    double delay = .0;
-    std::string::const_iterator delay_start = tok.Skip(SIP_LWS);
-    if (!tok.EndOfInput()) {
-      std::string delay_string(delay_start, tok.SkipNotIn(SIP_LWS));
-      base::StringToDouble(delay_string, &delay);
-      // ignore errors parsing the optional delay
-    }
-    retval.reset(new HeaderType(timestamp, delay));
-  } while (false);
-  return std::move(retval);
+  std::string::const_iterator timestamp_start = tok.Skip(SIP_LWS);
+  if (tok.EndOfInput())
+    return enif_make_atom(env, "missing_timestamp");
+  StringPiece timestamp_string(timestamp_start, tok.SkipNotIn(SIP_LWS));
+  double timestamp = .0;
+  if (!StringToDouble(timestamp_string, &timestamp))
+    return enif_make_atom(env, "invalid_timestamp");
+  // delay is optional
+  double delay = .0;
+  std::string::const_iterator delay_start = tok.Skip(SIP_LWS);
+  if (!tok.EndOfInput()) {
+    StringPiece delay_string(delay_start, tok.SkipNotIn(SIP_LWS));
+    StringToDouble(delay_string, &delay);
+    // ignore errors parsing the optional delay
+  }
+  return enif_make_tuple2(env, enif_make_int(env, timestamp),
+      enif_make_int(env, delay));
 }
 
-template<class HeaderType>
-std::unique_ptr<Header> ParseMimeVersion(
+ERL_NIF_TERM ParseMimeVersion(ErlNifEnv* env,
     std::string::const_iterator values_begin,
     std::string::const_iterator values_end) {
-  std::unique_ptr<HeaderType> retval;
   Tokenizer tok(values_begin, values_end);
-  do {
-    std::string::const_iterator major_start = tok.Skip(SIP_LWS);
-    if (tok.EndOfInput()) {
-      DVLOG(1) << "missing major";
-      break;
-    }
-    std::string major_string(major_start, tok.SkipTo('.'));
-    int major = 0;
-    if (major_string.empty()
-        || !base::StringToInt(major_string, &major)) {
-      DVLOG(1) << "missing or invalid major";
-      break;
-    }
-    tok.Skip();
-    std::string::const_iterator minor_start = tok.Skip(SIP_LWS);
-    std::string minor_string(minor_start, tok.end());
-    int minor = 0;
-    if (minor_string.empty()
-        || !base::StringToInt(minor_string, &minor)) {
-      DVLOG(1) << "invalid minor";
-      break;
-    }
-    retval.reset(new HeaderType(static_cast<unsigned>(major),
-                                static_cast<unsigned>(minor)));
-  } while (false);
-  return std::move(retval);
+  std::string::const_iterator major_start = tok.Skip(SIP_LWS);
+  if (tok.EndOfInput())
+    return enif_make_atom(env, "missing_major");
+  StringPiece major_string(major_start, tok.SkipTo('.'));
+  int major = 0;
+  if (major_string.empty()
+      || !StringToInt(major_string, &major))
+    return enif_make_atom(env, "missing_or_invalid_major");
+  tok.Skip();
+  std::string::const_iterator minor_start = tok.Skip(SIP_LWS);
+  StringPiece minor_string(minor_start, tok.end());
+  int minor = 0;
+  if (minor_string.empty()
+      || !StringToInt(minor_string, &minor))
+    return enif_make_atom(env, "invalid_minor");
+  return enif_make_tuple2(env, enif_make_int(env, major),
+      enif_make_int(env, minor));
 }
 
-template<class HeaderType>
-std::unique_ptr<Header> ParseRetryAfter(
+ERL_NIF_TERM ParseRetryAfter(ErlNifEnv* env,
     std::string::const_iterator values_begin,
     std::string::const_iterator values_end) {
-  std::unique_ptr<HeaderType> retval;
   Tokenizer tok(values_begin, values_end);
-  do {
-    std::string::const_iterator delta_start = tok.Skip(SIP_LWS);
-    if (tok.EndOfInput()) {
-      DVLOG(1) << "missing delta-seconds";
-      break;
-    }
-    std::string delta_string(delta_start, tok.SkipNotIn(SIP_LWS "(;"));
-    int delta_seconds = 0;
-    if (delta_string.empty()
-        || !base::StringToInt(delta_string, &delta_seconds)) {
-      DVLOG(1) << "missing or invalid delta-seconds";
-      break;
-    }
-    retval.reset(new HeaderType(static_cast<unsigned>(delta_seconds)));
-    // ignoring comments
-    tok.SkipTo(';');
-    if (!tok.EndOfInput()) {
-      ParseParameters(&tok, &retval, SingleParamSetter<HeaderType>());
-    }
-  } while (false);
-  return std::move(retval);
+  std::string::const_iterator delta_start = tok.Skip(SIP_LWS);
+  if (tok.EndOfInput())
+    return enif_make_atom(env, "missing_delta_secs");
+  StringPiece delta_string(delta_start, tok.SkipNotIn(SIP_LWS "(;"));
+  int delta_seconds = 0;
+  if (delta_string.empty()
+      || !StringToInt(delta_string, &delta_seconds))
+    return enif_make_atom(env, "missing_or_invalid_delta_secs");
+
+  ERL_NIF_TERM comment;
+  StringPiece remaining(tok.current(), tok.end());
+  if (remaining.find('(') < remaining.find(';')) {
+    comment = ParseComment(env, &tok);
+    if (enif_is_atom(env, comment))
+      return comment;
+  } else {
+    comment = MakeString(env, "");
+  }
+
+  ERL_NIF_TERM parameters;
+  tok.SkipTo(';');
+  if (!tok.EndOfInput()) {
+    parameters = ParseParameters(env, &tok);
+    if (enif_is_atom(env, parameters))
+      return parameters;
+  } else {
+    parameters = enif_make_new_map(env);
+  }
+
+  return enif_make_tuple3(env, enif_make_int(env, delta_seconds), comment,
+      parameters);
 }
 
-template<class HeaderType>
-std::unique_ptr<Header> ParseMultipleWarnings(
+ERL_NIF_TERM ParseMultipleWarnings(ErlNifEnv* env,
     std::string::const_iterator values_begin,
     std::string::const_iterator values_end) {
-  std::unique_ptr<HeaderType> retval(new HeaderType);
-  net::HttpUtil::ValuesIterator it(values_begin, values_end, ',');
+  ERL_NIF_TERM result = enif_make_list(env, 0);
+  ValuesIterator it(values_begin, values_end, ',');
   while (it.GetNext()) {
     Tokenizer tok(it.value_begin(), it.value_end());
-    if (!ParseWarning(&tok, &retval, MultipleBuilder<HeaderType>())) {
-      return std::unique_ptr<Header>();
-    }
+    ERL_NIF_TERM value = ParseWarning(env, &tok);
+    if (enif_is_atom(env, value))
+      return value;
+    result = enif_make_list_cell(env, value, result);
   }
-  return std::move(retval);
+  enif_make_reverse_list(env, result, &result);
+  return result;
 }
 
-template<class HeaderType>
-std::unique_ptr<Header> ParseMultipleVias(
+ERL_NIF_TERM ParseMultipleVias(ErlNifEnv* env,
     std::string::const_iterator values_begin,
     std::string::const_iterator values_end) {
-  std::unique_ptr<HeaderType> retval(new HeaderType);
-  net::HttpUtil::ValuesIterator it(values_begin, values_end, ',');
+  ERL_NIF_TERM result = enif_make_list(env, 0);
+  ValuesIterator it(values_begin, values_end, ',');
   while (it.GetNext()) {
     Tokenizer tok(it.value_begin(), it.value_end());
-    if (!ParseVia(&tok, &retval, MultipleBuilder<HeaderType>())
-        || !ParseParameters(&tok, &retval, MultipleParamSetter<HeaderType>())) {
-      return std::unique_ptr<Header>();
-    }
+    ERL_NIF_TERM value = ParseVia(env, &tok);
+    if (enif_is_atom(env, value))
+      return value;
+    ERL_NIF_TERM parameters = ParseParameters(env, &tok);
+    if (enif_is_atom(env, parameters))
+      return parameters;
+    int arity;
+    const ERL_NIF_TERM *via;
+    enif_get_tuple(env, value, &arity, &via);
+    ERL_NIF_TERM term = enif_make_tuple4(env, via[0], via[1], via[2],
+        parameters);
+    result = enif_make_list_cell(env, term, result);
   }
-  return std::move(retval);
+  enif_make_reverse_list(env, result, &result);
+  return result;
 }
-#endif
 
 ERL_NIF_TERM ParseHeader(ErlNifEnv* env,
     std::string::const_iterator name_begin,
@@ -916,6 +895,8 @@ ERL_NIF_TERM ParseHeader(ErlNifEnv* env,
   auto f = g_parsers.find(header_name_term);
   if (f != g_parsers.end()) {
     header_values_term = (f->second)(env, values_begin, values_end);
+    if (enif_is_atom(env, header_values_term))
+      return header_values_term;
   } else {
     header_name_term = MakeString(env, header_name);
     header_values_term = enif_make_list1(env, MakeString(env, header_values));
@@ -1052,6 +1033,18 @@ void LoadHeaderNameAtoms(ErlNifEnv* env) {
 #undef X
 }
 
+void LoadProtocolAtoms(ErlNifEnv* env) {
+  enif_make_atom(env, "dccp");
+  enif_make_atom(env, "dtls");
+  enif_make_atom(env, "sctp");
+  enif_make_atom(env, "stomp");
+  enif_make_atom(env, "tcp");
+  enif_make_atom(env, "tls");
+  enif_make_atom(env, "udp");
+  enif_make_atom(env, "ws");
+  enif_make_atom(env, "wss");
+}
+
 void LoadMessageAtoms(ErlNifEnv* env) {
   enif_make_existing_atom(env, "Elixir.Sippet.Message.RequestLine",
       &kRequestLineTerm, ERL_NIF_LATIN1);
@@ -1087,6 +1080,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) {
   LoadMethodAtoms(env);
   LoadHeaderNameAtoms(env);
   LoadMessageAtoms(env);
+  LoadProtocolAtoms(env);
   return 0;
 }
 

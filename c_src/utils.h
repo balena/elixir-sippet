@@ -43,7 +43,17 @@ bool LowerCaseEqualsASCII(StringPiece str, StringPiece lowercase_ascii);
 //  - Empty string.  |*output| will be set to 0.
 // WARNING: Will write to |output| even when returning false.
 //          Read the comments above carefully.
-bool StringToInt(const StringPiece& input, int*output);
+bool StringToInt(const StringPiece& input, int* output);
+
+// For floating-point conversions, only conversions of input strings in decimal
+// form are defined to work.  Behavior with strings representing floating-point
+// numbers in hexadecimal, and strings representing non-finite values (such as
+// NaN and inf) is undefined.  Otherwise, these behave the same as the integral
+// variants.  This expects the input string to NOT be specific to the locale.
+// If your input is locale specific, use ICU to read the number.
+// WARNING: Will write to |output| even when returning false.
+//          Read the comments here and above StringToInt() carefully.
+bool StringToDouble(const StringPiece& input, double* output);
 
 // Return true if the character is SIP "linear white space" (SP | HT).
 // This definition corresponds with the SIP_LWS macro, and does not match
@@ -84,6 +94,25 @@ std::string Unquote(std::string::const_iterator begin,
 StringPiece TrimLeftCharsIn(const StringPiece& input, const StringPiece& chars);
 StringPiece TrimLeftCharsNotIn(const StringPiece& input, const StringPiece& chars);
 StringPiece TrimLeftUntil(const StringPiece& input, char c);
+
+// Splits an input of the form <host>[":"<port>] into its consitituent parts.
+// Saves the result into |*host| and |*port|. If the input did not have
+// the optional port, sets |*port| to -1.
+// Returns true if the parsing was successful, false otherwise.
+// The returned host is NOT canonicalized, and may be invalid.
+//
+// IPv6 literals must be specified in a bracketed form, for instance:
+//   [::1]:90 and [::1]
+//
+// The resultant |*host| in both cases will be "::1" (not bracketed).
+bool ParseHostAndPort(
+    std::string::const_iterator host_and_port_begin,
+    std::string::const_iterator host_and_port_end,
+    std::string* host,
+    int* port);
+bool ParseHostAndPort(const std::string& host_and_port,
+                      std::string* host,
+                      int* port);
 
 // Used to iterate over the name/value pairs of SIP headers.  To iterate
 // over the values in a multi-value header, use ValuesIterator.

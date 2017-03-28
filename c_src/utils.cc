@@ -1,5 +1,15 @@
+// Copyright (c) 2017 The Sippet Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// Parts of this code was taken from Chromium sources:
+// Copyright (c) 2011-2017 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
 #include "utils.h"
 
+#include <string>
 #include <iostream>
 
 namespace {
@@ -337,6 +347,15 @@ bool StringToInt(const StringPiece& input, int* output) {
   return StringToIntImpl(input, output);
 }
 
+bool StringToDouble(const StringPiece& input, double* output) {
+  try {
+    *output = stod(input.as_string());
+    return true;
+  } catch (const std::exception& e) {
+    return false;
+  }
+}
+
 bool IsLWS(char c) {
   return strchr(SIP_LWS, c) != NULL;
 }
@@ -394,6 +413,81 @@ StringPiece TrimLeftUntil(const StringPiece& input, char c) {
       break;
   }
   return StringPiece(i, input.end() - i);
+}
+
+bool ParseHostAndPort(std::string::const_iterator host_and_port_begin,
+                      std::string::const_iterator host_and_port_end,
+                      std::string* host,
+                      int* port) {
+  if (host_and_port_begin >= host_and_port_end)
+    return false;
+
+  // hostport       = host [ COLON port ]
+  // host           = hostname / IPv4address / IPv6reference
+  // hostname       = *( domainlabel "." ) toplabel [ "." ]
+  // domainlabel    =  alphanum / alphanum *( alphanum / "-" ) alphanum
+  // toplabel       = ALPHA / ALPHA *( alphanum / "-" ) alphanum
+  // IPv4address    =  1*3DIGIT "." 1*3DIGIT "." 1*3DIGIT "." 1*3DIGIT
+  // IPv6reference  =  "[" IPv6address "]"
+  // IPv6address    =  hexpart [ ":" IPv4address ]
+  // hexpart        =  hexseq / hexseq "::" [ hexseq ] / "::" [ hexseq ]
+  // hexseq         =  hex4 *( ":" hex4)
+  // hex4           =  1*4HEXDIG
+  // port           =  1*DIGIT
+
+  std::string::const_iterator host_start = host_and_port_begin, host_end;
+  if (*host_and_port_begin == '[') {
+    // parse an IPv6 address
+    for (; host_and_port_begin < host_and_port_end; host_and_port_begin++) {
+      if (*host_and_port_begin == ']')
+        break;
+    }
+    if (host_and_port_begin == host_and_port_end)
+      return false;
+    host_end = ++host_and_port_begin;
+  } else {
+    // parse a hostname or IPv4 address
+    for (; host_and_port_begin < host_and_port_end; host_and_port_begin++) {
+      if (*host_and_port_begin == ':')
+        break;
+    }
+    host_end = host_and_port_begin;
+  }
+
+  std::string::const_iterator port_start, port_end;
+  if (host_and_port_begin < host_and_port_end
+      && *host_and_port_begin == ':') {
+    port_start = ++host_and_port_begin;
+    for (; host_and_port_begin < host_and_port_end; host_and_port_begin++) {
+      if (!isdigit(*host_and_port_begin))
+        return false;
+    }
+    port_end = host_and_port_begin;
+  } else {
+    port_start = port_end = host_and_port_end;
+  }
+
+  if (host_and_port_begin < host_and_port_end) {
+    // trailing garbage is considered error
+    return false;
+  }
+
+  if (port_start < port_end) {
+    if (!StringToInt(StringPiece(port_start, port_end), port))
+      return false;
+  } else {
+    *port = -1;
+  }
+
+  host->assign(host_start, host_end);
+  return true;
+}
+
+bool ParseHostAndPort(const std::string& host_and_port,
+                      std::string* host,
+                      int* port) {
+  return ParseHostAndPort(
+      host_and_port.begin(), host_and_port.end(), host, port);
 }
 
 HeadersIterator::HeadersIterator(
