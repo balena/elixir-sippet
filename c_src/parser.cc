@@ -1024,8 +1024,8 @@ void LoadMethodAtoms(ErlNifEnv* env) {
 
 void LoadHeaderNameAtoms(ErlNifEnv* env) {
   ERL_NIF_TERM atom;
-#define X(class_name, compact_name, header_name, enum_name, format) \
-  atom = enif_make_atom(env, ToLowerASCII(#enum_name).c_str()); \
+#define X(header_name, compact_name, atom_name, format) \
+  atom = enif_make_atom(env, #atom_name); \
   g_parsers.insert(std::make_pair(atom, &Parse##format)); \
   if (compact_name != 0) \
     g_aliases.insert(std::make_pair(compact_name, atom));
