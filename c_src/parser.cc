@@ -28,9 +28,6 @@ typedef ERL_NIF_TERM (*ParseFunction)(ErlNifEnv* env,
 std::unordered_map<char, ERL_NIF_TERM> g_aliases;
 std::unordered_map<ERL_NIF_TERM, ParseFunction> g_parsers;
 
-ERL_NIF_TERM kRequestLineTerm = 0;
-ERL_NIF_TERM kStatusLineTerm = 0;
-
 bool MakeExistingAtom(ErlNifEnv* env, StringPiece atom_name,
     ERL_NIF_TERM *atom) {
   return enif_make_existing_atom_len(env, atom_name.data(), atom_name.size(),
@@ -166,8 +163,6 @@ ERL_NIF_TERM ParseStatusLine(ErlNifEnv* env,
   }
 
   ERL_NIF_TERM status_line = enif_make_new_map(env);
-  enif_make_map_put(env, status_line, enif_make_atom(env, "__struct__"),
-      kStatusLineTerm, &status_line);
   enif_make_map_put(env, status_line, enif_make_atom(env, "version"), version,
       &status_line);
   enif_make_map_put(env, status_line, enif_make_atom(env, "status_code"),
@@ -220,8 +215,6 @@ ERL_NIF_TERM ParseRequestLine(ErlNifEnv* env,
   }
 
   ERL_NIF_TERM request_line = enif_make_new_map(env);
-  enif_make_map_put(env, request_line, enif_make_atom(env, "__struct__"),
-      kRequestLineTerm, &request_line);
   enif_make_map_put(env, request_line, enif_make_atom(env, "method"),
       MakeLowerCaseExistingAtomOrString(env, method), &request_line);
   enif_make_map_put(env, request_line, enif_make_atom(env, "request_uri"),
@@ -771,8 +764,8 @@ ERL_NIF_TERM ParseTimestamp(ErlNifEnv* env,
     StringToDouble(delay_string, &delay);
     // ignore errors parsing the optional delay
   }
-  return enif_make_tuple2(env, enif_make_int(env, timestamp),
-      enif_make_int(env, delay));
+  return enif_make_tuple2(env, enif_make_double(env, timestamp),
+      enif_make_double(env, delay));
 }
 
 ERL_NIF_TERM ParseMimeVersion(ErlNifEnv* env,
@@ -946,20 +939,19 @@ ERL_NIF_TERM Parse(ErlNifEnv* env, const std::string& raw_message) {
   std::string::const_iterator end = input.end();
   std::string::const_iterator start = i;
 
+  ERL_NIF_TERM start_line;
+  
   i = FindLineEnd(start, end);
   if (IsStatusLine(start, i)) {
-    ERL_NIF_TERM status_line = ParseStatusLine(env, start, i);
-    if (enif_is_atom(env, status_line))
-      return status_line;
-    enif_make_map_put(env, message, enif_make_atom(env, "status_line"),
-        status_line, &message);
+    start_line = ParseStatusLine(env, start, i);
   } else {
-    ERL_NIF_TERM request_line = ParseRequestLine(env, start, i);
-    if (enif_is_atom(env, request_line))
-      return request_line;
-    enif_make_map_put(env, message, enif_make_atom(env, "request_line"),
-        request_line, &message);
+    start_line = ParseRequestLine(env, start, i);
   }
+
+  if (enif_is_atom(env, start_line))
+    return start_line;
+  enif_make_map_put(env, message, enif_make_atom(env, "start_line"),
+      start_line, &message);
 
   // Jump over next CRLF
   if (i != end) {
@@ -1045,13 +1037,6 @@ void LoadProtocolAtoms(ErlNifEnv* env) {
   enif_make_atom(env, "wss");
 }
 
-void LoadMessageAtoms(ErlNifEnv* env) {
-  enif_make_existing_atom(env, "Elixir.Sippet.Message.RequestLine",
-      &kRequestLineTerm, ERL_NIF_LATIN1);
-  enif_make_existing_atom(env, "Elixir.Sippet.Message.StatusLine",
-      &kStatusLineTerm, ERL_NIF_LATIN1);
-}
-
 }  // namespace
 
 extern "C" {
@@ -1079,7 +1064,6 @@ static ERL_NIF_TERM parse_wrapper(ErlNifEnv* env, int argc,
 int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) {
   LoadMethodAtoms(env);
   LoadHeaderNameAtoms(env);
-  LoadMessageAtoms(env);
   LoadProtocolAtoms(env);
   return 0;
 }

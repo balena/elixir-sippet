@@ -46,4 +46,15 @@ defmodule Sippet.Message.RequestLine do
     |> String.downcase()
     |> String.to_atom()
   end
+
+  defdelegate to_string(value), to: String.Chars.Sippet.Message.RequestLine
+end
+
+defimpl String.Chars, for: Sippet.Message.RequestLine do
+  def to_string(%Sippet.Message.RequestLine{version: {major, minor},
+      request_uri: uri, method: method}) do
+    if(is_atom(method), do: String.upcase(Atom.to_string(method)), else: method) <>
+      " " <> Sippet.URI.to_string(uri) <>
+      " SIP/" <> Integer.to_string(major) <> "." <> Integer.to_string(minor)
+  end
 end

@@ -99,4 +99,15 @@ defmodule Sippet.Message.StatusLine do
       606 -> "Not Acceptable"
     end
   end
+
+  defdelegate to_string(value), to: String.Chars.Sippet.Message.StatusLine
+end
+
+defimpl String.Chars, for: Sippet.Message.StatusLine do
+  def to_string(%Sippet.Message.StatusLine{version: {major, minor},
+      status_code: status_code, reason_phrase: reason_phrase}) do
+    "SIP/" <> Integer.to_string(major) <> "." <> Integer.to_string(minor) <>
+      " " <> Integer.to_string(status_code) <>
+      " " <> reason_phrase
+  end
 end
