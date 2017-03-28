@@ -386,35 +386,6 @@ std::string Unquote(std::string::const_iterator begin,
   return result;
 }
 
-StringPiece TrimLeftCharsIn(const StringPiece& input,
-    const StringPiece& chars) {
-  StringPiece::iterator i = input.begin();
-  for (; i != input.end(); i++) {
-    if (chars.find(*i) == std::string::npos)
-      break;
-  }
-  return StringPiece(i, input.end() - i);
-}
-
-StringPiece TrimLeftCharsNotIn(const StringPiece& input,
-    const StringPiece& chars) {
-  StringPiece::iterator i = input.begin();
-  for (; i != input.end(); i++) {
-    if (chars.find(*i) != std::string::npos)
-      break;
-  }
-  return StringPiece(i, input.end() - i);
-}
-
-StringPiece TrimLeftUntil(const StringPiece& input, char c) {
-  StringPiece::iterator i = input.begin();
-  for (; i != input.end(); i++) {
-    if (c == *i)
-      break;
-  }
-  return StringPiece(i, input.end() - i);
-}
-
 bool ParseHostAndPort(std::string::const_iterator host_and_port_begin,
                       std::string::const_iterator host_and_port_end,
                       std::string* host,

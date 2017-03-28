@@ -90,11 +90,6 @@ bool IsQuote(char c);
 std::string Unquote(std::string::const_iterator begin,
                     std::string::const_iterator end);
 
-// Used for parsing.
-StringPiece TrimLeftCharsIn(const StringPiece& input, const StringPiece& chars);
-StringPiece TrimLeftCharsNotIn(const StringPiece& input, const StringPiece& chars);
-StringPiece TrimLeftUntil(const StringPiece& input, char c);
-
 // Splits an input of the form <host>[":"<port>] into its consitituent parts.
 // Saves the result into |*host| and |*port|. If the input did not have
 // the optional port, sets |*port| to -1.
