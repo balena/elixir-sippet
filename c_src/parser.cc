@@ -87,7 +87,7 @@ ERL_NIF_TERM ParseVersion(ErlNifEnv* env,
   if ((line_end - line_begin < 3) ||
       !LowerCaseEqualsASCII(
           StringPiece(line_begin, line_begin + 3), "sip")) {
-    return enif_make_atom(env, "missing_status_line");
+    return enif_make_atom(env, "missing_version_spec");
   }
 
   tok.Skip(3);
@@ -448,10 +448,11 @@ ERL_NIF_TERM ParseVia(ErlNifEnv* env, Tokenizer* tok) {
     return enif_make_atom(env, "unknown_version");
   tok->SkipTo('/');
   tok->Skip();
-  if (tok->EndOfInput())
-    return enif_make_atom(env, "missing_version");
   ERL_NIF_TERM version = ParseVersion(env, version_start, tok->SkipTo('/'));
-  std::string::const_iterator protocol_start = tok->Skip();
+  if (enif_is_atom(env, version))
+    return version;
+  tok->Skip();
+  std::string::const_iterator protocol_start = tok->Skip(SIP_LWS);
   if (tok->EndOfInput())
     return enif_make_atom(env, "missing_sent_protocol");
   std::string protocol(protocol_start, tok->SkipNotIn(SIP_LWS));

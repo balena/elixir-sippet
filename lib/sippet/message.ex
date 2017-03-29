@@ -599,13 +599,27 @@ defmodule Sippet.Message do
     do_parse_headers(tail, [{name, do_parse_header_value(value)}|result])
   end
 
+  defp do_parse_header_value(values) when is_list(values) do
+    do_parse_header_value(values, [])
+  end
+
   defp do_parse_header_value({{year, month, day}, {hour, minute, second},
       microsecond}) do
     NaiveDateTime.from_erl!({{year, month, day}, {hour, minute, second}},
         microsecond)
   end
+  defp do_parse_header_value({display_name, uri, %{} = parameters}) do
+    {display_name, URI.parse(uri), parameters}
+  end
   defp do_parse_header_value(value) do
     value
+  end
+
+  defp do_parse_header_value([], result) do
+    Enum.reverse(result)
+  end
+  defp do_parse_header_value([head|tail], result) do
+    do_parse_header_value(tail, [do_parse_header_value(head)|result])
   end
 
   @doc """
