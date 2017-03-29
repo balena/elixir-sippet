@@ -35,7 +35,7 @@ defmodule Sippet.Transport.Udp do
   end
 
   def init(%State{host: host, port: port, family: family} = state) do
-    ip = case :inet.getaddr(host, family) do
+    ip = case :inet.getaddr(String.to_charlist(host), family) do
       {:ok, ip} ->
         ip
       {:error, reason} ->
