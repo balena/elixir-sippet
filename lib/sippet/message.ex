@@ -555,15 +555,15 @@ defmodule Sippet.Message do
   `:content_length` header; if it exists, it reflects the body size and you
   have to set it manually on the returned message.
   """
-  @spec parse(String.t | charlist) :: {:ok, t} | {:error, atom}
-  def parse(data) when is_binary(data) do
-    parse(to_charlist(data))
-  end
-  def parse(data) when is_list(data) do
-    case Sippet.Parser.parse(data) do
+  @spec parse(iodata) :: {:ok, t} | {:error, atom}
+  def parse(data) do
+    case Sippet.Parser.parse(IO.iodata_to_binary(data)) do
       {:ok, message} -> {:ok, do_parse(message)}
       other -> other
     end
+  end
+  def parse(data) when is_list(data) do
+    parse(:erlang.iolist_to_binary(data))
   end
 
   defp do_parse(message) do

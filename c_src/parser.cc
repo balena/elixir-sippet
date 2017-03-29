@@ -685,11 +685,8 @@ ERL_NIF_TERM ParseCseq(ErlNifEnv* env,
   if (tok.EndOfInput())
     return enif_make_atom(env, "missing_method");
   StringPiece method_name(method_start, tok.SkipNotIn(SIP_LWS));
-  ERL_NIF_TERM method_term;
-  if (!MakeLowerCaseExistingAtom(env, method_name, &method_term))
-    return enif_make_atom(env, "unknown_method");
   return enif_make_tuple2(env, enif_make_int(env, sequence),
-      method_term);
+      MakeLowerCaseExistingAtomOrString(env, method_name));
 }
 
 ERL_NIF_TERM ParseDate(ErlNifEnv* env,
@@ -875,39 +872,49 @@ ERL_NIF_TERM ParseHeader(ErlNifEnv* env,
   return enif_make_tuple2(env, header_name_term, header_values_term);
 }
 
-bool AssembleRawHeaders(const std::string &input, std::string *output) {
-  Tokenizer tok(input.begin(), input.end());
-  std::string::const_iterator line_start, line_end;
+bool AssembleRawHeaders(const char* input, size_t length,
+    std::string *output) {
+  const char* line_start;
+  const char* line_end;
 
-  output->reserve(input.size());
-  for (;;) {
-    line_start = tok.current();
-    line_end = tok.SkipNotIn("\r\n");
+  output->reserve(length);
+  for (size_t i = 0; i < length; i++) {
+    line_start = input + i;
+    do {
+      char c = *(input + i);
+      if (c == '\r' || c == '\n')
+        break;
+      i++;
+    } while (i < length);
+    line_end = input + i;
     if (line_start != line_end)
       output->append(line_start, line_end);
-    if (tok.EndOfInput())
+    if (i == length)
       break;
-    if (*tok.current() == '\n') {
-      tok.Skip();  // accept single LF
-    } else if (*tok.current() == '\r') {
-      tok.Skip();
-      if (*tok.current() == '\n')
-        tok.Skip();  // default CRLF sequence
+    // now inspect the next character
+    char c = *(input + i);
+    if (c == '\n') {
+      i++;  // accept single LF
+    } else if (c == '\r') {
+      i++;
+      if (i < length && *(input + i) == '\n')
+        i++;  // default CRLF sequence
       else
         return false;  // invalid CRLF sequence
     }
-    if (tok.EndOfInput())
+    if (i == length)
       break;
-    if (!IsLWS(*tok.current()))
+    if (!IsLWS(*(input + i)))
       output->append(1, '\n');  // not line folding
+    i--;  // return next character back
   }
 
   return true;
 }
 
-ERL_NIF_TERM Parse(ErlNifEnv* env, const std::string& raw_message) {
+ERL_NIF_TERM Parse(ErlNifEnv* env, const char* raw_message, size_t length) {
   std::string input;
-  if (!AssembleRawHeaders(raw_message, &input)) {
+  if (!AssembleRawHeaders(raw_message, length, &input)) {
     return enif_make_tuple2(env, enif_make_atom(env, "error"),
         enif_make_atom(env, "invalid_line_break"));
   }
@@ -1021,22 +1028,16 @@ extern "C" {
 
 static ERL_NIF_TERM parse_wrapper(ErlNifEnv* env, int argc,
     const ERL_NIF_TERM argv[]) {
-  unsigned int length;
-  if (!enif_get_list_length(env, argv[0], &length)) {
-    return enif_make_tuple2(env, enif_make_atom(env, "error"),
-        enif_make_atom(env, "bad_arg"));
+  if (argc != 1) {
+    return enif_make_badarg(env);
+  } else if (enif_is_binary(env, argv[0])) {
+    ErlNifBinary bin;
+    enif_inspect_binary(env, argv[0], &bin);
+    return Parse(env, reinterpret_cast<const char*>(bin.data),
+        static_cast<size_t>(bin.size));
+  } else {
+    return enif_make_badarg(env);
   }
-
-  std::string raw_message;
-  raw_message.resize(length + 1);
-  if (enif_get_string(env, argv[0], &(*raw_message.begin()),
-        raw_message.size(), ERL_NIF_LATIN1) < 1) {
-    return enif_make_tuple2(env, enif_make_atom(env, "error"),
-        enif_make_atom(env, "bad_arg"));
-  }
-  raw_message.resize(length);
-
-  return Parse(env, raw_message);
 }
 
 int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) {
