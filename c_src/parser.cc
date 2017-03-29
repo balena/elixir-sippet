@@ -613,7 +613,8 @@ ERL_NIF_TERM ParseSchemeAndAuthParams(ErlNifEnv* env,
   ERL_NIF_TERM parameters = ParseAuthParams(env, &tok);
   if (enif_is_atom(env, parameters))
     return parameters;
-  return enif_make_tuple2(env, scheme, parameters);
+  return enif_make_list1(env,
+      enif_make_tuple2(env, scheme, parameters));
 }
 
 ERL_NIF_TERM ParseSingleContactParams(ErlNifEnv* env,
@@ -706,42 +707,18 @@ ERL_NIF_TERM ParseDate(ErlNifEnv* env,
 
   PR_NormalizeTime(&result_time, &PR_GMTParameters);
 
-  ERL_NIF_TERM result = enif_make_new_map(env);
-  enif_make_map_put(env, result, enif_make_atom(env, "__struct__"),
-      enif_make_atom(env, "Elixir.DateTime"), &result);
-  enif_make_map_put(env, result, enif_make_atom(env, "calendar"),
-      enif_make_atom(env, "Elixir.Calendar.ISO"), &result);
-  enif_make_map_put(env, result, enif_make_atom(env, "year"),
-      enif_make_int(env, result_time.tm_year), &result);
-  enif_make_map_put(env, result, enif_make_atom(env, "month"),
-      enif_make_int(env, result_time.tm_month + 1), &result);
-  enif_make_map_put(env, result, enif_make_atom(env, "day"),
-      enif_make_int(env, result_time.tm_mday), &result);
-  enif_make_map_put(env, result, enif_make_atom(env, "hour"),
-      enif_make_int(env, result_time.tm_hour), &result);
-  enif_make_map_put(env, result, enif_make_atom(env, "minute"),
-      enif_make_int(env, result_time.tm_min), &result);
-  enif_make_map_put(env, result, enif_make_atom(env, "second"),
-      enif_make_int(env, result_time.tm_sec), &result);
-  if (result_time.tm_usec == 0) {
-    enif_make_map_put(env, result, enif_make_atom(env, "microsecond"),
-        enif_make_tuple2(env, enif_make_int(env, 0), enif_make_int(env, 0)),
-        &result);
-  } else {
-    enif_make_map_put(env, result, enif_make_atom(env, "microsecond"),
-        enif_make_tuple2(env,
+  ERL_NIF_TERM result = enif_make_tuple3(env,
+      enif_make_tuple3(env,
+        enif_make_int(env, result_time.tm_year),
+        enif_make_int(env, result_time.tm_month + 1),
+        enif_make_int(env, result_time.tm_mday)),
+      enif_make_tuple3(env,
+        enif_make_int(env, result_time.tm_hour),
+        enif_make_int(env, result_time.tm_min),
+        enif_make_int(env, result_time.tm_sec)),
+      enif_make_tuple2(env,
           enif_make_int(env, result_time.tm_usec),
-          enif_make_int(env, 5)),
-        &result);
-  }
-  enif_make_map_put(env, result, enif_make_atom(env, "std_offset"),
-      enif_make_int(env, 0), &result);
-  enif_make_map_put(env, result, enif_make_atom(env, "utc_offset"),
-      enif_make_int(env, result_time.tm_params.tp_gmt_offset), &result);
-  enif_make_map_put(env, result, enif_make_atom(env, "time_zone"),
-      MakeString(env, "Etc/UTC"), &result);
-  enif_make_map_put(env, result, enif_make_atom(env, "zone_abbr"),
-      MakeString(env, "UTC"), &result);
+          enif_make_int(env, result_time.tm_usec == 0 ? 0 : 5)));
   return result;
 }
 

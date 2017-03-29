@@ -549,14 +549,13 @@ defmodule Sippet.Message do
   end
 
   @doc """
-  Parses a SIP message header block as received by the transport layer. In
-  order to correctly set the message body, you have to verify the
-  `:content_length` header; if it exists, it must reflect the body size, if the
-  transport is datagram based, the body is the remaining of the packet,
-  otherwise it is a protocol error.
+  Parses a SIP message header block as received by the transport layer.
+
+  In order to correctly set the message body, you have to verify the
+  `:content_length` header; if it exists, it reflects the body size and you
+  have to set it manually on the returned message.
   """
-  @spec parse(String.t | charlist) ::
-            {:ok, message} | {:error, atom}
+  @spec parse(String.t | charlist) :: {:ok, t} | {:error, atom}
   def parse(data) when is_binary(data) do
     parse(to_charlist(data))
   end
@@ -570,7 +569,7 @@ defmodule Sippet.Message do
   defp do_parse(message) do
     %__MODULE__{
       start_line: do_parse_start_line(message.start_line),
-      headers: message.headers
+      headers: do_parse_headers(message.headers)
     }
   end
 
@@ -588,6 +587,44 @@ defmodule Sippet.Message do
       reason_phrase: start_line.reason_phrase,
       version: start_line.version
     }
+  end
+
+  defp do_parse_headers(%{} = headers) do
+    do_parse_headers(Map.to_list(headers), [])
+  end
+  defp do_parse_headers([], result) do
+    Map.new(result)
+  end
+  defp do_parse_headers([{name, value}|tail], result) do
+    do_parse_headers(tail, [{name, do_parse_header_value(value)}|result])
+  end
+
+  defp do_parse_header_value({{year, month, day}, {hour, minute, second},
+      microsecond}) do
+    NaiveDateTime.from_erl!({{year, month, day}, {hour, minute, second}},
+        microsecond)
+  end
+  defp do_parse_header_value(value) do
+    value
+  end
+
+  @doc """
+  Parses a SIP message header block as received by the transport layer.
+
+  Raises if the string is an invalid SIP header.
+
+  In order to correctly set the message body, you have to verify the
+  `:content_length` header; if it exists, it reflects the body size and you
+  have to set it manually on the returned message.
+  """
+  @spec parse!(String.t | charlist) :: t | no_return
+  def parse!(data) do
+    case parse(data) do
+      {:ok, message} ->
+        message
+      {:error, reason} ->
+        raise ArgumentError, "cannot convert #{inspect data} to SIP message, reason: #{inspect reason}"
+    end
   end
 
   @doc """
@@ -665,12 +702,12 @@ defimpl String.Chars, for: Sippet.Message do
     if multiple do
       name <> ": " <> do_header_values(value, []) <> "\n"
     else
-      "" #TODO(balena): do_one_per_line(name, value)
+      do_one_per_line(name, value)
     end
   end
 
   defp do_header_values([], values) do
-    Enum.join(Enum.reverse(values), ",")
+    Enum.join(values, ", ")
   end
   defp do_header_values([head|tail], values) do
     do_header_values(tail, [do_header_value(head)|values])
@@ -742,6 +779,74 @@ defimpl String.Chars, for: Sippet.Message do
     Integer.to_string(code) <> " " <> agent <> " \"" <> text <> "\""
   end
 
+  defp do_header_value(%NaiveDateTime{} = value) do
+    day_of_week = case Date.day_of_week(NaiveDateTime.to_date(value)) do
+      1 -> "Mon"
+      2 -> "Tue"
+      3 -> "Wed"
+      4 -> "Thu"
+      5 -> "Fri"
+      6 -> "Sat"
+      7 -> "Sun"
+    end
+
+    month = case value.month do
+      1 -> "Jan"
+      2 -> "Feb"
+      3 -> "Mar"
+      4 -> "Apr"
+      5 -> "May"
+      6 -> "Jun"
+      7 -> "Jul"
+      8 -> "Aug"
+      9 -> "Sep"
+      10 -> "Oct"
+      11 -> "Nov"
+      12 -> "Dec"
+    end
+
+    # Microsecond is explicitly removed here, as the RFC 3261 does not define
+    # it. Therefore, while it is accepted, it won't be forwarded.
+    day_of_week <> ", " <>
+      String.pad_leading(Integer.to_string(value.day), 2, "0") <> " " <>
+      month <> " " <>
+      Integer.to_string(value.year) <> " " <>
+      String.pad_leading(Integer.to_string(value.hour), 2, "0") <> ":" <>
+      String.pad_leading(Integer.to_string(value.minute), 2, "0") <> ":" <>
+      String.pad_leading(Integer.to_string(value.second), 2, "0") <> " GMT"
+  end
+
+  defp do_one_per_line(name, values) when is_list(values) do
+    do_one_per_line(name, values, "")
+  end
+  defp do_one_per_line(name, %{} = value) do
+    name <> ": " <> do_one_per_line_value(value) <> "\n"
+  end
+
+  defp do_one_per_line(_, [], result) do
+    result
+  end
+  defp do_one_per_line(name, [head|tail], result) do
+    do_one_per_line(name, tail,
+      result <> name <> ": " <> do_one_per_line_value(head) <> "\n")
+  end
+
+  defp do_one_per_line_value(%{} = parameters) do
+    do_one_per_line_value(Map.to_list(parameters), [])
+  end
+
+  defp do_one_per_line_value({scheme, %{} = parameters}) do
+    scheme <> " " <>
+      do_one_per_line_value(Map.to_list(parameters), [])
+  end
+
+  defp do_one_per_line_value([], result) do
+    Enum.join(result, ", ")
+  end
+  defp do_one_per_line_value([{name, value}|tail], result) do
+    do_one_per_line_value(tail, [name <> "=" <> value | result])
+  end
+
   defp do_parameters(%{} = parameters) do
     do_parameters(Map.to_list(parameters), [])
   end
@@ -749,7 +854,7 @@ defimpl String.Chars, for: Sippet.Message do
     if length(pairs) == 0 do
       ""
     else
-      ";" <> Enum.join(Enum.reverse(pairs), ";")
+      ";" <> Enum.join(pairs, ";")
     end
   end
   defp do_parameters([{name, value}|tail], pairs) do
