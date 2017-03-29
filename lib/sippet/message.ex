@@ -650,8 +650,9 @@ end
 
 defimpl String.Chars, for: Sippet.Message do
   def to_string(%Sippet.Message{} = message) do
-    Kernel.to_string(message.start_line) <> "\n"
-      <> do_headers(message.headers) <> "\n"
+    Kernel.to_string(message.start_line) <> "\n" <>
+      do_headers(message.headers) <> "\n" <>
+      if(message.body == nil, do: "", else: message.body)
   end
 
   defp do_headers(%{} = headers) do
