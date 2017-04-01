@@ -562,9 +562,6 @@ defmodule Sippet.Message do
       other -> other
     end
   end
-  def parse(data) when is_list(data) do
-    parse(:erlang.iolist_to_binary(data))
-  end
 
   defp do_parse(message) do
     %__MODULE__{

@@ -24,6 +24,10 @@ defmodule Sippet.Message.StatusLine do
     status_code
   end
 
+  def status_code_class(%__MODULE__{status_code: status_code}) do
+    div(status_code, 100)
+  end
+
   def get_default_reason_phrase(status_code) do
     case status_code do
       100 -> "Trying"

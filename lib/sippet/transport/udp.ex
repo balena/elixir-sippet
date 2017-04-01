@@ -15,23 +15,25 @@ defmodule Sippet.Transport.Udp do
 
   require Logger
 
+  defstruct [
+    pid: nil
+  ]
+
+  @type t :: %__MODULE__{
+    pid: pid()
+  }
+
   @doc """
   Starts the UDP transport on informed host and port.
   """
-  def start_link(host, port, family)
+  def new(host, port, family)
       when is_binary(host) and is_integer(port) and is_atom(family) do
     if port <= 0 do
       raise ArgumentError, "invalid port #{port}"
     end
-    GenServer.start_link(__MODULE__,
+    {:ok, pid} = GenServer.start_link(__MODULE__,
         %State{host: host, port: port, family: family})
-  end
-
-  @doc """
-  Sends a SIP message to the given destination.
-  """
-  def send(pid, %Message{} = message, {host, port}) do
-    GenServer.cast(pid, {:send, message, {host, port}})
+    %__MODULE__{pid: pid}
   end
 
   def init(%State{host: host, port: port, family: family} = state) do
@@ -93,5 +95,12 @@ defmodule Sippet.Transport.Udp do
   def handle_cast({:send, message, {host, port}}, %State{socket: socket} = state) do
     :gen_udp.send(socket, host, port, Message.to_string(message))
     {:noreply, state}
+  end
+end
+
+defimpl Sippet.Transport, for: Sippet.Transport.Udp do
+  def send(%Sippet.Transport.Udp{pid: pid}, message) do
+    # TODO(balena): define the destination host/port
+    GenServer.cast(pid, {:send, message, {nil, nil}})
   end
 end
