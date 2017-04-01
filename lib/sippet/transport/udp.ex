@@ -103,4 +103,6 @@ defimpl Sippet.Transport, for: Sippet.Transport.Udp do
     # TODO(balena): define the destination host/port
     GenServer.cast(pid, {:send, message, {nil, nil}})
   end
+
+  def reliable(%Sippet.Transport.Udp{}), do: false
 end
