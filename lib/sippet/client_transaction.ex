@@ -89,9 +89,7 @@ defmodule Sippet.ClientTransaction.Invite do
     end
   end
 
-  def calling(:cast, {:error, reason}, data) do
-    shutdown(reason, data)
-  end
+  def calling(:cast, {:error, reason}, data), do: shutdown(reason, data)
 
   def proceeding(:enter, _old_state, _data), do: :keep_state_and_data
 
@@ -113,7 +111,7 @@ defmodule Sippet.ClientTransaction.Invite do
     if Transport.reliable(transport) do
       {:stop, :normal, data}
     else
-      {:keep_state_and_data, [{:state_timeout, @timerD, []}]}  # start timer D
+      {:keep_state_and_data, [{:state_timeout, @timerD, nil}]}  # start timer D
     end
   end
 
@@ -127,7 +125,7 @@ defmodule Sippet.ClientTransaction.Invite do
 
   def completed(:cast, {:error, reason}, data), do: shutdown(reason, data)
 
-  def completed(:state_timeout, _ignore, data), do: {:stop, :normal, data}
+  def completed(:state_timeout, _nil, data), do: {:stop, :normal, data}
 
   defp do_build_ack(_request) do
     #TODO(guibv): build the ACK request using the original request
@@ -141,7 +139,7 @@ defmodule Sippet.ClientTransaction.NonInvite do
   alias Sippet.ClientTransaction.User, as: User
 
   @t2 4000
-  @timerE 600  # optimization: transaction ends in 35.5s
+  @timerE 500
   @timerF 64 * @timerE
   @timerK 5000  # timer K is 5s
 
@@ -240,11 +238,11 @@ defmodule Sippet.ClientTransaction.NonInvite do
     if Transport.reliable(transport) do
       {:stop, :normal, data}
     else
-      {:keep_state_and_data, [{:state_timeout, @timerK, []}]}  # start timer K
+      {:keep_state_and_data, [{:state_timeout, @timerK, nil}]}  # start timer K
     end
   end
 
   def completed(:cast, _event_content, _data), do: :keep_state_and_data
 
-  def completed(:state_timeout, _ignore, data), do: {:stop, :normal, data}
+  def completed(:state_timeout, _nil, data), do: {:stop, :normal, data}
 end
