@@ -97,7 +97,7 @@ defmodule Sippet.ServerTransaction.Invite do
 
   def proceeding(:cast, {:error, reason}, data), do: shutdown(reason, data)
 
-  def completed(:enter, _old_state, _data) do
+  def completed(:enter, _old_state, %{transport: transport}) do
     actions = if Transport.reliable(transport) do
         [{:state_timeout, @timerH, {@timerH, @timerH}}]  # start timer H
       else
@@ -106,7 +106,7 @@ defmodule Sippet.ServerTransaction.Invite do
     {:keep_state_and_data, actions}
   end
 
-  def completed(:state_timeout, {past_wait, passed_time} = time_event, data) do
+  def completed(:state_timeout, {_past_wait, passed_time} = time_event, data) do
     if passed_time >= @timerH do
       timeout(data)
     else
@@ -137,7 +137,7 @@ defmodule Sippet.ServerTransaction.Invite do
 
   def confirmed(:state_timeout, _nil, data), do: {:stop, :normal, data}
 
-  def confirmed(:cast, {:incoming_request, request}, _data),
+  def confirmed(:cast, {:incoming_request, _request}, _data),
     do: :keep_state_and_data
 end
 

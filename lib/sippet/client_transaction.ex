@@ -31,7 +31,6 @@ end
 defmodule Sippet.ClientTransaction.Invite do
   alias Sippet.Transport, as: Transport
   alias Sippet.Message.StatusLine, as: StatusLine
-  alias Sippet.ClientTransaction.User, as: User
 
   @timerA 600  # optimization: transaction ends in 37.8s
   @timerB 64 * @timerA
