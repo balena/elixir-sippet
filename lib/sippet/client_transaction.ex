@@ -1,5 +1,10 @@
 defprotocol Sippet.ClientTransaction.User do
+  @fallback_to_any true
   def on_response(user, response)
+end
+
+defimpl Sippet.ClientTransaction.User, for: [Any, List, BitString, Integer, Float, Atom, Function, PID, Port, Reference, Tuple, Map] do
+  def on_response(_user, _response), do: :erlang.error(:not_implemented)
 end
 
 defmodule Sippet.ClientTransaction do

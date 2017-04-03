@@ -9,3 +9,8 @@ defprotocol Sippet.Transport do
   """
   def reliable(transport)
 end
+
+defimpl Sippet.Transport, for: [Any, List, BitString, Integer, Float, Atom, Function, PID, Port, Reference, Tuple, Map] do
+  def send(_transport, _message), do: :erlang.error(:not_implemented)
+  def reliable(_transport), do: :erlang.error(:not_implemented)
+end

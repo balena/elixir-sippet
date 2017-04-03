@@ -2,6 +2,10 @@ defprotocol Sippet.ServerTransaction.User do
   def on_request(user, request)
 end
 
+defimpl Sippet.ServerTransaction.User, for: [Any, List, BitString, Integer, Float, Atom, Function, PID, Port, Reference, Tuple, Map] do
+  def on_request(_user, _request), do: :erlang.error(:not_implemented)
+end
+
 defmodule Sippet.ServerTransaction do
   alias Sippet.Message, as: Message
   alias Sippet.Message.RequestLine, as: RequestLine

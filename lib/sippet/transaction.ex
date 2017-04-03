@@ -5,6 +5,10 @@ defprotocol Sippet.Transaction.User do
   def on_error(user, reason)
 end
 
+defimpl Sippet.Transaction.User, for: [Any, List, BitString, Integer, Float, Atom, Function, PID, Port, Reference, Tuple, Map] do
+  def on_error(_user, _reason), do: :erlang.error(:not_implemented)
+end
+
 defmodule Sippet.Transaction do
   @type data :: term
   @type state :: atom
