@@ -8,7 +8,7 @@ defmodule Sippet.Parser do
     :ok = :erlang.load_nif(path, 0)
   end
 
-  def parse(_) do
-    exit(:nif_library_not_loaded)
+  def parse(message) when is_binary(message) do
+    :erlang.nif_error(:not_loaded)
   end
 end
