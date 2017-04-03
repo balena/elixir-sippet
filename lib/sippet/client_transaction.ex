@@ -9,13 +9,16 @@ defmodule Sippet.ClientTransaction do
   alias Sippet.ClientTransaction.Invite, as: Invite
   alias Sippet.ClientTransaction.NonInvite, as: NonInvite
 
+  def start_link(user, request, transport),
+    do: start_link(user, request, transport, [])
+
   def start_link(user, %Message{start_line: %RequestLine{method: method}} = request,
-      transport) do
+      transport, opts) do
     case method do
       :invite ->
-        Invite.start_link(user, request, transport)
+        Invite.start_link('client', user, request, transport, opts)
       _otherwise ->
-        NonInvite.start_link(user, request, transport)
+        NonInvite.start_link('client', user, request, transport, opts)
     end
   end
 
