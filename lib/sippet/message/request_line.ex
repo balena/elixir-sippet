@@ -48,13 +48,17 @@ defmodule Sippet.Message.RequestLine do
   end
 
   defdelegate to_string(value), to: String.Chars.Sippet.Message.RequestLine
+
+  def to_iodata(%Sippet.Message.RequestLine{version: {major, minor},
+      request_uri: uri, method: method}) do
+    [if(is_atom(method), do: String.upcase(Atom.to_string(method)), else: method),
+      " ", Sippet.URI.to_string(uri),
+      " SIP/", Integer.to_string(major), ".", Integer.to_string(minor)]
+  end
 end
 
 defimpl String.Chars, for: Sippet.Message.RequestLine do
-  def to_string(%Sippet.Message.RequestLine{version: {major, minor},
-      request_uri: uri, method: method}) do
-    if(is_atom(method), do: String.upcase(Atom.to_string(method)), else: method) <>
-      " " <> Sippet.URI.to_string(uri) <>
-      " SIP/" <> Integer.to_string(major) <> "." <> Integer.to_string(minor)
+  def to_string(%Sippet.Message.RequestLine{} = request_line) do
+    Sippet.Message.RequestLine.to_iodata(request_line) |> IO.iodata_to_binary
   end
 end

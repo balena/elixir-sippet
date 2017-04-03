@@ -105,13 +105,17 @@ defmodule Sippet.Message.StatusLine do
   end
 
   defdelegate to_string(value), to: String.Chars.Sippet.Message.StatusLine
+
+  def to_iodata(%Sippet.Message.StatusLine{version: {major, minor},
+      status_code: status_code, reason_phrase: reason_phrase}) do
+    ["SIP/", Integer.to_string(major), ".", Integer.to_string(minor),
+      " ", Integer.to_string(status_code),
+      " ", reason_phrase]
+  end
 end
 
 defimpl String.Chars, for: Sippet.Message.StatusLine do
-  def to_string(%Sippet.Message.StatusLine{version: {major, minor},
-      status_code: status_code, reason_phrase: reason_phrase}) do
-    "SIP/" <> Integer.to_string(major) <> "." <> Integer.to_string(minor) <>
-      " " <> Integer.to_string(status_code) <>
-      " " <> reason_phrase
+  def to_string(%Sippet.Message.StatusLine{} = status_line) do
+    Sippet.Message.StatusLine.to_iodata(status_line) |> IO.iodata_to_binary
   end
 end

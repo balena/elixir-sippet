@@ -643,152 +643,143 @@ defmodule Sippet.Message do
   """
   @spec to_string(t) :: binary
   defdelegate to_string(value), to: String.Chars.Sippet.Message
-end
 
-defimpl String.Chars, for: Sippet.Message do
-  def to_string(%Sippet.Message{} = message) do
-    Kernel.to_string(message.start_line) <> "\n" <>
-      do_headers(message.headers) <> "\n" <>
-      if(message.body == nil, do: "", else: message.body)
+  @spec to_iodata(t) :: iodata
+  def to_iodata(%Sippet.Message{} = message) do
+    start_line =
+      case message.start_line do
+        %RequestLine{} -> RequestLine.to_iodata(message.start_line)
+        %StatusLine{} -> StatusLine.to_iodata(message.start_line)
+      end
+
+    [start_line, "\n",
+      do_headers(message.headers), "\n",
+      if(message.body == nil, do: "", else: message.body)]
   end
 
   defp do_headers(%{} = headers) do
     do_headers(Map.to_list(headers), "")
   end
 
-  defp do_headers([], header) do
-    header
-  end
-  defp do_headers([{name, value}|tail], header) do
-    do_headers(tail, header <> do_header(name, value))
+  defp do_headers([], result), do: result
+  defp do_headers([{name, value}|tail], result) do
+    do_headers(tail, [do_header(name, value) | result])
   end
 
   defp do_header(name, value) do
-    {name, multiple} = case name do
-      :accept -> {"Accept", true}
-      :accept_encoding -> {"Accept-Encoding", true}
-      :accept_language -> {"Accept-Language", true}
-      :alert_info -> {"Alert-Info", true}
-      :allow -> {"Allow", true}
-      :authentication_info -> {"Authentication-Info", false}
-      :authorization -> {"Authorization", false}
-      :call_id -> {"Call-ID", true}
-      :call_info -> {"Call-Info", true}
-      :contact -> {"Contact", true}
-      :content_disposition -> {"Content-Disposition", true}
-      :content_encoding -> {"Content-Encoding", true}
-      :content_language -> {"Content-Language", true}
-      :content_length -> {"Content-Length", true}
-      :content_type -> {"Content-Type", true}
-      :cseq -> {"CSeq", true}
-      :date -> {"Date", true}
-      :error_info -> {"Error-Info", true}
-      :expires -> {"Expires", true}
-      :from -> {"From", true}
-      :in_reply_to -> {"In-Reply-To", true}
-      :max_forwards -> {"Max-Forwards", true}
-      :mime_version -> {"MIME-Version", true}
-      :min_expires -> {"Min-Expires", true}
-      :organization -> {"Organization", true}
-      :priority -> {"Priority", true}
-      :proxy_authenticate -> {"Proxy-Authenticate", false}
-      :proxy_authorization -> {"Proxy-Authorization", false}
-      :proxy_require -> {"Proxy-Require", true}
-      :reason -> {"Reason", true}
-      :record_route -> {"Record-Route", true}
-      :reply_to -> {"Reply-To", true}
-      :require -> {"Require", true}
-      :retry_after -> {"Retry-After", true}
-      :route -> {"Route", true}
-      :server -> {"Server", true}
-      :subject -> {"Subject", true}
-      :supported -> {"Supported", true}
-      :timestamp -> {"Timestamp", true}
-      :to -> {"To", true}
-      :unsupported -> {"Unsupported", true}
-      :user_agent -> {"User-Agent", true}
-      :via -> {"Via", true}
-      :warning -> {"Warning", true}
-      :www_authenticate -> {"WWW-Authenticate", false}
-    end
+    {name, multiple} =
+      case name do
+        :accept -> {"Accept", true}
+        :accept_encoding -> {"Accept-Encoding", true}
+        :accept_language -> {"Accept-Language", true}
+        :alert_info -> {"Alert-Info", true}
+        :allow -> {"Allow", true}
+        :authentication_info -> {"Authentication-Info", false}
+        :authorization -> {"Authorization", false}
+        :call_id -> {"Call-ID", true}
+        :call_info -> {"Call-Info", true}
+        :contact -> {"Contact", true}
+        :content_disposition -> {"Content-Disposition", true}
+        :content_encoding -> {"Content-Encoding", true}
+        :content_language -> {"Content-Language", true}
+        :content_length -> {"Content-Length", true}
+        :content_type -> {"Content-Type", true}
+        :cseq -> {"CSeq", true}
+        :date -> {"Date", true}
+        :error_info -> {"Error-Info", true}
+        :expires -> {"Expires", true}
+        :from -> {"From", true}
+        :in_reply_to -> {"In-Reply-To", true}
+        :max_forwards -> {"Max-Forwards", true}
+        :mime_version -> {"MIME-Version", true}
+        :min_expires -> {"Min-Expires", true}
+        :organization -> {"Organization", true}
+        :priority -> {"Priority", true}
+        :proxy_authenticate -> {"Proxy-Authenticate", false}
+        :proxy_authorization -> {"Proxy-Authorization", false}
+        :proxy_require -> {"Proxy-Require", true}
+        :reason -> {"Reason", true}
+        :record_route -> {"Record-Route", true}
+        :reply_to -> {"Reply-To", true}
+        :require -> {"Require", true}
+        :retry_after -> {"Retry-After", true}
+        :route -> {"Route", true}
+        :server -> {"Server", true}
+        :subject -> {"Subject", true}
+        :supported -> {"Supported", true}
+        :timestamp -> {"Timestamp", true}
+        :to -> {"To", true}
+        :unsupported -> {"Unsupported", true}
+        :user_agent -> {"User-Agent", true}
+        :via -> {"Via", true}
+        :warning -> {"Warning", true}
+        :www_authenticate -> {"WWW-Authenticate", false}
+      end
+
     if multiple do
-      name <> ": " <> do_header_values(value, []) <> "\n"
+      [name, ": ", do_header_values(value, []), "\n"]
     else
       do_one_per_line(name, value)
     end
   end
 
-  defp do_header_values([], values) do
-    Enum.join(values, ", ")
-  end
-  defp do_header_values([head|tail], values) do
-    do_header_values(tail, [do_header_value(head)|values])
-  end
-  defp do_header_values(value, _) do
-    do_header_value(value)
-  end
+  defp do_header_values([], values), do: values
+  defp do_header_values([head|tail], values),
+    do: do_header_values(tail, do_join(do_header_value(head), values, ", "))
 
-  defp do_header_value(value) when is_binary(value) do
-    value
-  end
+  defp do_header_values(value, _), do: do_header_value(value)
 
-  defp do_header_value(value) when is_integer(value) do
-    Integer.to_string(value)
-  end
+  defp do_header_value(value) when is_binary(value), do: value
 
-  defp do_header_value({sequence, method})
-      when is_integer(sequence) do
-    Integer.to_string(sequence) <> " " <> upcase_atom_or_string(method)
-  end
+  defp do_header_value(value) when is_integer(value), do: Integer.to_string(value)
+
+  defp do_header_value({sequence, method}) when is_integer(sequence),
+    do: [Integer.to_string(sequence), " ", upcase_atom_or_string(method)]
 
   defp do_header_value({major, minor})
-      when is_integer(major) and is_integer(minor) do
-    Integer.to_string(major) <> "." <> Integer.to_string(minor)
-  end
+      when is_integer(major) and is_integer(minor),
+      do: [Integer.to_string(major), ".", Integer.to_string(minor)]
 
-  defp do_header_value({token, %{} = parameters})
-      when is_binary(token) do
-    token <> do_parameters(parameters)
-  end
+  defp do_header_value({token, %{} = parameters}) when is_binary(token),
+  do: [token, do_parameters(parameters)]
 
   defp do_header_value({{type, subtype}, %{} = parameters})
       when is_binary(type) and is_binary(subtype) do
-    type <> "/" <> subtype <> do_parameters(parameters)
+    [type, "/", subtype, do_parameters(parameters)]
   end
 
   defp do_header_value({display_name, uri, %{} = parameters})
       when is_binary(display_name) and is_binary(uri) do
-    if(display_name == "", do: "", else: "\"" <> display_name <> "\" ")
-      <> "<" <> uri <> ">"
-      <> do_parameters(parameters)
+    [if(display_name == "", do: "", else: ["\"", display_name, "\" "]),
+      "<", uri, ">", do_parameters(parameters)]
   end
 
   defp do_header_value({delta_seconds, comment, %{} = parameters})
       when is_integer(delta_seconds) and is_binary(comment) do
-    Integer.to_string(delta_seconds) <>
-      if(comment != "", do: " (" <> comment <> ") ", else: "") <>
-      do_parameters(parameters)
+    [Integer.to_string(delta_seconds),
+      if(comment != "", do: [" (", comment, ") "], else: ""),
+      do_parameters(parameters)]
   end
 
   defp do_header_value({timestamp, delay})
       when is_float(timestamp) and is_float(delay) do
-    Float.to_string(timestamp) <>
-      if(delay > 0, do: " " <> Float.to_string(delay), else: "")
+    [Float.to_string(timestamp),
+      if(delay > 0, do: [" ", Float.to_string(delay)], else: "")]
   end
 
   defp do_header_value({{major, minor}, protocol, {host, port},
       %{} = parameters}) when is_integer(major) and is_integer(minor)
           and is_binary(host) and is_integer(port) do
-    "SIP/" <> Integer.to_string(major) <> "." <> Integer.to_string(minor) <>
-      "/" <> upcase_atom_or_string(protocol) <>
-      " " <> host <>
-      if(port != -1, do: ":" <> Integer.to_string(port), else: "") <>
-      do_parameters(parameters)
+    ["SIP/", Integer.to_string(major), ".", Integer.to_string(minor),
+      "/", upcase_atom_or_string(protocol),
+      " ", host,
+      if(port != -1, do: [":", Integer.to_string(port)], else: ""),
+      do_parameters(parameters)]
   end
 
   defp do_header_value({code, agent, text})
       when is_integer(code) and is_binary(agent) and is_binary(text) do
-    Integer.to_string(code) <> " " <> agent <> " \"" <> text <> "\""
+    [Integer.to_string(code), " ", agent, " \"", text, "\""]
   end
 
   defp do_header_value(%NaiveDateTime{} = value) do
@@ -819,28 +810,27 @@ defimpl String.Chars, for: Sippet.Message do
 
     # Microsecond is explicitly removed here, as the RFC 3261 does not define
     # it. Therefore, while it is accepted, it won't be forwarded.
-    day_of_week <> ", " <>
-      String.pad_leading(Integer.to_string(value.day), 2, "0") <> " " <>
-      month <> " " <>
-      Integer.to_string(value.year) <> " " <>
-      String.pad_leading(Integer.to_string(value.hour), 2, "0") <> ":" <>
-      String.pad_leading(Integer.to_string(value.minute), 2, "0") <> ":" <>
-      String.pad_leading(Integer.to_string(value.second), 2, "0") <> " GMT"
+    [day_of_week, ", ",
+      String.pad_leading(Integer.to_string(value.day), 2, "0"), " ",
+      month, " ",
+      Integer.to_string(value.year), " ",
+      String.pad_leading(Integer.to_string(value.hour), 2, "0"), ":",
+      String.pad_leading(Integer.to_string(value.minute), 2, "0"), ":",
+      String.pad_leading(Integer.to_string(value.second), 2, "0"), " GMT"]
+  end
+
+  defp do_one_per_line(name, %{} = value) do
+    [name, ": ", do_one_per_line_value(value), "\n"]
   end
 
   defp do_one_per_line(name, values) when is_list(values) do
-    do_one_per_line(name, values, "")
-  end
-  defp do_one_per_line(name, %{} = value) do
-    name <> ": " <> do_one_per_line_value(value) <> "\n"
+    do_one_per_line(name, values, [])
   end
 
-  defp do_one_per_line(_, [], result) do
-    result
-  end
+  defp do_one_per_line(_, [], result), do: result
   defp do_one_per_line(name, [head|tail], result) do
     do_one_per_line(name, tail,
-      result <> name <> ": " <> do_one_per_line_value(head) <> "\n")
+      [name, ": ", do_one_per_line_value(head), "\n" | result])
   end
 
   defp do_one_per_line_value(%{} = parameters) do
@@ -848,32 +838,33 @@ defimpl String.Chars, for: Sippet.Message do
   end
 
   defp do_one_per_line_value({scheme, %{} = parameters}) do
-    scheme <> " " <>
-      do_one_per_line_value(Map.to_list(parameters), [])
+    [scheme, " ",
+      do_one_per_line_value(Map.to_list(parameters), [])]
   end
 
-  defp do_one_per_line_value([], result) do
-    Enum.join(result, ", ")
-  end
+  defp do_one_per_line_value([], result), do: result
   defp do_one_per_line_value([{name, value}|tail], result) do
-    do_one_per_line_value(tail, [name <> "=" <> value | result])
+    do_one_per_line_value(tail, do_join([name, "=", value], result, ", "))
   end
 
   defp do_parameters(%{} = parameters) do
     do_parameters(Map.to_list(parameters), [])
   end
-  defp do_parameters([], pairs) do
-    if length(pairs) == 0 do
-      ""
-    else
-      ";" <> Enum.join(pairs, ";")
-    end
-  end
-  defp do_parameters([{name, value}|tail], pairs) do
-    do_parameters(tail, [name <> "=" <> value | pairs])
+
+  defp do_parameters([], result), do: result
+  defp do_parameters([{name, value}|tail], result) do
+    do_parameters(tail, [";", name, "=", value | result])
   end
 
-  defp upcase_atom_or_string(s) do
-    if(is_atom(s), do: String.upcase(Atom.to_string(s)), else: s)
+  defp do_join(head, [], _joiner), do: [head]
+  defp do_join(head, tail, joiner), do: [head, joiner | tail]
+
+  defp upcase_atom_or_string(s),
+    do: if(is_atom(s), do: String.upcase(Atom.to_string(s)), else: s)
+end
+
+defimpl String.Chars, for: Sippet.Message do
+  def to_string(%Sippet.Message{} = message) do
+    Sippet.Message.to_iodata(message) |> IO.iodata_to_binary
   end
 end
