@@ -66,9 +66,12 @@ defmodule Sippet.ServerTransaction.Invite do
     {:keep_state_and_data, [{:state_timeout, @before_trying, :still_trying}]}
   end
 
-  def proceeding(:state_timeout, :still_trying, _data) do
-    # TODO(guibv): create a 100 Trying response and send it
-    {:keep_state_and_data, [{:state_timeout, @max_idle, :idle}]}
+  def proceeding(:state_timeout, :still_trying,
+      %{transport: transport, request: request} = data) do
+    response = request |> Message.build_response(100)
+    Transport.send(transport, response)
+    data = %{data | last_response: response}
+    {:keep_state, data, [{:state_timeout, @max_idle, :idle}]}
   end
 
   def proceeding(:state_timeout, :idle, data),
@@ -176,7 +179,7 @@ defmodule Sippet.ServerTransaction.NonInvite do
     User.on_request(user, request)
     {:keep_state_and_data, [{:state_timeout, @max_idle, nil}]}
   end
-  
+
   def trying(:state_timeout, _nil, data),
     do: shutdown(:idle, data)
 

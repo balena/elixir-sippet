@@ -50,10 +50,30 @@ defmodule Sippet.ClientTransaction.Invite do
     {:keep_state_and_data, [{:state_timeout, new_delay,
        {new_delay, passed_time + new_delay}}]}
   end
-  
-  defp do_build_ack(_request) do
-    #TODO(guibv): build the ACK request using the original request
-    :ok
+
+  defp do_build_ack(request, last_response) do
+    ack =
+      Message.build_request(:ack, request.start_line.request_uri)
+        |> Message.put_header(:via, Message.get_header(request, :via))
+        |> Message.put_header(:max_forwards, 70)
+        |> Message.put_header(:from, Message.get_header(request, :from))
+        |> Message.put_header(:to, Message.get_header(request, :to))
+        |> Message.put_header(:call_id, Message.get_header(request, :call_id))
+
+    {sequence, _method} = request.headers.cseq
+    ack = ack |> Message.put_header(:cseq, {sequence, :ack})
+
+    ack =
+      if Message.has_header?(request, :route) do
+        ack |> Message.put_header(:route, Message.get_header(request, :route))
+      else
+        ack
+      end
+
+    {_, _, %{"tag": to_tag}} = last_response.headers.to
+    {display_name, uri, params} = Message.get_header(ack, :to)
+    params = Map.put(params, "tag", to_tag)
+    ack |> Message.put_header(:to, {display_name, uri, params})
   end
 
   def init(data), do: {:ok, :calling, data}
@@ -108,8 +128,9 @@ defmodule Sippet.ClientTransaction.Invite do
     do: handle_event(event_type, event_content, data)
 
   def completed(:enter, _old_state,
-      %{request: request, transport: transport} = data) do
-    ack = do_build_ack(request)
+      %{request: request, transport: transport,
+          last_response: last_response} = data) do
+    ack = do_build_ack(request, last_response)
     data = Map.put(data, :ack, ack)
     Transport.send(transport, ack)
 
@@ -158,7 +179,7 @@ defmodule Sippet.ClientTransaction.NonInvite do
   defp start_timers(%{transport: transport} = data) do
     data = Map.put(data, :deadline_timer,
         :erlang.start_timer(@timer_f, self(), :deadline))
-    
+
     if Transport.reliable(transport) do
       data
     else
@@ -239,7 +260,7 @@ defmodule Sippet.ClientTransaction.NonInvite do
 
   def completed(:enter, _old_state, %{transport: transport} = data) do
     data = cancel_timers(data)
-    
+
     if Transport.reliable(transport) do
       {:stop, :normal, data}
     else
