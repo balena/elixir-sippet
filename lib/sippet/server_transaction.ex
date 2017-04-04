@@ -25,7 +25,7 @@ defmodule Sippet.ServerTransaction do
 end
 
 defmodule Sippet.ServerTransaction.Invite do
-  use Sippet.Transaction, tag: 'invite/server'
+  use Sippet.Transaction, tag: 'invite/server', initial_state: :proceeding
 
   alias Sippet.Transport, as: Transport
   alias Sippet.Message.StatusLine, as: StatusLine
@@ -44,10 +44,8 @@ defmodule Sippet.ServerTransaction.Invite do
        {new_delay, passed_time + new_delay}}]}
   end
 
-  def init(data), do: {:ok, :proceeding, data}
-
-  def proceeding(:enter, _old_state, %{request: request} = data) do
-    Sippet.Transaction.request_to_core(data, request)
+  def proceeding(:enter, _old_state, %{request: request}) do
+    receive_request(request)
     {:keep_state_and_data, [{:state_timeout, @before_trying, :still_trying}]}
   end
 
@@ -147,7 +145,7 @@ defmodule Sippet.ServerTransaction.Invite do
 end
 
 defmodule Sippet.ServerTransaction.NonInvite do
-  use Sippet.Transaction, tag: 'non-invite/server'
+  use Sippet.Transaction, tag: 'non-invite/server', initial_state: :trying
 
   alias Sippet.Transport, as: Transport
   alias Sippet.Message.StatusLine, as: StatusLine
@@ -155,10 +153,8 @@ defmodule Sippet.ServerTransaction.NonInvite do
   @max_idle 4000
   @timer_j 32000
 
-  def init(data), do: {:ok, :trying, data}
-
-  def trying(:enter, _old_state, %{request: request} = data) do
-    Sippet.Transaction.request_to_core(data, request)
+  def trying(:enter, _old_state, %{request: request}) do
+    receive_request(request)
     {:keep_state_and_data, [{:state_timeout, @max_idle, nil}]}
   end
 

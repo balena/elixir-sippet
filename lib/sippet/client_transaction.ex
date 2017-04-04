@@ -19,7 +19,7 @@ defmodule Sippet.ClientTransaction do
 end
 
 defmodule Sippet.ClientTransaction.Invite do
-  use Sippet.Transaction, tag: 'invite/client'
+  use Sippet.Transaction, tag: 'invite/client', initial_state: :calling
 
   alias Sippet.Transport, as: Transport
   alias Sippet.Message.StatusLine, as: StatusLine
@@ -38,11 +38,11 @@ defmodule Sippet.ClientTransaction.Invite do
   defp do_build_ack(request, last_response) do
     ack =
       Message.build_request(:ack, request.start_line.request_uri)
-        |> Message.put_header(:via, Message.get_header(request, :via))
-        |> Message.put_header(:max_forwards, 70)
-        |> Message.put_header(:from, Message.get_header(request, :from))
-        |> Message.put_header(:to, Message.get_header(request, :to))
-        |> Message.put_header(:call_id, Message.get_header(request, :call_id))
+      |> Message.put_header(:via, Message.get_header(request, :via))
+      |> Message.put_header(:max_forwards, 70)
+      |> Message.put_header(:from, Message.get_header(request, :from))
+      |> Message.put_header(:to, Message.get_header(request, :to))
+      |> Message.put_header(:call_id, Message.get_header(request, :call_id))
 
     {sequence, _method} = request.headers.cseq
     ack = ack |> Message.put_header(:cseq, {sequence, :ack})
@@ -59,8 +59,6 @@ defmodule Sippet.ClientTransaction.Invite do
     params = Map.put(params, "tag", to_tag)
     ack |> Message.put_header(:to, {display_name, uri, params})
   end
-
-  def init(data), do: {:ok, :calling, data}
 
   def calling(:enter, _old_state, %{request: request}) do
     Transport.Registry.send(request)
@@ -84,7 +82,7 @@ defmodule Sippet.ClientTransaction.Invite do
   end
 
   def calling(:cast, {:incoming_response, response}, data) do
-    Sippet.Transaction.response_to_core(data, response)
+    receive_response(response)
     case StatusLine.status_code_class(response.start_line) do
       1 -> {:next_state, :proceeding, data}
       2 -> {:stop, :normal, data}
@@ -99,7 +97,7 @@ defmodule Sippet.ClientTransaction.Invite do
     do: :keep_state_and_data
 
   def proceeding(:cast, {:incoming_response, response}, data) do
-    Sippet.Transaction.response_to_core(data, response)
+    receive_response(response)
     case StatusLine.status_code_class(response.start_line) do
       1 -> :keep_state_and_data
       2 -> {:stop, :normal, data}
@@ -144,7 +142,7 @@ defmodule Sippet.ClientTransaction.Invite do
 end
 
 defmodule Sippet.ClientTransaction.NonInvite do
-  use Sippet.Transaction, tag: 'non-invite/client'
+  use Sippet.Transaction, tag: 'non-invite/client', initial_state: :trying
 
   alias Sippet.Transport, as: Transport
   alias Sippet.Message.StatusLine, as: StatusLine
@@ -153,8 +151,6 @@ defmodule Sippet.ClientTransaction.NonInvite do
   @timer_e 500
   @timer_f 64 * @timer_e
   @timer_k 5000  # timer K is 5s
-
-  def init(data), do: {:ok, :trying, data}
 
   defp start_timers(%{request: request} = data) do
     data = Map.put(data, :deadline_timer,
@@ -201,7 +197,7 @@ defmodule Sippet.ClientTransaction.NonInvite do
     do: retry(min(last_delay * 2, @t2), data)
 
   def trying(:cast, {:incoming_response, response}, data) do
-    Sippet.Transaction.response_to_core(data, response)
+    receive_response(response)
     case StatusLine.status_code_class(response.start_line) do
       1 -> {:next_state, :proceeding, data}
       _ -> {:next_state, :completed, data}
@@ -224,7 +220,7 @@ defmodule Sippet.ClientTransaction.NonInvite do
     do: retry(@t2, data)
 
   def proceeding(:cast, {:incoming_response, response}, data) do
-    Sippet.Transaction.response_to_core(data, response)
+    receive_response(response)
     case StatusLine.status_code_class(response.start_line) do
       1 -> :keep_state_and_data
       _ -> {:next_state, :completed, data}

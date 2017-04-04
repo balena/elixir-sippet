@@ -21,7 +21,7 @@ defmodule Sippet.Mixfile do
   #
   # Type "mix help compile.app" for more information
   def application do
-    [applications: [:logger]]
+    [applications: [:logger, :gen_state_machine]]
   end
 
   # Dependencies can be Hex packages:
@@ -34,7 +34,8 @@ defmodule Sippet.Mixfile do
   #
   # Type "mix help deps" for more examples and options
   defp deps do
-    [{:dialyxir, "~> 0.5", only: [:dev], runtime: false}]
+    [{:dialyxir, "~> 0.5", only: [:dev], runtime: false},
+     {:gen_state_machine, "~> 2.0"}]
   end
 end
 

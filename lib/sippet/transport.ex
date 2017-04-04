@@ -36,7 +36,7 @@ defmodule Sippet.Transport.Registry do
     name = {protocol, host, port}
     {module, _new_args} =
       Application.get_env(:sippet, __MODULE__)
-        |> Map.get(protocol)
+      |> Map.get(protocol)
 
     case Registry.lookup(__MODULE__, name) do
       [{_parent_pid, child_pid}] ->

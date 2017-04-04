@@ -193,11 +193,11 @@ defmodule Sippet.Message do
       %StatusLine{} = status_line) do
     response =
       build_response(status_line)
-        |> put_header(:via, get_header(request, :via))
-        |> put_header(:from, get_header(request, :from))
-        |> put_header(:to, get_header(request, :to))
-        |> put_header(:call_id, get_header(request, :call_id))
-        |> put_header(:cseq, get_header(request, :cseq))
+      |> put_header(:via, get_header(request, :via))
+      |> put_header(:from, get_header(request, :from))
+      |> put_header(:to, get_header(request, :to))
+      |> put_header(:call_id, get_header(request, :call_id))
+      |> put_header(:cseq, get_header(request, :cseq))
 
     response =
       if status_line.status_code > 100 and
@@ -231,8 +231,7 @@ defmodule Sippet.Message do
 
   defp do_random_string(length) do
     bytes = round(Float.ceil(length / 8))
-    :crypto.strong_rand_bytes(bytes)
-      |> Base.url_encode64(padding: false)
+    :crypto.strong_rand_bytes(bytes) |> Base.url_encode64(padding: false)
   end
 
   @doc """

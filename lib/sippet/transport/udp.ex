@@ -125,7 +125,7 @@ defmodule Sippet.Transport.Udp do
       end)
 
     # TODO(guibv): The child process should be used here
-    Router.receive(self(), message)
+    Router.receive(message)
   end
 
   def handle_cast({:send, message, {host, port}}, %State{socket: socket} = state) do
