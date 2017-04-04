@@ -5,16 +5,10 @@ defmodule Sippet.ClientTransaction do
   alias Sippet.ClientTransaction.Invite, as: Invite
   alias Sippet.ClientTransaction.NonInvite, as: NonInvite
 
-  def start_link(request, transport),
-    do: start_link(request, transport, [])
-
-  def start_link(%Message{start_line: %RequestLine{method: method}} = request,
-      transport, opts) do
+  def get_module(%Message{start_line: %RequestLine{method: method}}) do
     case method do
-      :invite ->
-        Invite.start_link(request, transport, opts)
-      _otherwise ->
-        NonInvite.start_link(request, transport, opts)
+      :invite -> Invite
+      _otherwise -> NonInvite
     end
   end
 
@@ -34,9 +28,8 @@ defmodule Sippet.ClientTransaction.Invite do
   @timer_b 64 * @timer_a
   @timer_d 32000  # timer D should be > 32s
 
-  defp retry({past_wait, passed_time},
-      %{request: request, transport: transport}) do
-    Transport.send(transport, request)
+  defp retry({past_wait, passed_time}, %{request: request}) do
+    Transport.Registry.send(request)
     new_delay = past_wait * 2
     {:keep_state_and_data, [{:state_timeout, new_delay,
        {new_delay, passed_time + new_delay}}]}
@@ -69,11 +62,11 @@ defmodule Sippet.ClientTransaction.Invite do
 
   def init(data), do: {:ok, :calling, data}
 
-  def calling(:enter, _old_state, %{request: request, transport: transport}) do
-    Transport.send(transport, request)
+  def calling(:enter, _old_state, %{request: request}) do
+    Transport.Registry.send(request)
 
     actions =
-      if Transport.reliable(transport) do
+      if Transport.Registry.reliable(request) do
         [{:state_timeout, @timer_b, {@timer_b, @timer_b}}]
       else
         [{:state_timeout, @timer_a, {@timer_a, @timer_a}}]
@@ -118,23 +111,21 @@ defmodule Sippet.ClientTransaction.Invite do
     do: handle_event(event_type, event_content, data)
 
   def completed(:enter, _old_state,
-      %{request: request, transport: transport,
-          last_response: last_response} = data) do
+      %{request: request, last_response: last_response} = data) do
     ack = do_build_ack(request, last_response)
     data = Map.put(data, :ack, ack)
-    Transport.send(transport, ack)
+    Transport.Registry.send(ack)
 
-    if Transport.reliable(transport) do
+    if Transport.Registry.reliable(request) do
       {:stop, :normal, data}
     else
       {:keep_state_and_data, [{:state_timeout, @timer_d, nil}]}
     end
   end
 
-  def completed(:cast, {:incoming_response, response},
-      %{ack: ack, transport: transport}) do
+  def completed(:cast, {:incoming_response, response}, %{ack: ack}) do
     if StatusLine.status_code_class(response.start_line) >= 3 do
-      Transport.send(transport, ack)
+      Transport.Registry.send(ack)
     end
     :keep_state_and_data
   end
@@ -165,11 +156,11 @@ defmodule Sippet.ClientTransaction.NonInvite do
 
   def init(data), do: {:ok, :trying, data}
 
-  defp start_timers(%{transport: transport} = data) do
+  defp start_timers(%{request: request} = data) do
     data = Map.put(data, :deadline_timer,
         :erlang.start_timer(@timer_f, self(), :deadline))
 
-    if Transport.reliable(transport) do
+    if Transport.Registry.reliable(request) do
       data
     else
       Map.put(data, :retry_timer,
@@ -189,16 +180,16 @@ defmodule Sippet.ClientTransaction.NonInvite do
     Map.drop(data, [:deadline_timer, :retry_timer])
   end
 
-  defp retry(next_wait, %{request: request, transport: transport} = data) do
-    Transport.send(transport, request)
+  defp retry(next_wait, %{request: request} = data) do
+    Transport.Registry.send(request)
     data = %{data | retry_timer:
         :erlang.start_timer(next_wait, self(), next_wait)}
     {:keep_state, data}
   end
 
   def trying(:enter, _old_state,
-      %{request: request, transport: transport} = data) do
-    Transport.send(transport, request)
+      %{request: request} = data) do
+    Transport.Registry.send(request)
     data = start_timers(data)
     {:keep_state, data}
   end
@@ -246,10 +237,10 @@ defmodule Sippet.ClientTransaction.NonInvite do
   def proceeding(event_type, event_content, data),
     do: handle_event(event_type, event_content, data)
 
-  def completed(:enter, _old_state, %{transport: transport} = data) do
+  def completed(:enter, _old_state, %{request: request} = data) do
     data = cancel_timers(data)
 
-    if Transport.reliable(transport) do
+    if Transport.Registry.reliable(request) do
       {:stop, :normal, data}
     else
       {:keep_state_and_data, [{:state_timeout, @timer_k, nil}]}

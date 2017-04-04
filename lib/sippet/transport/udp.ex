@@ -10,6 +10,8 @@ end
 defmodule Sippet.Transport.Udp do
   use GenServer
 
+  @behaviour Sippet.Transport
+
   alias Sippet.Message, as: Message
   alias Sippet.Router, as: Router
   alias Sippet.Transport.Udp.State, as: State
@@ -39,8 +41,14 @@ defmodule Sippet.Transport.Udp do
     %__MODULE__{pid: pid}
   end
 
-  def start_child(_host, _port) do
+  def start_child(_host, _port, _opts) do
     # TODO: create a client-only process reusing the same socket
+  end
+
+  def reliable?(), do: false
+
+  def send(transport, message) do
+    GenServer.cast(transport, {:send, message})
   end
 
   def init(%State{host: host, port: port, family: family} = state) do

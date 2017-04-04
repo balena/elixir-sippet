@@ -14,13 +14,12 @@ defmodule Sippet.Router do
                         partitions: schedulers_online)
   end
 
-  def receive(transport,
-      %Message{headers: %{via: via}} = message) do
+  def receive(%Message{headers: %{via: via}} = message) do
     name = List.first(via) |> elem(3) |> Map.get("branch")
-    do_receive(transport, name, message)
+    do_receive(name, message)
   end
 
-  defp do_receive(transport, name,
+  defp do_receive(name,
       %Message{start_line: %RequestLine{method: method}} = request) do
     case Registry.lookup(__MODULE__, name) do
       [{_parent_pid, child_pid}] ->
@@ -30,28 +29,24 @@ defmodule Sippet.Router do
           core = Application.get_env(:sippet, :core)
           apply(core, :on_request, [request, nil])
         else
-          module =
-            case method do
-              :invite -> ServerTransaction.Invite
-              _other -> ServerTransaction.NonInvite
-            end
-
-          {:ok, _pid} = ServerTransaction.start_link(request, transport,
-                                    name: via_tuple(module, name))
+          module = ServerTransaction.get_module(request)
+          opts = [name: via_tuple(module, name)]
+          {:ok, _pid} = apply(module, :start_link, [request, opts])
         end
-        :ok
     end
+    :ok
   end
 
-  defp do_receive(_transport, name,
+  defp do_receive(name,
       %Message{start_line: %StatusLine{}} = response) do
     case Registry.lookup(__MODULE__, name) do
       [{_parent_pid, child_pid}] ->
         ClientTransaction.on_response(child_pid, response)
+        :ok
       [] ->
         Logger.warn("unhandled transport response to transaction " <>
                     "#{inspect name}")
-        :ok
+        {:error, :no_route}
     end
   end
 
@@ -65,26 +60,19 @@ defmodule Sippet.Router do
   def do_send(_name,
       %Message{start_line: %RequestLine{method: :ack}} = ack) do
     # Route ACKs directly to transport.
-    Transport.get_transport(ack) |> Transport.send(ack)
+    Transport.Registry.send(ack)
   end
 
   def do_send(name,
-      %Message{start_line: %RequestLine{method: method}} = request) do
+      %Message{start_line: %RequestLine{}} = request) do
     case Registry.lookup(__MODULE__, name) do
       [{_parent_pid, _child_pid}] ->
         Logger.warn("transaction #{inspect name} already exists")
-        :ok
+        {:error, :duplicated}
       [] ->
-        module =
-          case method do
-            :invite -> ClientTransaction.Invite
-            _other -> ClientTransaction.NonInvite
-          end
-
-        transport = Transport.get_transport(request)
-
-        {:ok, _pid} = ClientTransaction.start_link(request, transport,
-                                  name: via_tuple(module, name))
+        module = ClientTransaction.get_module(request)
+        opts = [name: via_tuple(module, name)]
+        {:ok, _pid} = apply(module, :start_link, [request, opts])
         :ok
     end
   end
@@ -97,7 +85,7 @@ defmodule Sippet.Router do
         :ok
       [] ->
         Logger.warn("unhandled core response to transaction #{inspect name}")
-        :ok
+        {:error, :no_route}
     end
   end
 end

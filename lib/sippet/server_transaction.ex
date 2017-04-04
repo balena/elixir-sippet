@@ -5,27 +5,22 @@ defmodule Sippet.ServerTransaction do
   alias Sippet.ServerTransaction.Invite, as: Invite
   alias Sippet.ServerTransaction.NonInvite, as: NonInvite
 
-  def start_link(request, transport),
-    do: start_link(request, transport, [])
-
-  def start_link(%Message{start_line: %RequestLine{method: method}} = request,
-      transport, opts) do
+  def get_module(%Message{start_line: %RequestLine{method: method}}) do
     case method do
-      :invite ->
-        Invite.start_link('server', request, transport, opts)
-      _otherwise ->
-        NonInvite.start_link('server', request, transport, opts)
+      :invite -> Invite
+      _otherwise -> NonInvite
     end
   end
 
-  def send_response(transport, %Message{start_line: %StatusLine{}} = response)
-      when is_pid(transport) do
-    :gen_statem.cast(transport, {:send_response, response})
+  def send_response(transaction,
+      %Message{start_line: %StatusLine{}} = response)
+      when is_pid(transaction) do
+    :gen_statem.cast(transaction, {:send_response, response})
   end
 
-  def on_request(transport, %Message{start_line: %RequestLine{}} = request)
-      when is_pid(transport) do
-    :gen_statem.cast(transport, {:incoming_request, request})
+  def on_request(transaction, %Message{start_line: %RequestLine{}} = request)
+      when is_pid(transaction) do
+    :gen_statem.cast(transaction, {:incoming_request, request})
   end
 end
 
@@ -42,9 +37,8 @@ defmodule Sippet.ServerTransaction.Invite do
   @timer_h 64 * @timer_g
   @timer_i 5000  # timer I is 5s
 
-  defp retry({past_wait, passed_time},
-      %{last_response: last_response, transport: transport}) do
-    Transport.send(transport, last_response)
+  defp retry({past_wait, passed_time}, %{last_response: last_response}) do
+    Transport.Registry.send(last_response)
     new_delay = min(past_wait * 2, @t2)
     {:keep_state_and_data, [{:state_timeout, new_delay,
        {new_delay, passed_time + new_delay}}]}
@@ -57,10 +51,9 @@ defmodule Sippet.ServerTransaction.Invite do
     {:keep_state_and_data, [{:state_timeout, @before_trying, :still_trying}]}
   end
 
-  def proceeding(:state_timeout, :still_trying,
-      %{transport: transport, request: request} = data) do
+  def proceeding(:state_timeout, :still_trying, %{request: request} = data) do
     response = request |> Message.build_response(100)
-    Transport.send(transport, response)
+    Transport.Registry.send(response)
     data = %{data | last_response: response}
     {:keep_state, data, [{:state_timeout, @max_idle, :idle}]}
   end
@@ -69,17 +62,16 @@ defmodule Sippet.ServerTransaction.Invite do
     do: shutdown(:idle, data)
 
   def proceeding(:cast, {:incoming_request, _request},
-      %{last_response: last_response, transport: transport}) do
-    Transport.send(transport, last_response)
+      %{last_response: last_response}) do
+    Transport.Registry.send(last_response)
     :keep_state_and_data
   end
 
   def proceeding(:cast, {:incoming_request, _request}, _data),
     do: :keep_state_and_data
 
-  def proceeding(:cast, {:send_response, response},
-      %{transport: transport} = data) do
-    Transport.send(transport, response)
+  def proceeding(:cast, {:send_response, response}, data) do
+    Transport.Registry.send(response)
     data = Map.put(data, :last_response, response)
     case StatusLine.status_code_class(response.start_line) do
       1 -> {:keep_state, data}
@@ -94,9 +86,9 @@ defmodule Sippet.ServerTransaction.Invite do
   def proceeding(event_type, event_content, data),
     do: handle_event(event_type, event_content, data)
 
-  def completed(:enter, _old_state, %{transport: transport}) do
+  def completed(:enter, _old_state, %{request: request}) do
     actions =
-      if Transport.reliable(transport) do
+      if Transport.Registry.reliable(request) do
         [{:state_timeout, @timer_h, {@timer_h, @timer_h}}]
       else
         [{:state_timeout, @timer_g, {@timer_g, @timer_g}}]
@@ -114,10 +106,10 @@ defmodule Sippet.ServerTransaction.Invite do
   end
 
   def completed(:cast, {:incoming_request, request},
-      %{last_response: last_response, transport: transport} = data) do
+      %{last_response: last_response} = data) do
     case request.start_line.method do
       :invite ->
-        Transport.send(transport, last_response)
+        Transport.Registry.send(last_response)
         :keep_state_and_data
       :ack -> {:next_state, :confirmed, data}
       _otherwise -> shutdown(:invalid_method, data)
@@ -130,8 +122,8 @@ defmodule Sippet.ServerTransaction.Invite do
   def completed(event_type, event_content, data),
     do: handle_event(event_type, event_content, data)
 
-  def confirmed(:enter, _old_state, %{transport: transport} = data) do
-    if Transport.reliable(transport) do
+  def confirmed(:enter, _old_state, %{request: request} = data) do
+    if Transport.Registry.reliable(request) do
       {:stop, :normal, data}
     else
       {:keep_state_and_data, [{:state_timeout, @timer_i, nil}]}
@@ -176,9 +168,8 @@ defmodule Sippet.ServerTransaction.NonInvite do
   def trying(:cast, {:incoming_request, _request}, _data),
     do: :keep_state_and_data
 
-  def trying(:cast, {:send_response, response},
-      %{transport: transport} = data) do
-    Transport.send(transport, response)
+  def trying(:cast, {:send_response, response}, data) do
+    Transport.Registry.send(response)
     data = Map.put(data, :last_response, response)
     case StatusLine.status_code_class(response) do
       1 -> {:next_state, :proceeding, data}
@@ -193,14 +184,13 @@ defmodule Sippet.ServerTransaction.NonInvite do
     do: :keep_state_and_data
 
   def proceeding(:cast, {:incoming_request, _request},
-      %{last_response: last_response, transport: transport}) do
-    Transport.send(transport, last_response)
+      %{last_response: last_response}) do
+    Transport.Registry.send(last_response)
     :keep_state_and_data
   end
 
-  def proceeding(:cast, {:send_response, response},
-      %{transport: transport} = data) do
-    Transport.send(transport, response)
+  def proceeding(:cast, {:send_response, response}, data) do
+    Transport.Registry.send(response)
     data = Map.put(data, :last_response, response)
     case StatusLine.status_code_class(response.start_line) do
       1 -> {:keep_state, data}
@@ -211,8 +201,8 @@ defmodule Sippet.ServerTransaction.NonInvite do
   def proceeding(event_type, event_content, data),
     do: handle_event(event_type, event_content, data)
 
-  def completed(:enter, _old_state, %{transport: transport} = data) do
-    if Transport.reliable(transport) do
+  def completed(:enter, _old_state, %{request: request} = data) do
+    if Transport.Registry.reliable(request) do
       {:stop, :normal, data}
     else
       {:keep_state_and_data, [{:state_timeout, @timer_j, nil}]}
@@ -223,8 +213,8 @@ defmodule Sippet.ServerTransaction.NonInvite do
     do: {:stop, :normal, data}
 
   def completed(:cast, {:incoming_request, _request},
-      %{last_response: last_response, transport: transport}) do
-    Transport.send(transport, last_response)
+      %{last_response: last_response}) do
+    Transport.Registry.send(last_response)
     :keep_state_and_data
   end
 

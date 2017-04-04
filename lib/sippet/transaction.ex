@@ -52,23 +52,22 @@ defmodule Sippet.Transaction do
       @tag unquote(opts)[:tag]
 
       @doc false
-      def start_link(request, transport) do
-        start_link(request, transport, [])
+      def start_link(request) do
+        start_link(request, [])
       end
 
       @doc false
       def start_link(
           %Message{start_line: %RequestLine{method: method}} = request,
-          transport, opts) do
-        branch = elem(List.first(request.headers.via), 3)["branch"]
+          opts) do
+        branch = elem(List.last(request.headers.via), 3)["branch"]
 
         Logger.info("transaction #{branch}/#{@tag}: started")
 
         core = Application.get_env(:sippet, :core)
         :gen_statem.start_link(__MODULE__, %{core: core,
                                              branch: branch,
-                                             request: request,
-                                             transport: transport}, opts)
+                                             request: request}, opts)
       end
 
       @doc false
