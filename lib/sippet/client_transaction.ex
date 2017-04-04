@@ -1,12 +1,3 @@
-defprotocol Sippet.ClientTransaction.User do
-  @fallback_to_any true
-  def on_response(user, response)
-end
-
-defimpl Sippet.ClientTransaction.User, for: [Any, List, BitString, Integer, Float, Atom, Function, PID, Port, Reference, Tuple, Map] do
-  def on_response(_user, _response), do: :erlang.error(:not_implemented)
-end
-
 defmodule Sippet.ClientTransaction do
   alias Sippet.Message, as: Message
   alias Sippet.Message.RequestLine, as: RequestLine
@@ -14,35 +5,30 @@ defmodule Sippet.ClientTransaction do
   alias Sippet.ClientTransaction.Invite, as: Invite
   alias Sippet.ClientTransaction.NonInvite, as: NonInvite
 
-  def start_link(user, request, transport),
-    do: start_link(user, request, transport, [])
+  def start_link(request, transport),
+    do: start_link(request, transport, [])
 
-  def start_link(user, %Message{start_line: %RequestLine{method: method}} = request,
+  def start_link(%Message{start_line: %RequestLine{method: method}} = request,
       transport, opts) do
     case method do
       :invite ->
-        Invite.start_link('client', user, request, transport, opts)
+        Invite.start_link(request, transport, opts)
       _otherwise ->
-        NonInvite.start_link('client', user, request, transport, opts)
+        NonInvite.start_link(request, transport, opts)
     end
   end
 
-  def on_response(pid, %Message{start_line: %StatusLine{}} = response)
-      when is_pid(pid) do
-    :gen_statem.cast(pid, {:incoming_response, response})
-  end
-
-  def on_error(pid, reason) when is_pid(pid) and is_atom(reason) do
-    :gen_statem.cast(pid, {:error, reason})
+  def on_response(transaction, %Message{start_line: %StatusLine{}} = response)
+      when is_pid(transaction) do
+    :gen_statem.cast(transaction, {:incoming_response, response})
   end
 end
 
 defmodule Sippet.ClientTransaction.Invite do
-  use Sippet.Transaction
+  use Sippet.Transaction, tag: 'invite/client'
 
   alias Sippet.Transport, as: Transport
   alias Sippet.Message.StatusLine, as: StatusLine
-  alias Sippet.ClientTransaction.User, as: User
 
   @timer_a 600  # optimization: transaction ends in 37.8s
   @timer_b 64 * @timer_a
@@ -104,8 +90,8 @@ defmodule Sippet.ClientTransaction.Invite do
     end
   end
 
-  def calling(:cast, {:incoming_response, response}, %{user: user} = data) do
-    User.on_response(user, response)
+  def calling(:cast, {:incoming_response, response}, data) do
+    Sippet.Transaction.response_to_core(data, response)
     case StatusLine.status_code_class(response.start_line) do
       1 -> {:next_state, :proceeding, data}
       2 -> {:stop, :normal, data}
@@ -119,9 +105,8 @@ defmodule Sippet.ClientTransaction.Invite do
   def proceeding(:enter, _old_state, _data),
     do: :keep_state_and_data
 
-  def proceeding(:cast, {:incoming_response, response},
-      %{user: user} = data) do
-    User.on_response(user, response)
+  def proceeding(:cast, {:incoming_response, response}, data) do
+    Sippet.Transaction.response_to_core(data, response)
     case StatusLine.status_code_class(response.start_line) do
       1 -> :keep_state_and_data
       2 -> {:stop, :normal, data}
@@ -168,11 +153,10 @@ defmodule Sippet.ClientTransaction.Invite do
 end
 
 defmodule Sippet.ClientTransaction.NonInvite do
-  use Sippet.Transaction
+  use Sippet.Transaction, tag: 'non-invite/client'
 
   alias Sippet.Transport, as: Transport
   alias Sippet.Message.StatusLine, as: StatusLine
-  alias Sippet.ClientTransaction.User, as: User
 
   @t2 4000
   @timer_e 500
@@ -225,8 +209,8 @@ defmodule Sippet.ClientTransaction.NonInvite do
   def trying(:info, {:timeout, _timer, last_delay}, data),
     do: retry(min(last_delay * 2, @t2), data)
 
-  def trying(:cast, {:incoming_response, response}, %{user: user} = data) do
-    User.on_response(user, response)
+  def trying(:cast, {:incoming_response, response}, data) do
+    Sippet.Transaction.response_to_core(data, response)
     case StatusLine.status_code_class(response.start_line) do
       1 -> {:next_state, :proceeding, data}
       _ -> {:next_state, :completed, data}
@@ -248,9 +232,8 @@ defmodule Sippet.ClientTransaction.NonInvite do
   def proceeding(:info, {:timeout, _timer, _last_delay}, data),
     do: retry(@t2, data)
 
-  def proceeding(:cast, {:incoming_response, response},
-      %{user: user} = data) do
-    User.on_response(user, response)
+  def proceeding(:cast, {:incoming_response, response}, data) do
+    Sippet.Transaction.response_to_core(data, response)
     case StatusLine.status_code_class(response.start_line) do
       1 -> :keep_state_and_data
       _ -> {:next_state, :completed, data}

@@ -1,11 +1,3 @@
-defprotocol Sippet.ServerTransaction.User do
-  def on_request(user, request)
-end
-
-defimpl Sippet.ServerTransaction.User, for: [Any, List, BitString, Integer, Float, Atom, Function, PID, Port, Reference, Tuple, Map] do
-  def on_request(_user, _request), do: :erlang.error(:not_implemented)
-end
-
 defmodule Sippet.ServerTransaction do
   alias Sippet.Message, as: Message
   alias Sippet.Message.RequestLine, as: RequestLine
@@ -13,40 +5,35 @@ defmodule Sippet.ServerTransaction do
   alias Sippet.ServerTransaction.Invite, as: Invite
   alias Sippet.ServerTransaction.NonInvite, as: NonInvite
 
-  def start_link(user, request, transport),
-    do: start_link(user, request, transport, [])
+  def start_link(request, transport),
+    do: start_link(request, transport, [])
 
-  def start_link(user, %Message{start_line: %RequestLine{method: method}} = request,
+  def start_link(%Message{start_line: %RequestLine{method: method}} = request,
       transport, opts) do
     case method do
       :invite ->
-        Invite.start_link('server', user, request, transport, opts)
+        Invite.start_link('server', request, transport, opts)
       _otherwise ->
-        NonInvite.start_link('server', user, request, transport, opts)
+        NonInvite.start_link('server', request, transport, opts)
     end
   end
 
-  def send_response(pid, %Message{start_line: %StatusLine{}} = response)
-      when is_pid(pid) do
-    :gen_statem.cast(pid, {:send_response, response})
+  def send_response(transport, %Message{start_line: %StatusLine{}} = response)
+      when is_pid(transport) do
+    :gen_statem.cast(transport, {:send_response, response})
   end
 
-  def on_request(pid, %Message{start_line: %RequestLine{}} = request)
-      when is_pid(pid) do
-    :gen_statem.cast(pid, {:incoming_request, request})
-  end
-
-  def on_error(pid, reason) when is_pid(pid) and is_atom(reason) do
-    :gen_statem.cast(pid, {:error, reason})
+  def on_request(transport, %Message{start_line: %RequestLine{}} = request)
+      when is_pid(transport) do
+    :gen_statem.cast(transport, {:incoming_request, request})
   end
 end
 
 defmodule Sippet.ServerTransaction.Invite do
-  use Sippet.Transaction
+  use Sippet.Transaction, tag: 'invite/server'
 
   alias Sippet.Transport, as: Transport
   alias Sippet.Message.StatusLine, as: StatusLine
-  alias Sippet.ServerTransaction.User, as: User
 
   @t2 4000
   @before_trying 200
@@ -65,8 +52,8 @@ defmodule Sippet.ServerTransaction.Invite do
 
   def init(data), do: {:ok, :proceeding, data}
 
-  def proceeding(:enter, _old_state, %{user: user, request: request}) do
-    User.on_request(user, request)
+  def proceeding(:enter, _old_state, %{request: request} = data) do
+    Sippet.Transaction.request_to_core(data, request)
     {:keep_state_and_data, [{:state_timeout, @before_trying, :still_trying}]}
   end
 
@@ -168,19 +155,18 @@ defmodule Sippet.ServerTransaction.Invite do
 end
 
 defmodule Sippet.ServerTransaction.NonInvite do
-  use Sippet.Transaction
+  use Sippet.Transaction, tag: 'non-invite/server'
 
   alias Sippet.Transport, as: Transport
   alias Sippet.Message.StatusLine, as: StatusLine
-  alias Sippet.ServerTransaction.User, as: User
 
   @max_idle 4000
   @timer_j 32000
 
   def init(data), do: {:ok, :trying, data}
 
-  def trying(:enter, _old_state, %{user: user, request: request}) do
-    User.on_request(user, request)
+  def trying(:enter, _old_state, %{request: request} = data) do
+    Sippet.Transaction.request_to_core(data, request)
     {:keep_state_and_data, [{:state_timeout, @max_idle, nil}]}
   end
 

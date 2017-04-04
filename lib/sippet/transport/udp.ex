@@ -11,6 +11,7 @@ defmodule Sippet.Transport.Udp do
   use GenServer
 
   alias Sippet.Message, as: Message
+  alias Sippet.Router, as: Router
   alias Sippet.Transport.Udp.State, as: State
 
   require Logger
@@ -26,14 +27,20 @@ defmodule Sippet.Transport.Udp do
   @doc """
   Starts the UDP transport on informed host and port.
   """
-  def new(host, port, family)
+  def start_link(host, port, family)
       when is_binary(host) and is_integer(port) and is_atom(family) do
     if port <= 0 do
       raise ArgumentError, "invalid port #{port}"
     end
+
     {:ok, pid} = GenServer.start_link(__MODULE__,
         %State{host: host, port: port, family: family})
+
     %__MODULE__{pid: pid}
+  end
+
+  def start_child(_host, _port) do
+    # TODO: create a client-only process reusing the same socket
   end
 
   def init(%State{host: host, port: port, family: family} = state) do
@@ -47,9 +54,9 @@ defmodule Sippet.Transport.Udp do
 
     {:ok, socket} = :gen_udp.open(port, [:binary, family,
         {:ip, ip}, {:active, true}])
-    
+
     Logger.info("started #{host}:#{port}/UDP")
-    
+
     {:ok, %{state | socket: socket}}
   end
 
@@ -88,21 +95,33 @@ defmodule Sippet.Transport.Udp do
     end
   end
 
-  defp dispatch_message(_message, _from_ip, _from_port, _family) do
-    # TODO(guibv): pass the message up the stack
+  defp dispatch_message(message, from_ip, from_port, _family) do
+    received = to_string(:inet.ntoa(from_ip))
+    message = Message.update_header_back(message, :via, nil,
+      fn({version, protocol, {host, port}, params}) ->
+        params =
+          if host != received do
+            %{params | "received" => received}
+          else
+            params
+          end
+
+        params =
+          if port != from_port do
+            %{params | "rport" => to_string(from_port)}
+          else
+            params
+          end
+
+        {version, protocol, {host, port}, params}
+      end)
+
+    # TODO(guibv): The child process should be used here
+    Router.receive(self(), message)
   end
 
   def handle_cast({:send, message, {host, port}}, %State{socket: socket} = state) do
     :gen_udp.send(socket, host, port, Message.to_string(message))
     {:noreply, state}
   end
-end
-
-defimpl Sippet.Transport, for: Sippet.Transport.Udp do
-  def send(%Sippet.Transport.Udp{pid: pid}, message) do
-    # TODO(balena): define the destination host/port
-    GenServer.cast(pid, {:send, message, {nil, nil}})
-  end
-
-  def reliable(%Sippet.Transport.Udp{}), do: false
 end

@@ -1,15 +1,8 @@
-defprotocol Sippet.Transaction.User do
-  @doc """
-  Sends receives an error from the transaction.
-  """
-  def on_error(user, reason)
-end
-
-defimpl Sippet.Transaction.User, for: [Any, List, BitString, Integer, Float, Atom, Function, PID, Port, Reference, Tuple, Map] do
-  def on_error(_user, _reason), do: :erlang.error(:not_implemented)
-end
-
 defmodule Sippet.Transaction do
+  alias Sippet.Message, as: Message
+  alias Sippet.Message.RequestLine, as: RequestLine
+  alias Sippet.Message.StatusLine, as: StatusLine
+
   @type data :: term
   @type state :: atom
   @type event_timeout :: integer
@@ -47,32 +40,33 @@ defmodule Sippet.Transaction do
     :ignore |
     {:stop, reason :: term}
 
-  defmacro __using__(_) do
+  defmacro __using__(opts) do
     quote location: :keep do
       @behaviour Sippet.Transaction
 
       alias Sippet.Message, as: Message
       alias Sippet.Message.RequestLine, as: RequestLine
-      alias Sippet.Transaction.User, as: User
 
       require Logger
 
+      @tag unquote(opts)[:tag]
+
       @doc false
-      def start_link(client_or_server, user, request, transport) do
-        start_link(user, request, transport, [])
+      def start_link(request, transport) do
+        start_link(request, transport, [])
       end
 
       @doc false
-      def start_link(client_or_server, user,
+      def start_link(
           %Message{start_line: %RequestLine{method: method}} = request,
           transport, opts) do
         branch = elem(List.first(request.headers.via), 3)["branch"]
 
-        Logger.info("transaction #{branch}/#{client_or_server}: started")
+        Logger.info("transaction #{branch}/#{@tag}: started")
 
-        :gen_statem.start_link(__MODULE__, %{type: client_or_server,
+        core = Application.get_env(:sippet, :core)
+        :gen_statem.start_link(__MODULE__, %{core: core,
                                              branch: branch,
-                                             user: user,
                                              request: request,
                                              transport: transport}, opts)
       end
@@ -81,10 +75,10 @@ defmodule Sippet.Transaction do
       def callback_mode(), do: [:state_functions, :state_enter]
 
       @doc false
-      def terminate(reason, _state, %{type: type, branch: branch} = data) do
+      def terminate(reason, _state, %{branch: branch} = data) do
         case reason do
           :normal ->
-            Logger.info("transaction #{branch}/#{type}: finished gracefuly")
+            Logger.info("transaction #{branch}/#{@tag}: finished gracefuly")
         end
       end
 
@@ -94,10 +88,10 @@ defmodule Sippet.Transaction do
       end
 
       @doc false
-      def shutdown(reason, %{type: type, branch: branch, user: user} = data) do
-        User.on_error(user, reason)
+      def shutdown(reason, %{branch: branch} = data) do
+        Sippet.Transaction.error_to_core(data, reason)
 
-        Logger.warn("transaction #{branch}/#{type}: shutdown with "
+        Logger.warn("transaction #{branch}/#{@tag}: shutdown with "
                     <> "#{inspect reason}")
 
         {:stop, :shutdown, data}
@@ -108,8 +102,8 @@ defmodule Sippet.Transaction do
 
       @doc false
       def unhandled_event(event_type, event_content,
-          %{type: type, branch: branch} = data) do
-        Logger.error("transaction #{branch}/#{type}: " <>
+          %{branch: branch} = data) do
+        Logger.error("transaction #{branch}/#{@tag}: " <>
                      "unhandled event #{inspect event_type}, " <>
                      "#{inspect event_content}")
 
@@ -117,4 +111,20 @@ defmodule Sippet.Transaction do
       end
     end
   end
+
+  def on_error(transaction, reason)
+      when is_pid(transaction) and is_atom(reason) do
+    :gen_statem.cast(transaction, {:error, reason})
+  end
+
+  def request_to_core(%{core: core},
+      %Message{start_line: %RequestLine{}} = incoming_request),
+    do: apply(core, :on_request, [incoming_request, self()])
+
+  def response_to_core(%{core: core},
+      %Message{start_line: %StatusLine{}} = incoming_response),
+    do: apply(core, :on_response, [incoming_response, self()])
+
+  def error_to_core(%{core: core}, reason) when is_atom(reason),
+    do: apply(core, :on_error, [reason, self()])
 end
