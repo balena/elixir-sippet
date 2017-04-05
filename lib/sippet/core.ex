@@ -13,7 +13,7 @@ defprotocol Sippet.Core do
   @type incoming_response ::
     %Message{start_line: %StatusLine{}}
 
-  @type client_transaction :: pid
+  @type client_transaction :: pid | nil
 
   @type server_transaction :: pid | nil
 

@@ -21,7 +21,6 @@ end
 defmodule Sippet.ClientTransaction.Invite do
   use Sippet.Transaction, tag: 'invite/client', initial_state: :calling
 
-  alias Sippet.Transport, as: Transport
   alias Sippet.Message.StatusLine, as: StatusLine
 
   @timer_a 600  # optimization: transaction ends in 37.8s
@@ -29,7 +28,7 @@ defmodule Sippet.ClientTransaction.Invite do
   @timer_d 32000  # timer D should be > 32s
 
   defp retry({past_wait, passed_time}, %{request: request}) do
-    Transport.Registry.send(request)
+    send_request(request)
     new_delay = past_wait * 2
     {:keep_state_and_data, [{:state_timeout, new_delay,
        {new_delay, passed_time + new_delay}}]}
@@ -61,10 +60,10 @@ defmodule Sippet.ClientTransaction.Invite do
   end
 
   def calling(:enter, _old_state, %{request: request}) do
-    Transport.Registry.send(request)
+    send_request(request)
 
     actions =
-      if Transport.Registry.reliable(request) do
+      if reliable?(request) do
         [{:state_timeout, @timer_b, {@timer_b, @timer_b}}]
       else
         [{:state_timeout, @timer_a, {@timer_a, @timer_a}}]
@@ -112,9 +111,9 @@ defmodule Sippet.ClientTransaction.Invite do
       %{request: request, last_response: last_response} = data) do
     ack = do_build_ack(request, last_response)
     data = Map.put(data, :ack, ack)
-    Transport.Registry.send(ack)
+    send_request(ack)
 
-    if Transport.Registry.reliable(request) do
+    if reliable?(request) do
       {:stop, :normal, data}
     else
       {:keep_state_and_data, [{:state_timeout, @timer_d, nil}]}
@@ -123,7 +122,7 @@ defmodule Sippet.ClientTransaction.Invite do
 
   def completed(:cast, {:incoming_response, response}, %{ack: ack}) do
     if StatusLine.status_code_class(response.start_line) >= 3 do
-      Transport.Registry.send(ack)
+      send_request(ack)
     end
     :keep_state_and_data
   end
@@ -144,7 +143,6 @@ end
 defmodule Sippet.ClientTransaction.NonInvite do
   use Sippet.Transaction, tag: 'non-invite/client', initial_state: :trying
 
-  alias Sippet.Transport, as: Transport
   alias Sippet.Message.StatusLine, as: StatusLine
 
   @t2 4000
@@ -156,7 +154,7 @@ defmodule Sippet.ClientTransaction.NonInvite do
     data = Map.put(data, :deadline_timer,
         :erlang.start_timer(@timer_f, self(), :deadline))
 
-    if Transport.Registry.reliable(request) do
+    if reliable?(request) do
       data
     else
       Map.put(data, :retry_timer,
@@ -177,7 +175,7 @@ defmodule Sippet.ClientTransaction.NonInvite do
   end
 
   defp retry(next_wait, %{request: request} = data) do
-    Transport.Registry.send(request)
+    send_request(request)
     data = %{data | retry_timer:
         :erlang.start_timer(next_wait, self(), next_wait)}
     {:keep_state, data}
@@ -185,7 +183,7 @@ defmodule Sippet.ClientTransaction.NonInvite do
 
   def trying(:enter, _old_state,
       %{request: request} = data) do
-    Transport.Registry.send(request)
+    send_request(request)
     data = start_timers(data)
     {:keep_state, data}
   end
@@ -236,7 +234,7 @@ defmodule Sippet.ClientTransaction.NonInvite do
   def completed(:enter, _old_state, %{request: request} = data) do
     data = cancel_timers(data)
 
-    if Transport.Registry.reliable(request) do
+    if reliable?(request) do
       {:stop, :normal, data}
     else
       {:keep_state_and_data, [{:state_timeout, @timer_k, nil}]}

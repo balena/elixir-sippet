@@ -1,135 +1,181 @@
-defmodule Sippet.Transport.Udp.State do
-  defstruct [
-    host: nil,
-    port: nil,
-    family: nil,
-    socket: nil
-  ]
-end
-
-defmodule Sippet.Transport.Udp do
+defmodule Sippet.Transport.UDP.Plug do
   use GenServer
-
-  @behaviour Sippet.Transport
+  
+  @behaviour Sippet.Transport.Plug
 
   alias Sippet.Message, as: Message
-  alias Sippet.Router, as: Router
-  alias Sippet.Transport.Udp.State, as: State
 
   require Logger
 
-  defstruct [
-    pid: nil
-  ]
-
-  @type t :: %__MODULE__{
-    pid: pid()
-  }
-
   @doc """
-  Starts the UDP transport on informed host and port.
+  Starts the UDP plug.
   """
-  def start_link(host, port, family)
-      when is_binary(host) and is_integer(port) and is_atom(family) do
-    if port <= 0 do
-      raise ArgumentError, "invalid port #{port}"
+  def start_link(listen_port, sock_opts, options) do
+    if listen_port <= 0 do
+      raise ArgumentError, "invalid port #{listen_port}"
     end
 
-    {:ok, pid} = GenServer.start_link(__MODULE__,
-        %State{host: host, port: port, family: family})
+    {:ok, _} = Registry.start_link(:unique, __MODULE__)
 
-    %__MODULE__{pid: pid}
+    GenServer.start_link(__MODULE__,
+        %{port: listen_port, sock_opts: sock_opts}, options)
   end
-
-  def start_child(_host, _port, _opts) do
-    # TODO: create a client-only process reusing the same socket
-  end
-
+  
   def reliable?(), do: false
 
-  def send(transport, message) do
-    GenServer.cast(transport, {:send, message})
+  def get_socket() do
+    [{_parent_pid, socket}] = Registry.lookup(__MODULE__, :socket)
+    socket
   end
 
-  def init(%State{host: host, port: port, family: family} = state) do
-    ip = case :inet.getaddr(String.to_charlist(host), family) do
-      {:ok, ip} ->
-        ip
-      {:error, reason} ->
-        raise ArgumentError, "cannot resolve #{inspect host}, " <>
-                             "reason: #{inspect reason}"
-    end
+  def init(%{port: port, sock_opts: sock_opts} = state) do
+    sock_opts =
+      sock_opts
+      |> Keyword.put(:as, :binary)
+      |> Keyword.put(:mode, :active)
 
-    {:ok, socket} = :gen_udp.open(port, [:binary, family,
-        {:ip, ip}, {:active, true}])
+    socket = Socket.UDP.open!(port, sock_opts)
+    {:ok, {address, _port}} = :inet.sockname(socket)
+    address = :inet.ntoa(address)
 
-    Logger.info("started #{host}:#{port}/UDP")
+    Logger.info("started plug #{address}:#{port}/udp")
 
-    {:ok, %{state | socket: socket}}
+    state =
+      state
+      |> Map.put(:socket, socket)
+      |> Map.put(:address, address)
+      |> Map.delete(:sock_opts)
+
+    Registry.register(__MODULE__, :socket, socket)
+
+    {:ok, state}
   end
 
-  def terminate(reason, %State{socket: socket, host: host, port: port})
-      when socket != nil do
-    Logger.info("stopped #{host}:#{port}/UDP, reason: #{inspect reason}")
+  def handle_info({:udp, _socket, ip, from_port, packet}, _state) do
+    host = to_string(:inet.ntoa(ip))
+    {_conn_module, conn} =
+      Sippet.Transport.Registry.get_connection(:udp, host, from_port)
+
+    Sippet.Transport.UDP.Conn.receive_packet(conn, packet)
+  end
+
+  def terminate(reason,
+      %{socket: socket, address: address, port: port}) do
+    Logger.info("stopped plug #{address}:#{port}/udp, " <>
+                "reason: #{inspect reason}")
     :ok = :gen_udp.close(socket)
   end
+end
 
-  def handle_info({:udp, _socket, ip, from_port, packet},
-      %State{family: family} = state) do
-    case parse_message(packet) do
-      {:ok, message} ->
-        dispatch_message(message, ip, from_port, family)
+defmodule Sippet.Transport.UDP.Conn do
+  use GenServer
+  use Sippet.Transport.Conn
+
+  alias Sippet.Message, as: Message
+
+  require Logger
+
+  @doc """
+  Starts the UDP Conn.
+  """
+  def start_link({host, port}, options) do
+    GenServer.start_link(__MODULE__, %{host: host, port: port}, options)
+  end
+
+  def send_message(conn, %Message{} = message, transaction),
+    do: GenServer.cast(conn, {:send, message, transaction})
+
+  def receive_packet(conn, packet),
+    do: GenServer.cast(conn, {:receive, packet})
+
+  def init(%{host: host, port: port} = state) do
+    socket = Sippet.Transport.UDP.get_socket()
+
+    {:ok, %Socket.Host{list: [ip|_]}} = Socket.Host.by_name(host)
+    address = to_string(:inet.ntoa(ip))
+
+    Logger.info("started conn #{address}:#{port}/udp")
+
+    state =
+      state
+      |> Map.put(:socket, socket)
+      |> Map.put(:address, address)
+
+    {:ok, state}
+  end
+
+  def handle_cast({:send, message, transaction},
+      %{socket: socket, host: host, port: port} = state) do
+    iodata = Message.to_iodata(message)
+    case Socket.Datagram.send(socket, iodata, {host, port}) do
       {:error, reason} ->
-        Logger.error("couldn't parse incoming packet from " <>
-                     "#{ip}:#{from_port}, reason: #{inspect reason}")
+        if transaction != nil do
+          error(reason, transaction)
+        end
+      _other ->
+        :ok
     end
+
     {:noreply, state}
   end
 
-  defp parse_message(packet) do
-    simplified = String.replace(packet, "\r\n", "\n")
-    case String.split(simplified, "\n\n", parts: 2) do
+  def handle_cast({:receive, packet}, %{host: host, port: port} = state) do
+    case do_parse_message(packet) do
+      {:ok, message} ->
+        do_receive_message(message, host, port)
+      {:error, reason} ->
+        Logger.error("couldn't parse incoming packet from " <>
+                     "#{host}:#{port}, reason: #{inspect reason}")
+    end
+
+    {:noreply, state}
+  end
+
+  defp do_parse_message(packet) do
+    message = String.replace(packet, "\r\n", "\n")
+    case String.split(message, "\n\n", parts: 2) do
       [header, body] ->
-        parse_message(header <> "\n\n", body)
+        do_parse_message(header <> "\n\n", body)
       [header] ->
-        parse_message(header, "")
+        do_parse_message(header, "")
     end
   end
 
-  defp parse_message(header, body) do
+  defp do_parse_message(header, body) do
     case Message.parse(header) do
       {:ok, message} -> {:ok, %{message | body: body}}
       other -> other
     end
   end
 
-  defp dispatch_message(message, from_ip, from_port, _family) do
-    received = to_string(:inet.ntoa(from_ip))
-    message = Message.update_header_back(message, :via, nil,
-      fn({version, protocol, {host, port}, params}) ->
-        params =
-          if host != received do
-            %{params | "received" => received}
-          else
-            params
-          end
-
-        params =
-          if port != from_port do
-            %{params | "rport" => to_string(from_port)}
-          else
-            params
-          end
-
-        {version, protocol, {host, port}, params}
-      end)
-
-    # TODO(guibv): The child process should be used here
-    Router.receive(message)
+  defp do_receive_message(message, ip, from_port) do
+    if Message.response?(message) do
+      message |> Message.update_header_back(:via, nil,
+        fn({version, protocol, {host, port}, params}) ->
+          params =
+            if host != ip do
+              %{params | "received" => ip}
+            else
+              params
+            end
+      
+          params =
+            if port != from_port do
+              %{params | "rport" => to_string(from_port)}
+            else
+              params
+            end
+      
+          {version, protocol, {host, port}, params}
+        end)
+    else
+      message
+    end
+    |> receive_message()
   end
 
-  def handle_cast({:send, message, {host, port}}, %State{socket: socket} = state) do
-    :gen_udp.send(socket, host, port, Message.to_string(message))
-    {:noreply, state}
+  def terminate(reason, %{address: address, port: port}) do
+    Logger.info("stopped conn #{address}:#{port}/udp, " <>
+                "reason: #{inspect reason}")
   end
 end

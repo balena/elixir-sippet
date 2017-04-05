@@ -60,21 +60,42 @@ defmodule Sippet.Transaction do
         {:stop, :shutdown, data}
       end
 
+      @doc false
       def receive_request(
           %Message{start_line: %RequestLine{}} = incoming_request) do
         core = Application.get_env(:sippet, :core)
         apply(core, :on_request, [incoming_request, self()])
       end
 
+      @doc false
       def receive_response(
           %Message{start_line: %StatusLine{}} = incoming_response) do
         core = Application.get_env(:sippet, :core)
         apply(core, :on_response, [incoming_response, self()])
       end
 
+      @doc false
       def receive_error(reason) when is_atom(reason) do
         core = Application.get_env(:sippet, :core)
         apply(core, :on_error, [reason, self()])
+      end
+
+      @doc false
+      def send_request(
+          %Message{start_line: %RequestLine{}} = outgoing_request) do
+        Transport.Registry.send(self(), outgoing_request)
+      end
+
+      @doc false
+      def send_response(
+          %Message{start_line: %StatusLine{}} = outgoing_response) do
+        Transport.Registry.send(self(), outgoing_response)
+      end
+
+      @doc false
+      def reliable?(
+          %Message{start_line: %RequestLine{}} = request) do
+        Transport.Registry.reliable?(request)
       end
     end
   end
