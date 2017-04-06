@@ -1,7 +1,6 @@
 defmodule Sippet.Transport.Conn.Supervisor do
   import Supervisor.Spec
 
-  @doc false
   def start_link(conn_module) do
     children = [
       worker(conn_module, [], restart: :transient)
@@ -19,9 +18,9 @@ defmodule Sippet.Transport.Conn.Supervisor do
     {:via, Registry, {Sippet.Transport.Registry, {__MODULE__, module}}}
   end
 
-  @doc false
   def start_child(module, host, port) do
     name = via_tuple(module)
-    Supervisor.start_child(name, [[host, port], []])
+    child_name = {module, host, port}
+    Supervisor.start_child(name, [host, port, [name: child_name]])
   end
 end
