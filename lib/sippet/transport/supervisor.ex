@@ -1,12 +1,11 @@
 defmodule Sippet.Transport.Supervisor do
   import Supervisor.Spec
 
-  @doc false
   def start_link() do
     plug_conn_modules = Application.get_env(:sippet, __MODULE__)
 
     partitions = System.schedulers_online()
-    options = [:unique, Sippet.Transport.Registry, partitions: partitions]
+    options = [:unique, Sippet.Transport.Registry, [partitions: partitions]]
     registry_spec = supervisor(Registry, options)
 
     children = do_children_spec(plug_conn_modules, [registry_spec])

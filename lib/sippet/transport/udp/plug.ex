@@ -14,14 +14,14 @@ defmodule Sippet.Transport.UDP.Plug do
   def start_link() do
     port =
       Application.get_env(:sippet, __MODULE__)
-      |> Map.fetch!(:port)
+      |> Keyword.fetch!(:port)
 
     if port <= 0 do
       raise ArgumentError, "invalid port #{inspect port}"
     end
 
     children = [
-      worker(Agent, [fn -> %{} end, name: __MODULE__]),
+      worker(Agent, [fn -> %{} end, [name: agent_name()]]),
       worker(GenServer, [__MODULE__, port])
     ]
 
@@ -33,14 +33,16 @@ defmodule Sippet.Transport.UDP.Plug do
     Supervisor.start_link(children, options)
   end
 
+  defp agent_name(), do: Module.concat(__MODULE__, Agent)
+
   def get_socket(),
-    do: Agent.get(__MODULE__, fn %{socket: socket} -> socket end)
+    do: Agent.get(agent_name(), fn %{socket: socket} -> socket end)
 
   def init(port) do
     sock_opts = [as: :binary, mode: :active]
 
     socket = Socket.UDP.open!(port, sock_opts)
-    Agent.update(__MODULE__, &Map.put(&1, :socket, socket))
+    Agent.update(agent_name(), &Map.put(&1, :socket, socket))
 
     {:ok, {address, _port}} = :inet.sockname(socket)
 
@@ -107,7 +109,7 @@ defmodule Sippet.Transport.UDP.Plug do
     else
       message
     end
-    |> Sippet.Transaction.receive_message()
+    |> Sippet.Transaction.Registry.receive_message()
   end
 
   def terminate(reason, {socket, address, port}) do

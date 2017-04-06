@@ -33,7 +33,7 @@ defmodule Sippet.Transport.Registry do
   end
 
   defp do_get_conn_module(protocol) do
-    Application.get_env(:sippet, __MODULE__) |> Map.fetch!(protocol)
+    Application.get_env(:sippet, __MODULE__) |> Keyword.fetch!(protocol)
   end
 
   defp do_ensure_connection(module, host, port) do

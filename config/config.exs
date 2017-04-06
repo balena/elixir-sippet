@@ -7,7 +7,7 @@ use Mix.Config
 
 
 config :sippet, Sippet.Transport.Supervisor, [
-  {Suppet.Transport.UDP.Plug, Suppet.Transport.UDP.Conn}
+  {Sippet.Transport.UDP.Plug, Sippet.Transport.UDP.Conn}
 ]
 
 config :sippet, Sippet.Transport.UDP.Plug, port: 5060
