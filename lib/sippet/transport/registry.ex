@@ -1,7 +1,7 @@
 defmodule Sippet.Transport.Registry do
   alias Sippet.Message, as: Message
 
-  def send(transaction \\ nil, %Message{} = msg) do
+  def send_message(transaction \\ nil, %Message{} = msg) do
     {protocol, host, port} = do_get_destination(msg)
     module = do_get_conn_module(protocol)
     do_ensure_connection(module, host, port)

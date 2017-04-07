@@ -1,9 +1,6 @@
 defmodule Sippet.Transaction.Supervisor do
   import Supervisor.Spec
 
-  alias Sippet.Message, as: Message
-  alias Sippet.Message.RequestLine, as: RequestLine
-
   @via_registry {:via, Registry, {Sippet.Transaction.Registry, __MODULE__}}
 
   def start_link() do
@@ -20,15 +17,12 @@ defmodule Sippet.Transaction.Supervisor do
     Supervisor.start_link([registry_spec, sup_spec], options)
   end
 
-  def start_client({module, branch, method} = name,
-      %Message{start_line: %RequestLine{}} = request) do
-    data = {request, branch, method}
-    Supervisor.start_child(@via_registry, [module, data, [name: name]])
+  def start_child(module, %Sippet.Transaction.Client{} = name,
+      %Sippet.Transaction.Client.State{} = initial_data) do
+    Supervisor.start_child(@via_registry, [module, initial_data, [name: name]])
   end
-
-  def start_server({module, branch, sent_by, method} = name,
-      %Message{start_line: %RequestLine{}} = request) do
-    data = {request, branch, sent_by, method}
-    Supervisor.start_child(@via_registry, [module, data, [name: name]])
+  def start_child(module, %Sippet.Transaction.Server{} = name,
+      %Sippet.Transaction.Server.State{} = initial_data) do
+    Supervisor.start_child(@via_registry, [module, initial_data, [name: name]])
   end
 end
