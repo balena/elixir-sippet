@@ -1,5 +1,5 @@
 defmodule Sippet.Transport do
-  import Supervisor.Spec
+  import Sippet.Transport.Registry
 
   alias Sippet.Message, as: Message
   alias Sippet.Transport.Conn, as: Conn
@@ -9,10 +9,7 @@ defmodule Sippet.Transport do
   """
   @spec start_link() :: Supervisor.on_start
   def start_link() do
-    children =
-      [Sippet.Transport.Registry.spec()] ++
-      plugs_spec() ++
-      conns_sup_spec()
+    children = [registry_spec()] ++ plugs_specs() ++ conns_sup_specs()
 
     options = [
       strategy: :one_for_one,
@@ -22,25 +19,25 @@ defmodule Sippet.Transport do
     Supervisor.start_link(children, options)
   end
 
-  defp plugs_spec() do
+  defp plugs_specs() do
     Application.get_env(:sippet, __MODULE__)
     |> Keyword.fetch!(:plugs)
-    |> plugs_spec([])
+    |> plugs_specs([])
   end
 
-  defp plugs_spec([], result), do: result
-  defp plugs_spec([module | rest], result),
-    do: plugs_spec(rest, [worker(module, []) | result])
+  defp plugs_specs([], result), do: result
+  defp plugs_specs([module | rest], result),
+    do: plugs_specs(rest, [plug_spec(module) | result])
 
-  defp conns_sup_spec() do
+  defp conns_sup_specs() do
     Application.get_env(:sippet, __MODULE__)
     |> Keyword.fetch!(:conns)
-    |> conns_sup_spec([])
+    |> conns_sup_specs([])
   end
 
-  defp conns_sup_spec([], result), do: result
-  defp conns_sup_spec([{protocol, _module} | rest], result),
-    do: conns_sup_spec(rest, [supervisor(Conn, [protocol]) | result])
+  defp conns_sup_specs([], result), do: result
+  defp conns_sup_specs([{protocol, _module} | rest], result),
+    do: conns_sup_specs(rest, [conn_sup_spec(protocol) | result])
 
   @doc """
   Sends a message to the network.

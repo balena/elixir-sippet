@@ -6,6 +6,7 @@ defmodule Sippet.Transport.Conn do
   """
 
   import Supervisor.Spec
+  import Sippet.Transport.Registry
 
   alias Sippet.Message, as: Message
 
@@ -55,7 +56,7 @@ defmodule Sippet.Transport.Conn do
 
     options = [
       strategy: :simple_one_for_one,
-      name: Sippet.Transport.Registry.via_tuple(module)
+      name: via_tuple(module)
     ]
 
     Supervisor.start_link(children, options)
@@ -72,8 +73,8 @@ defmodule Sippet.Transport.Conn do
   """
   def start_connection(protocol, host, port, message, transaction) do
     module = get_connection_module(protocol)
-    name = Sippet.Transport.Registry.via_tuple(module)
-    child_name = Sippet.Transport.Registry.via_tuple(module, host, port)
+    name = via_tuple(module)
+    child_name = via_tuple(module, host, port)
     Supervisor.start_child(name,
         [host, port, message, transaction, [name: child_name]])
   end
