@@ -25,7 +25,7 @@ defmodule Sippet.Transaction.Server do
     sent_by: {host, dport}
   }
 
-  @type transaction :: pid | t
+  @type transaction :: t | GenServer.server
 
   defstruct [
     branch: nil,
@@ -73,12 +73,12 @@ defmodule Sippet.Transaction.Server do
   @spec start(t, request) :: Supervisor.on_start_child
   def start(%__MODULE__{} = transaction,
       %Message{start_line: %RequestLine{}} = incoming_request) do
-    module = transaction |> module()
+    module = transaction |> to_module()
     initial_data = State.new(incoming_request, transaction)
-    Transaction.Supervisor.start_child(module, transaction, initial_data)
+    Transaction.start_child(module, transaction, initial_data)
   end
 
-  defp module(%__MODULE__{} = transaction) do
+  defp to_module(%__MODULE__{} = transaction) do
     case transaction.method do
       :invite -> Transaction.Server.Invite
       _otherwise -> Transaction.Server.NonInvite
@@ -86,33 +86,31 @@ defmodule Sippet.Transaction.Server do
   end
 
   @spec receive_request(transaction, request) :: :ok
-  def receive_request(transaction,
-      %Message{start_line: %RequestLine{}} = request)
-      when is_pid(transaction) do
-    GenStateMachine.cast(transaction, {:incoming_request, request})
-  end
-
   def receive_request(%__MODULE__{} = transaction,
       %Message{start_line: %RequestLine{}} = request) do
     GenStateMachine.cast(as_via_tuple(transaction),
         {:incoming_request, request})
   end
 
+  def receive_request(transaction,
+      %Message{start_line: %RequestLine{}} = request) do
+    GenStateMachine.cast(transaction, {:incoming_request, request})
+  end
+
   defp as_via_tuple(%__MODULE__{} = transaction) do
-    {:via, Registry, {Transaction.Registry, transaction}}
+    {:via, Registry, {Transaction, transaction}}
   end
 
   @spec send_response(transaction, response) :: :ok
-  def send_response(transaction,
-      %Message{start_line: %StatusLine{}} = response)
-      when is_pid(transaction) do
-    GenStateMachine.cast(transaction, {:outgoing_response, response})
-  end
-
   def send_response(%__MODULE__{} = transaction,
       %Message{start_line: %StatusLine{}} = response) do
     GenStateMachine.cast(as_via_tuple(transaction),
         {:outgoing_response, response})
+  end
+
+  def send_response(transaction,
+      %Message{start_line: %StatusLine{}} = response) do
+    GenStateMachine.cast(transaction, {:outgoing_response, response})
   end
 
   @spec receive_error(t, reason) :: :ok
@@ -137,7 +135,7 @@ defmodule Sippet.Transaction.Server do
       defp send_response(response, %State{name: name} = data) do
         extras = data.extras |> Map.put(:last_response, response)
         data = %{data | extras: extras}
-        Sippet.Transport.send_response(response, name)
+        Sippet.Transport.send_message(response, name)
         data
       end
 

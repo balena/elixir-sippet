@@ -12,7 +12,7 @@ defmodule Sippet.Transaction.Client.NonInvite do
   @timer_k 5000  # timer K is 5s
 
   defp start_timers(%State{request: request, extras: extras} = data) do
-    deadline_timer =  self() |> Process.send_after(@timer_f, :deadline)
+    deadline_timer = self() |> Process.send_after(:deadline, @timer_f)
     extras = extras |> Map.put(:deadline_timer, deadline_timer)
 
     extras =

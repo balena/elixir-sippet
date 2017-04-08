@@ -5,13 +5,17 @@ defmodule Sippet.Transport.Conn do
   This module defines the behavior all transport connections have to implement.
   """
 
+  alias Sippet.Message, as: Message
+
   @type host :: binary
   @type address :: :inet.ip_address
   @type dport :: integer
   @type socket :: term
   @type message :: iodata
   @type reason :: term
-  @type transaction :: port | nil
+  @type transaction :: client_transaction | server_transaction | nil
+  @type client_transaction :: Sippet.Transaction.Client.t
+  @type server_transaction :: Sippet.Transaction.Server.t
 
   @type on_via_tuple ::
     {:via, module, {module, {module, host, port}}}
@@ -19,7 +23,7 @@ defmodule Sippet.Transport.Conn do
   @doc """
   Connects to the given `address` and `port`.
   """
-  @callback connect(address, dport) :: {:ok, socket} | {:error, reason}
+  @callback connect(address, dport) :: term | no_return
 
   @doc """
   Invoked to send a message to the given `socket`. If any error occur while
@@ -33,15 +37,20 @@ defmodule Sippet.Transport.Conn do
   """
   @callback reliable?() :: boolean
 
+
+  @spec send_message(GenServer.server, %Message{}, transaction) :: :ok
+  def send_message(server, message, transaction),
+    do: GenServer.cast(server, {:send, message, transaction})
+
   defmacro __using__(_opts) do
     quote location: :keep do
+      @behaviour Sippet.Transport.Conn
+
       use GenServer
 
       @doc false
-      def start_link(host, port) do
-        name = Sippet.Transport.Conn.via_tuple(__MODULE__, host, port)
-        GenServer.start_link(__MODULE__, {host, port}, name: name)
-      end
+      def start_link(host, port, options),
+        do: GenServer.start_link(__MODULE__, {host, port}, options)
 
       @doc false
       def init(state) do
@@ -55,46 +64,35 @@ defmodule Sippet.Transport.Conn do
 
       @doc false
       def handle_info(:connect, {host, port}) do
-        case :inet.getaddr(String.to_charlist(host), :inet) do
+        case Socket.Address.for(host, :inet) do
           {:error, reason} ->
             {:stop, reason, {nil}}
-          {:ok, address} ->
+          {:ok, [address|_]} ->
             case connect(address, port) do
-              {:ok, socket} -> {:noreply, {socket}}
-              {:error, reason} -> {:stop, reason, {nil}}
+              {:ok, socket} -> {:noreply, socket}
+              {:error, reason} -> {:stop, reason, nil}
             end
         end
       end
 
-      @doc false
-      def handle_info({:send, message, transaction}, {socket}) do
+      def handle_info({:send, message, transaction}, socket) do
         case send(socket, Message.to_iodata(message)) do
           :ok ->
-            {:ok, {socket}}
+            {:ok, socket}
           {:error, reason} ->
             if transaction != nil do
-              Sippet.Transaction.on_error(transaction, reason)
+              Sippet.Transaction.receive_error(transaction, reason)
             end
 
-            {:stop, reason, {socket}}
+            {:stop, reason, socket}
         end
       end
 
-      @doc false
       def handle_info(msg, state), do: super(msg, state)
 
-      defoverridable [init: 1, handle_info: 2]
+      def connect(address, port), do: {:error, :not_implemented}
+
+      defoverridable [init: 1, handle_info: 2, connect: 2]
     end
-  end
-
-  @spec via_tuple(module, host, dport) :: on_via_tuple
-  def via_tuple(module, host, port) do
-    {:via, Registry, {Sippet.Transport.Registry, {module, host, port}}}
-  end
-
-  @spec send_message(module, host, dport, message, transaction) :: :ok
-  def send_message(module, host, port, message, transaction) do
-    name = via_tuple(module, host, port)
-    GenServer.cast(name, {:send, message, transaction})
   end
 end

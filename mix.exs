@@ -9,7 +9,8 @@ defmodule Sippet.Mixfile do
      start_permanent: Mix.env == :prod,
      compilers: [:make, :elixir, :app], # Add the make compiler
      aliases: aliases(), # Configure aliases
-     deps: deps()]
+     deps: deps(),
+     dialyzer: [ignore_warnings: "dialyzer.ignore-warnings"]]
   end
 
   defp aliases do
@@ -21,7 +22,7 @@ defmodule Sippet.Mixfile do
   #
   # Type "mix help compile.app" for more information
   def application do
-    [applications: [:logger, :gen_state_machine]]
+    [applications: [:logger, :gen_state_machine, :socket]]
   end
 
   # Dependencies can be Hex packages:

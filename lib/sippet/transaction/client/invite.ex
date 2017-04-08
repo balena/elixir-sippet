@@ -1,6 +1,7 @@
 defmodule Sippet.Transaction.Client.Invite do
   use Sippet.Transaction.Client, initial_state: :calling
 
+  alias Sippet.Message, as: Message
   alias Sippet.Message.StatusLine, as: StatusLine
   alias Sippet.Transaction.Client.State, as: State
 

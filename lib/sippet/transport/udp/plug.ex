@@ -109,7 +109,7 @@ defmodule Sippet.Transport.UDP.Plug do
     else
       message
     end
-    |> Sippet.Transaction.Registry.receive_message()
+    |> Sippet.Transaction.receive_message()
   end
 
   def terminate(reason, {socket, address, port}) do

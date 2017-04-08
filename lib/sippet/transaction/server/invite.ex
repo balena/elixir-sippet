@@ -1,6 +1,7 @@
 defmodule Sippet.Transaction.Server.Invite do
   use Sippet.Transaction.Server, initial_state: :proceeding
 
+  alias Sippet.Message, as: Message
   alias Sippet.Message.StatusLine, as: StatusLine
   alias Sippet.Transaction.Server.State, as: State
 

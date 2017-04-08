@@ -20,7 +20,7 @@ defmodule Sippet.Transaction.Server.NonInvite do
 
   def trying(:cast, {:outgoing_response, response}, data) do
     data = send_response(response, data)
-    case StatusLine.status_code_class(response) do
+    case StatusLine.status_code_class(response.start_line) do
       1 -> {:next_state, :proceeding, data}
       _ -> {:next_state, :completed, data}
     end

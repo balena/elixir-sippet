@@ -5,7 +5,8 @@ defmodule Sippet.Transport.UDP.Conn do
 
   def connect(address, port) do
     Logger.info("started conn #{:inet.ntoa(address)}:#{port}/udp")
-    {Socket.Transport.UDP.Plug.get_socket(), address, port}
+    socket = Sippet.Transport.UDP.Plug.get_socket()
+    {:ok, {socket, address, port}}
   end
 
   def send({socket, address, port}, message),

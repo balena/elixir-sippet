@@ -64,7 +64,7 @@ defmodule Sippet.Transaction.Client do
       %Message{start_line: %RequestLine{}} = outgoing_request) do
     module = transaction |> module()
     initial_data = State.new(outgoing_request, transaction)
-    Transaction.Supervisor.start_child(module, transaction, initial_data)
+    Transaction.start_child(module, transaction, initial_data)
   end
 
   defp module(%__MODULE__{} = transaction) do
@@ -87,7 +87,7 @@ defmodule Sippet.Transaction.Client do
   end
 
   defp as_via_tuple(%__MODULE__{} = transaction) do
-    {:via, Registry, {Transaction.Registry, transaction}}
+    {:via, Registry, {Transaction, transaction}}
   end
 
   @spec receive_error(t, reason) :: :ok
@@ -110,7 +110,7 @@ defmodule Sippet.Transaction.Client do
       end
 
       defp send_request(request, %State{name: name} = data),
-        do: Sippet.Transport.send_request(request, name)
+        do: Sippet.Transport.send_message(request, name)
 
       defp receive_response(response, %State{name: name} = data),
         do: Sippet.Core.receive_response(response, name)

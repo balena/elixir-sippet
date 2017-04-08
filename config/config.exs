@@ -12,5 +12,5 @@ config :sippet, Sippet.Transport.Supervisor, [
 
 config :sippet, Sippet.Transport.UDP.Plug, port: 5060
 
-config :sippet, Sippet.Transport.Registry,
+config :sippet, Sippet.Transport,
   udp: Sippet.Transport.UDP.Conn

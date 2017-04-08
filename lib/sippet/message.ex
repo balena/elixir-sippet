@@ -147,15 +147,11 @@ defmodule Sippet.Message do
   }
 
   @type request :: %__MODULE__{
-    start_line: RequestLine.t,
-    headers: %{header => value},
-    body: String.t | nil
+    start_line: RequestLine.t
   }
 
   @type response :: %__MODULE__{
-    start_line: StatusLine.t,
-    headers: %{header => value},
-    body: String.t | nil
+    start_line: StatusLine.t
   }
 
   defmacrop is_method(data) do
