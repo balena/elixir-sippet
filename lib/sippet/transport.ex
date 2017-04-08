@@ -9,7 +9,10 @@ defmodule Sippet.Transport do
   """
   @spec start_link() :: Supervisor.on_start
   def start_link() do
-    children = [registry_spec()] ++ plugs_specs() ++ conns_sup_specs()
+    children = [
+      registry_spec(),
+      pool_spec(),
+    ] ++ plugs_specs() ++ conns_sup_specs()
 
     options = [
       strategy: :one_for_one,

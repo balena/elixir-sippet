@@ -4,8 +4,6 @@ defmodule Sippet.Transport.UDP.Plug do
 
   import Supervisor.Spec
 
-  alias Sippet.Message, as: Message
-
   require Logger
 
   @doc """
@@ -46,71 +44,18 @@ defmodule Sippet.Transport.UDP.Plug do
 
     {:ok, {address, _port}} = :inet.sockname(socket)
 
-    Logger.info("started plug #{:inet.ntoa(address)}:#{port}/udp")
+    Logger.info("#{inspect self()} started plug " <>
+                "#{:inet.ntoa(address)}:#{port}/udp")
     {:ok, {socket, address, port}}
   end
 
-  def handle_info({:udp, _socket, ip, from_port, packet},
-      {_, address, port} = state) do
-    case do_parse_message(packet) do
-      {:ok, message} ->
-        do_receive_message(message, ip, from_port)
-      {:error, reason} ->
-        Logger.error("couldn't parse incoming packet from " <>
-                     "#{:inet.ntoa(address)}:#{port}: #{inspect reason}")
-    end
-
+  def handle_info({:udp, _socket, ip, from_port, packet}, state) do
+    Sippet.Transport.Queue.incoming_datagram(packet, {:udp, ip, from_port})
     {:noreply, state}
   end
 
   def handle_info(msg, state),
     do: super(msg, state)
-
-  defp do_parse_message(packet) do
-    message = String.replace(packet, "\r\n", "\n")
-    case String.split(message, "\n\n", parts: 2) do
-      [header, body] ->
-        do_parse_message(header <> "\n\n", body)
-      [header] ->
-        do_parse_message(header, "")
-    end
-  end
-
-  defp do_parse_message(header, body) do
-    case Message.parse(header) do
-      {:ok, message} -> {:ok, %{message | body: body}}
-      other -> other
-    end
-  end
-
-  defp do_receive_message(message, ip, from_port) do
-    if Message.response?(message) do
-      host = to_string(:inet.ntoa(ip))
-
-      message
-      |> Message.update_header_back(:via, nil,
-        fn({version, protocol, {via_host, via_port}, params}) ->
-          params =
-            if host != via_host do
-              params |> Map.put("received", host)
-            else
-              params
-            end
-
-          params =
-            if from_port != via_port do
-              params |> Map.put("rport", to_string(from_port))
-            else
-              params
-            end
-
-          {version, protocol, {via_host, via_port}, params}
-        end)
-    else
-      message
-    end
-    |> Sippet.Transaction.receive_message()
-  end
 
   def terminate(reason, {socket, address, port}) do
     Logger.info("stopped plug #{:inet.ntoa(address)}:#{port}/udp, " <>
