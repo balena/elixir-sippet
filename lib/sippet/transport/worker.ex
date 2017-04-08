@@ -54,7 +54,7 @@ defmodule Sippet.Transport.Worker do
   end
 
   defp receive_message(message, {_protocol, ip, from_port} = from) do
-    if Message.response?(message) do
+    if Message.request?(message) do
       host = to_string(:inet.ntoa(ip))
 
       message
@@ -82,9 +82,131 @@ defmodule Sippet.Transport.Worker do
     |> validate_message(from)
   end
 
-  defp validate_message(message, _from) do
-    # TODO(guibv): validate the incoming SIP message
+  defp validate_message(message, from) do
+    if message |> has_required_headers() and
+       message |> has_valid_via(from) and
+       message |> has_valid_body() and
+       message |> has_tag_on(:from) do
+      if Message.request?(message) do
+        if validate_request(message) do
+          message |> Sippet.Transaction.receive_message()
+        end
+      else
+        if validate_response(message) do
+          message |> Sippet.Transaction.receive_message()
+        end
+      end
+    end
+  end
 
-    message |> Sippet.Transaction.receive_message()
+  defp has_required_headers(message) do
+    required = [:to, :from, :cseq, :call_id, :max_forwards, :via]
+    missing_headers =
+      for header <- required, not message |> Message.has_header?(header) do
+        header
+      end
+    if Enum.empty?(missing_headers) do
+      true
+    else
+      Logger.warn("discarded #{message_kind message}, " <>
+          "missing headers: #{inspect missing_headers}")
+      false
+    end
+  end
+
+  defp message_kind(message),
+    do: if(Message.request?(message), do: "request", else: "response")
+
+  defp has_valid_via(message, {protocol1, _ip, _port}) do
+    {_version, protocol2, _sent_by, _params} = hd(message.headers.via)
+    if protocol1 != protocol2 do
+      Logger.warn("discarded #{message_kind message}, " <>
+                  "Via protocol doesn't match transport protocol")
+      false
+    else
+      has_valid_via(message, message.headers.via)
+    end
+  end
+
+  defp has_valid_via(_, []), do: true
+  defp has_valid_via(message, [via|rest]) do
+    {version, _protocol, _sent_by, params} = via
+    if version != {2, 0} do
+      Logger.warn("discarded #{message_kind message}, " <>
+                  "Via version #{inspect version} is unknown")
+      false
+    else
+      case params do
+        %{"branch" => branch} ->
+          if branch |> String.starts_with?("z9hG4bK") do
+            has_valid_via(message, rest)
+          else
+            Logger.warn("discarded #{message_kind message}, " <>
+                        "Via branch doesn't start with the magic cookie")
+            false
+          end
+        _otherwise ->
+          Logger.warn("discarded #{message_kind message}, " <>
+                      "Via header doesn't have branch parameter")
+          false
+      end
+    end
+  end
+
+  defp has_valid_body(message) do
+    case message.headers do
+      %{content_length: content_length} ->
+        message.body != nil and length(message.body) == content_length
+      _otherwise ->
+        message.body == nil
+    end
+  end
+
+  defp has_tag_on(message, header) do
+    {_display_name, _uri, params} = message.headers[header]
+    case params do
+      %{"tag" => value} ->
+        if length(value) > 0 do
+          true
+        else
+          Logger.warn("discarded #{message_kind message}, " <>
+                      "empty #{inspect header} tag")
+          false
+        end
+      _otherwise ->
+        Logger.warn("discarded #{message_kind message}, " <>
+                    "#{inspect header} tag does not exist")
+        false
+    end
+  end
+
+  defp validate_request(request) do
+    request |> has_matching_cseq()
+  end
+
+  defp has_matching_cseq(request) do
+    method1 = request.start_line.method
+    {_sequence, method2} = request.headers.cseq
+    if method1 == method2 do
+      true
+    else
+      Logger.warn("discarded request, invalid CSeq method")
+      false
+    end
+  end
+
+  defp validate_response(response) do
+    response |> has_valid_status_line_version()
+  end
+
+  defp has_valid_status_line_version(response) do
+    %{version: version} = response
+    if version == {2, 0} do
+      true
+    else
+      Logger.warn("discarded response, invalid status line version " <>
+                  "#{inspect version}")
+      false
+    end
   end
 end
