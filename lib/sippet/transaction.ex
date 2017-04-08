@@ -5,7 +5,7 @@ defmodule Sippet.Transaction do
   necessary.
   """
 
-  import Supervisor.Spec
+  import Sippet.Transaction.Registry
 
   alias Sippet.Message, as: Message
   alias Sippet.Message.RequestLine, as: RequestLine
@@ -25,17 +25,14 @@ defmodule Sippet.Transaction do
   Starts the transaction process hierarchy.
   """
   def start_link() do
-    partitions = [partitions: System.schedulers_online()]
-    registry_args = [:unique, __MODULE__, partitions]
-    registry_spec = supervisor(Registry, registry_args)
-
-    sup_children = [worker(GenStateMachine, [], restart: :transient)]
-    sup_opts = [strategy: :simple_one_for_one, name: __MODULE__]
-    sup_spec = worker(Supervisor, [sup_children, sup_opts])
+    children = [
+      registry_spec(),
+      sup_spec(__MODULE__)
+    ]
 
     options = [strategy: :one_for_one]
 
-    Supervisor.start_link([registry_spec, sup_spec], options)
+    Supervisor.start_link(children, options)
   end
 
   @doc """
@@ -53,7 +50,7 @@ defmodule Sippet.Transaction do
 
     initial_data = Transaction.Client.State.new(outgoing_request, transaction)
     Supervisor.start_child(__MODULE__, [module, initial_data,
-                           [name: transaction]])
+                           [name: via_tuple(transaction)]])
   end
 
   @doc """
@@ -71,7 +68,7 @@ defmodule Sippet.Transaction do
 
     initial_data = Transaction.Server.State.new(incoming_request, transaction)
     Supervisor.start_child(__MODULE__, [module, initial_data,
-                           [name: transaction]])
+                           [name: via_tuple(transaction)]])
   end
 
   @doc """
@@ -99,7 +96,7 @@ defmodule Sippet.Transaction do
       %Message{start_line: %RequestLine{}} = incoming_request) do
     transaction = Transaction.Server.new(incoming_request)
 
-    case Registry.lookup(__MODULE__, transaction) do
+    case lookup(transaction) do
       [{_sup, pid}] ->
         # Redirect the request to the existing transaction. These are tipically
         # retransmissions or ACKs for 200 OK responses.
@@ -126,7 +123,7 @@ defmodule Sippet.Transaction do
       %Message{start_line: %StatusLine{}} = incoming_response) do
     transaction = Transaction.Client.new(incoming_response)
 
-    case Registry.lookup(__MODULE__, transaction) do
+    case lookup(transaction) do
       [{_sup, pid}] ->
         # Redirect the response to the existing client transaction. If needed,
         # the client transaction will redirect to the core from there.
@@ -187,7 +184,7 @@ defmodule Sippet.Transaction do
   @spec send_response(server_transaction, response) :: :ok | {:error, reason}
   def send_response(%Transaction.Server{} = server_transaction,
       %Message{start_line: %StatusLine{}} = outgoing_response) do
-    case Registry.lookup(__MODULE__, server_transaction) do
+    case lookup(server_transaction) do
       [{_sup, pid}] ->
         # Send the response through the existing server transaction.
         Transaction.Server.send_response(pid, outgoing_response)
@@ -206,7 +203,7 @@ defmodule Sippet.Transaction do
   """
   @spec receive_error(client_transaction | server_transaction, reason) :: :ok
   def receive_error(transaction, reason) do
-    case Registry.lookup(__MODULE__, transaction) do
+    case lookup(transaction) do
       [{_sup, pid}] ->
         # Send the response through the existing server transaction.
         case transaction do

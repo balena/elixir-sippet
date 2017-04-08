@@ -42,19 +42,28 @@ defmodule Sippet.Core do
 
   @spec receive_request(incoming_request, server_transaction) :: ignore
   def receive_request(incoming_request, server_transaction) do
+    args = [incoming_request, server_transaction]
+    apply(get_module!(), :receive_request, args)
+  end
+
+  defp get_module!() do
     module = Application.get_env(:sippet, __MODULE__)
-    apply(module, :receive_request, [incoming_request, server_transaction])
+    if module == nil do
+      raise RuntimeError, message: "Sippet.Core is not registered"
+    else
+      module
+    end
   end
 
   @spec receive_response(incoming_response, client_transaction) :: ignore
   def receive_response(incoming_response, client_transaction) do
-    module = Application.get_env(:sippet, __MODULE__)
-    apply(module, :receive_response, [incoming_response, client_transaction])
+    args = [incoming_response, client_transaction]
+    apply(get_module!(), :receive_response, args)
   end
 
   @spec receive_error(reason, client_or_server_transaction) :: ignore
   def receive_error(reason, client_or_server_transaction) do
-    module = Application.get_env(:sippet, __MODULE__)
-    apply(module, :receive_error, [reason, client_or_server_transaction])
+    args = [reason, client_or_server_transaction]
+    apply(get_module!(), :receive_error, args)
   end
 end
