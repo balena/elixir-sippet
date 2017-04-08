@@ -5,6 +5,8 @@ defmodule Sippet.Transport.Conn do
   This module defines the behavior all transport connections have to implement.
   """
 
+  import Supervisor.Spec
+
   alias Sippet.Message, as: Message
 
   @type host :: binary
@@ -30,17 +32,59 @@ defmodule Sippet.Transport.Conn do
   sending the message, and the transaction is not `nil`, the transaction should
   be informed so by calling `error/2`.
   """
-  @callback send(socket, message) :: :ok | {:error, reason}
+  @callback send_message(socket, message) :: :ok | {:error, reason}
 
   @doc """
   Invoked to check if this connection is reliable (stream-based).
   """
   @callback reliable?() :: boolean
 
+  @doc """
+  Starts a supervisor responsible for connections.
+
+  This function is called from the `start_link/0` function and it is not
+  intended to be used alone.
+  """
+  @spec start_link(protocol :: atom | binary) :: Supervisor.on_start
+  def start_link(protocol) do
+    module = get_connection_module(protocol)
+
+    children = [
+      worker(module, [], restart: :transient)
+    ]
+
+    options = [
+      strategy: :simple_one_for_one,
+      name: Sippet.Transport.Registry.via_tuple(module)
+    ]
+
+    Supervisor.start_link(children, options)
+  end
+
+  defp get_connection_module(protocol) do
+    Application.get_env(:sippet, Sippet.Transport)
+    |> Keyword.fetch!(:conns)
+    |> Keyword.fetch!(protocol)
+  end
+
+  @doc """
+  Ensures that a given connection has started.
+  """
+  def start_connection(protocol, host, port, message, transaction) do
+    module = get_connection_module(protocol)
+    name = Sippet.Transport.Registry.via_tuple(module)
+    child_name = Sippet.Transport.Registry.via_tuple(module, host, port)
+    Supervisor.start_child(name,
+        [host, port, message, transaction, [name: child_name]])
+  end
 
   @spec send_message(GenServer.server, %Message{}, transaction) :: :ok
   def send_message(server, message, transaction),
     do: GenServer.cast(server, {:send, message, transaction})
+
+  @spec reliable?(protocol :: atom | binary) :: boolean
+  def reliable?(protocol),
+    do: get_connection_module(protocol) |> apply(:reliable?, [])
 
   defmacro __using__(_opts) do
     quote location: :keep do
@@ -49,36 +93,43 @@ defmodule Sippet.Transport.Conn do
       use GenServer
 
       @doc false
-      def start_link(host, port, options),
-        do: GenServer.start_link(__MODULE__, {host, port}, options)
+      def start_link(host, port, message, transaction, options) do
+        initial_state = {host, port, message, transaction}
+        GenServer.start_link(__MODULE__, initial_state, options)
+      end
 
       @doc false
       def init(state) do
-        do_schedule_connect()
+        self() |> Process.send_after(:connect, 0)
         {:ok, state}
       end
 
-      defp do_schedule_connect() do
-        Process.send_after(self(), :connect, 0)
-      end
-
       @doc false
-      def handle_info(:connect, {host, port}) do
+      def handle_info(:connect, {host, port, message, transaction}) do
         case Socket.Address.for(host, :inet) do
           {:error, reason} ->
-            {:stop, reason, {nil}}
+            {:stop, reason, nil}
           {:ok, [address|_]} ->
             case connect(address, port) do
-              {:ok, socket} -> {:noreply, socket}
-              {:error, reason} -> {:stop, reason, nil}
+              {:error, reason} ->
+                {:stop, reason, nil}
+              {:ok, socket} ->
+                send_message(socket, message, transaction)
             end
         end
       end
+      
+      def handle_info(msg, state), do: super(msg, state)
 
-      def handle_info({:send, message, transaction}, socket) do
-        case send(socket, Message.to_iodata(message)) do
+      def handle_cast({:send, message, transaction}, socket),
+        do: send_message(socket, message, transaction)
+
+      def handle_cast(msg, state), do: super(msg, state)
+
+      defp send_message(socket, message, transaction) do
+        case send_message(socket, Message.to_iodata(message)) do
           :ok ->
-            {:ok, socket}
+            {:noreply, socket}
           {:error, reason} ->
             if transaction != nil do
               Sippet.Transaction.receive_error(transaction, reason)
@@ -87,8 +138,6 @@ defmodule Sippet.Transport.Conn do
             {:stop, reason, socket}
         end
       end
-
-      def handle_info(msg, state), do: super(msg, state)
 
       def connect(address, port), do: {:error, :not_implemented}
 

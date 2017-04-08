@@ -22,7 +22,8 @@ defmodule Sippet.Mixfile do
   #
   # Type "mix help compile.app" for more information
   def application do
-    [applications: [:logger, :gen_state_machine, :socket]]
+    [applications: [:logger, :gen_state_machine, :socket],
+     mod: {Sippet.Application, []}]
   end
 
   # Dependencies can be Hex packages:

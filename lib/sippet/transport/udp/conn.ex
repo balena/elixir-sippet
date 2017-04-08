@@ -9,7 +9,7 @@ defmodule Sippet.Transport.UDP.Conn do
     {:ok, {socket, address, port}}
   end
 
-  def send({socket, address, port}, message),
+  def send_message({socket, address, port}, message),
     do: Socket.Datagram.send(socket, message, {address, port})
 
   def reliable?(), do: false
@@ -18,4 +18,7 @@ defmodule Sippet.Transport.UDP.Conn do
     Logger.info("stopped conn #{:inet.ntoa(address)}:#{port}/udp, " <>
                 "reason: #{inspect reason}")
   end
+
+  def terminate(reason, state),
+    do: super(reason, state)
 end

@@ -5,12 +5,10 @@ use Mix.Config
 # Configures the sippet core
 #config :sippet, core_module: Sippet.Proxy
 
-
-config :sippet, Sippet.Transport.Supervisor, [
-  {Sippet.Transport.UDP.Plug, Sippet.Transport.UDP.Conn}
-]
-
 config :sippet, Sippet.Transport.UDP.Plug, port: 5060
 
 config :sippet, Sippet.Transport,
-  udp: Sippet.Transport.UDP.Conn
+  plugs: [Sippet.Transport.UDP.Plug],
+  conns: [
+    udp: Sippet.Transport.UDP.Conn
+  ]
