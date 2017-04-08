@@ -61,7 +61,7 @@ defmodule Sippet.Transport do
   end
   
   defp get_destination(%Message{headers: %{via: via}} = message) do
-    {_version, protocol, {host, port}, params} = List.first(via)
+    {_version, protocol, {host, port}, params} = hd(via)
     {host, port} =
       if Message.response?(message) do
         host =
@@ -89,7 +89,7 @@ defmodule Sippet.Transport do
   reliable.
   """
   def reliable?(%Message{headers: %{via: via}}) do
-    {_version, protocol, _host_and_port, _params} = List.first(via)
+    {_version, protocol, _host_and_port, _params} = hd(via)
     Conn.reliable?(protocol)
   end
 end

@@ -44,7 +44,7 @@ defmodule Sippet.Transaction.Client do
 
     # Take the topmost via branch
     {_version, _protocol, _sent_by, %{"branch" => branch}} =
-      List.first(incoming_request.headers.via)
+      hd(incoming_request.headers.via)
 
     new(branch, method)
   end
@@ -53,7 +53,7 @@ defmodule Sippet.Transaction.Client do
 
     # Take the topmost via branch
     {_version, _protocol, _sent_by, %{"branch" => branch}} =
-      List.first(outgoing_response.headers.via)
+      hd(outgoing_response.headers.via)
 
     new(branch, method)
   end
