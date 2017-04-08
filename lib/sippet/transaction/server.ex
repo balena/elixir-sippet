@@ -2,7 +2,6 @@ defmodule Sippet.Transaction.Server do
   alias Sippet.Message, as: Message
   alias Sippet.Message.RequestLine, as: RequestLine
   alias Sippet.Message.StatusLine, as: StatusLine
-  alias Sippet.Transaction, as: Transaction
   alias Sippet.Transaction.Server.State, as: State
 
   @type request :: %Message{start_line: %RequestLine{}}
@@ -70,53 +69,20 @@ defmodule Sippet.Transaction.Server do
     new(branch, method, sent_by)
   end
 
-  @spec start(t, request) :: Supervisor.on_start_child
-  def start(%__MODULE__{} = transaction,
-      %Message{start_line: %RequestLine{}} = incoming_request) do
-    module = transaction |> to_module()
-    initial_data = State.new(incoming_request, transaction)
-    Transaction.start_child(module, transaction, initial_data)
-  end
+  @doc false
+  @spec receive_request(GenServer.server, request) :: :ok
+  def receive_request(server, %Message{start_line: %RequestLine{}} = request),
+    do: GenStateMachine.cast(server, {:incoming_request, request})
 
-  defp to_module(%__MODULE__{} = transaction) do
-    case transaction.method do
-      :invite -> Transaction.Server.Invite
-      _otherwise -> Transaction.Server.NonInvite
-    end
-  end
+  @doc false
+  @spec send_response(GenServer.server, response) :: :ok
+  def send_response(server, %Message{start_line: %StatusLine{}} = response),
+    do: GenStateMachine.cast(server, {:outgoing_response, response})
 
-  @spec receive_request(transaction, request) :: :ok
-  def receive_request(%__MODULE__{} = transaction,
-      %Message{start_line: %RequestLine{}} = request) do
-    GenStateMachine.cast(as_via_tuple(transaction),
-        {:incoming_request, request})
-  end
-
-  def receive_request(transaction,
-      %Message{start_line: %RequestLine{}} = request) do
-    GenStateMachine.cast(transaction, {:incoming_request, request})
-  end
-
-  defp as_via_tuple(%__MODULE__{} = transaction) do
-    {:via, Registry, {Transaction, transaction}}
-  end
-
-  @spec send_response(transaction, response) :: :ok
-  def send_response(%__MODULE__{} = transaction,
-      %Message{start_line: %StatusLine{}} = response) do
-    GenStateMachine.cast(as_via_tuple(transaction),
-        {:outgoing_response, response})
-  end
-
-  def send_response(transaction,
-      %Message{start_line: %StatusLine{}} = response) do
-    GenStateMachine.cast(transaction, {:outgoing_response, response})
-  end
-
-  @spec receive_error(t, reason) :: :ok
-  def receive_error(%__MODULE__{} = transaction, reason) do
-    GenStateMachine.cast(as_via_tuple(transaction), {:error, reason})
-  end
+  @doc false
+  @spec receive_error(GenServer.server, reason) :: :ok
+  def receive_error(server, reason),
+    do: GenStateMachine.cast(server, {:error, reason})
 
   defmacro __using__(opts) do
     quote location: :keep do

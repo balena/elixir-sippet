@@ -39,16 +39,39 @@ defmodule Sippet.Transaction do
   end
 
   @doc """
-  Starts a transaction with name `name` and `initial_data`.
+  Starts a client transaction.
   """
-  def start_child(module, %Sippet.Transaction.Client{} = name,
-      %Sippet.Transaction.Client.State{} = initial_data) do
-    Supervisor.start_child(__MODULE__, [module, initial_data, [name: name]])
+  @spec start_client(Transaction.Client.t, request) ::
+    Supervisor.on_start_child
+  def start_client(%Transaction.Client{} = transaction,
+      %Message{start_line: %RequestLine{}} = outgoing_request) do
+    module =
+      case transaction.method do
+        :invite -> Transaction.Client.Invite
+        _otherwise -> Transaction.Client.NonInvite
+      end
+
+    initial_data = Transaction.Client.State.new(outgoing_request, transaction)
+    Supervisor.start_child(__MODULE__, [module, initial_data,
+                           [name: transaction]])
   end
 
-  def start_child(module, %Sippet.Transaction.Server{} = name,
-      %Sippet.Transaction.Server.State{} = initial_data) do
-    Supervisor.start_child(__MODULE__, [module, initial_data, [name: name]])
+  @doc """
+  Starts a server transaction.
+  """
+  @spec start_server(Transaction.Server.t, request) ::
+    Supervisor.on_start_child
+  def start_server(%Transaction.Server{} = transaction,
+      %Message{start_line: %RequestLine{}} = incoming_request) do
+    module =
+      case transaction.method do
+        :invite -> Transaction.Server.Invite
+        _otherwise -> Transaction.Server.NonInvite
+      end
+
+    initial_data = Transaction.Server.State.new(incoming_request, transaction)
+    Supervisor.start_child(__MODULE__, [module, initial_data,
+                           [name: transaction]])
   end
 
   @doc """
@@ -90,7 +113,7 @@ defmodule Sippet.Transaction do
           # Start a new server transaction now. The transaction will redirect
           # to the core once it starts. It will return errors only if there was
           # some kind of race condition when receiving the request.
-          case Transaction.Server.start(transaction, incoming_request) do
+          case start_server(transaction, incoming_request) do
             {:ok, _} -> :ok
             {:ok, _, _} -> :ok
             _errors -> {:error, :already_started}
@@ -141,7 +164,7 @@ defmodule Sippet.Transaction do
 
     # Create a new client transaction now. The request is passed to the
     # transport once it starts.
-    case Transaction.Client.start(transaction, outgoing_request) do
+    case start_client(transaction, outgoing_request) do
       {:ok, _} -> {:ok, transaction}
       {:ok, _, _} -> {:ok, transaction}
       _errors ->
@@ -182,8 +205,24 @@ defmodule Sippet.Transaction do
   transaction using this function.
   """
   @spec receive_error(client_transaction | server_transaction, reason) :: :ok
-  def receive_error(%Transaction.Client{} = client_transaction, reason),
-    do: Transaction.Client.receive_error(client_transaction, reason)
-  def receive_error(%Transaction.Server{} = server_transaction, reason),
-    do: Transaction.Server.receive_error(server_transaction, reason)
+  def receive_error(transaction, reason) do
+    case Registry.lookup(__MODULE__, transaction) do
+      [{_sup, pid}] ->
+        # Send the response through the existing server transaction.
+        case transaction do
+          %Transaction.Client{} ->
+            Transaction.Client.receive_error(pid, reason)
+          %Transaction.Server{} ->
+            Transaction.Server.receive_error(pid, reason)
+        end
+      [] ->
+        case transaction do
+          %Transaction.Client{} ->
+            Logger.warn("client transaction #{transaction} not found")
+          %Transaction.Server{} ->
+            Logger.warn("server transaction #{transaction} not found")
+        end
+        {:error, :no_transaction}
+    end
+  end
 end

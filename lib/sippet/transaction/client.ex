@@ -2,7 +2,6 @@ defmodule Sippet.Transaction.Client do
   alias Sippet.Message, as: Message
   alias Sippet.Message.RequestLine, as: RequestLine
   alias Sippet.Message.StatusLine, as: StatusLine
-  alias Sippet.Transaction, as: Transaction
   alias Sippet.Transaction.Client.State, as: State
 
   @type request :: %Message{start_line: %RequestLine{}}
@@ -59,47 +58,21 @@ defmodule Sippet.Transaction.Client do
     new(branch, method)
   end
 
-  @spec start(t, request) :: Supervisor.on_start_child
-  def start(%__MODULE__{} = transaction,
-      %Message{start_line: %RequestLine{}} = outgoing_request) do
-    module = transaction |> module()
-    initial_data = State.new(outgoing_request, transaction)
-    Transaction.start_child(module, transaction, initial_data)
-  end
+  @doc false
+  @spec receive_response(GenServer.server, response) :: :ok
+  def receive_response(server, %Message{start_line: %StatusLine{}} = response),
+    do: GenStateMachine.cast(server, {:incoming_response, response})
 
-  defp module(%__MODULE__{} = transaction) do
-    case transaction.method do
-      :invite -> Transaction.Client.Invite
-      _otherwise -> Transaction.Client.NonInvite
-    end
-  end
-
-  @spec receive_response(transaction, response) :: :ok
-  def receive_response(transaction,
-      %Message{start_line: %StatusLine{}} = response)
-      when is_pid(transaction) do
-    GenStateMachine.cast(transaction, {:incoming_response, response})
-  end
-  def receive_response(%__MODULE__{} = transaction,
-      %Message{start_line: %StatusLine{}} = response) do
-    GenStateMachine.cast(as_via_tuple(transaction),
-        {:incoming_response, response})
-  end
-
-  defp as_via_tuple(%__MODULE__{} = transaction) do
-    {:via, Registry, {Transaction, transaction}}
-  end
-
-  @spec receive_error(t, reason) :: :ok
-  def receive_error(%__MODULE__{} = transaction, reason) do
-    GenStateMachine.cast(as_via_tuple(transaction), {:error, reason})
-  end
+  @doc false
+  @spec receive_error(GenServer.server, reason) :: :ok
+  def receive_error(server, reason),
+    do: GenStateMachine.cast(server, {:error, reason})
 
   defmacro __using__(opts) do
     quote location: :keep do
       use GenStateMachine, callback_mode: [:state_functions, :state_enter]
 
-      alias Sippet.ServerTransaction.State, as: State
+      alias Sippet.Transaction.Client.State, as: State
 
       require Logger
 
