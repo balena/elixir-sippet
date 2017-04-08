@@ -7,6 +7,10 @@ use Mix.Config
 
 config :sippet, Sippet.Transport.UDP.Plug, port: 5060
 
+config :sippet, Sippet.Transport.Pool,
+  size: System.schedulers_online(),
+  max_overflow: 0
+
 config :sippet, Sippet.Transport,
   plugs: [Sippet.Transport.UDP.Plug],
   conns: [
