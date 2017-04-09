@@ -1,4 +1,4 @@
-defmodule Sippet.Transport.UDP.Conn do
+defmodule Sippet.Transport.UDP.Sender do
   alias Sippet.Transport.UDP.Plug, as: Plug
   alias Sippet.Transport.UDP.Pool, as: Pool
 
