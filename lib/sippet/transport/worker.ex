@@ -170,7 +170,7 @@ defmodule Sippet.Transport.Worker do
   defp has_valid_body(message) do
     case message.headers do
       %{content_length: content_length} ->
-        message.body != nil and length(message.body) == content_length
+        message.body != nil and String.length(message.body) == content_length
       _otherwise ->
         message.body == nil
     end
@@ -180,7 +180,7 @@ defmodule Sippet.Transport.Worker do
     {_display_name, _uri, params} = message.headers[header]
     case params do
       %{"tag" => value} ->
-        if length(value) > 0 do
+        if String.length(value) > 0 do
           true
         else
           Logger.warn("discarded #{message_kind message}, " <>

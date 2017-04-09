@@ -16,7 +16,7 @@ defmodule Sippet.PoolboyUtil do
 
     config =
       config
-      |> Keyword.put(:name, {:local, worker})
+      |> Keyword.put(:name, {:local, module})
       |> Keyword.put(:worker_module, worker)
 
     :poolboy.child_spec(module, config, [])
