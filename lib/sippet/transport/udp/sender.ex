@@ -1,4 +1,5 @@
 defmodule Sippet.Transport.UDP.Sender do
+  alias Sippet.Message, as: Message
   alias Sippet.Transport.UDP.Plug, as: Plug
   alias Sippet.Transport.UDP.Pool, as: Pool
 
@@ -18,7 +19,8 @@ defmodule Sippet.Transport.UDP.Sender do
     result =
       case Socket.Address.for(host, :inet) do
         {:ok, [address|_]} ->
-          case Socket.Datagram.send(socket, message, {address, port}) do
+          iodata = Message.to_iodata(message)
+          case Socket.Datagram.send(socket, iodata, {address, port}) do
             :ok -> :ok
             other -> other
           end
@@ -38,7 +40,6 @@ defmodule Sippet.Transport.UDP.Sender do
     end
 
     Pool.check_in(self())
-
     {:noreply, nil}
   end
 

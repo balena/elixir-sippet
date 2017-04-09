@@ -84,19 +84,32 @@ defmodule Sippet.Transport.Worker do
   end
 
   defp validate_message(message, from) do
-    if message |> has_required_headers() and
-       message |> has_valid_via(from) and
-       message |> has_valid_body() and
-       message |> has_tag_on(:from) do
-      if Message.request?(message) do
-        if validate_request(message) do
-          message |> Sippet.Transaction.receive_message()
-        end
-      else
-        if validate_response(message) do
-          message |> Sippet.Transaction.receive_message()
+    is_valid =
+      if message |> has_valid_start_line_version() and
+         message |> has_required_headers() and
+         message |> has_valid_via(from) and
+         message |> has_valid_body() and
+         message |> has_tag_on(:from) do
+        if Message.request?(message) do
+          validate_request(message)
+        else
+          true
         end
       end
+
+    if is_valid do
+      message |> Sippet.Transaction.receive_message()
+    end
+  end
+
+  defp has_valid_start_line_version(message) do
+    %{version: version} = message.start_line
+    if version == {2, 0} do
+      true
+    else
+      Logger.warn("discarded #{message_kind message}, " <>
+                  "invalid status line version #{inspect version}")
+      false
     end
   end
 
@@ -192,21 +205,6 @@ defmodule Sippet.Transport.Worker do
       true
     else
       Logger.warn("discarded request, invalid CSeq method")
-      false
-    end
-  end
-
-  defp validate_response(response) do
-    response |> has_valid_status_line_version()
-  end
-
-  defp has_valid_status_line_version(response) do
-    %{version: version} = response.start_line
-    if version == {2, 0} do
-      true
-    else
-      Logger.warn("discarded response, invalid status line version " <>
-                  "#{inspect version}")
       false
     end
   end
