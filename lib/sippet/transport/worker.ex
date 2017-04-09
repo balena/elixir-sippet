@@ -2,13 +2,14 @@ defmodule Sippet.Transport.Worker do
   use GenServer
 
   alias Sippet.Message, as: Message
+  alias Sippet.Transport.Pool, as: Pool
 
   require Logger
 
   def start_link(_), do: GenServer.start_link(__MODULE__, nil)
 
   def init(_) do
-    Logger.info("#{inspect self()} worker ready")
+    Logger.info("#{inspect self()} message worker ready")
     {:ok, nil}
   end
 
@@ -102,7 +103,7 @@ defmodule Sippet.Transport.Worker do
   defp has_required_headers(message) do
     required = [:to, :from, :cseq, :call_id, :max_forwards, :via]
     missing_headers =
-      for header <- required, not message |> Message.has_header?(header) do
+      for header <- required, not (message |> Message.has_header?(header)) do
         header
       end
     if Enum.empty?(missing_headers) do
@@ -200,7 +201,7 @@ defmodule Sippet.Transport.Worker do
   end
 
   defp has_valid_status_line_version(response) do
-    %{version: version} = response
+    %{version: version} = response.start_line
     if version == {2, 0} do
       true
     else
@@ -208,5 +209,10 @@ defmodule Sippet.Transport.Worker do
                   "#{inspect version}")
       false
     end
+  end
+
+  def terminate(reason, _) do
+    Logger.info("#{inspect self()} stopped message worker, " <>
+                "reason #{inspect reason}")
   end
 end

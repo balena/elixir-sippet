@@ -1,8 +1,8 @@
 defmodule Sippet.Transport do
-  import Sippet.Transport.Registry
+  import Supervisor.Spec
 
   alias Sippet.Message, as: Message
-  alias Sippet.Transport.Conn, as: Conn
+  alias Sippet.Transport.Pool, as: Pool
 
   @doc """
   Starts the transport process hierarchy.
@@ -10,9 +10,9 @@ defmodule Sippet.Transport do
   @spec start_link() :: Supervisor.on_start
   def start_link() do
     children = [
-      registry_spec(),
-      pool_spec(),
-    ] ++ plugs_specs() ++ conns_sup_specs()
+      Pool.spec() |
+      plugs_specs()
+    ]
 
     options = [
       strategy: :one_for_one,
@@ -24,42 +24,28 @@ defmodule Sippet.Transport do
 
   defp plugs_specs() do
     Application.get_env(:sippet, __MODULE__)
-    |> Keyword.fetch!(:plugs)
     |> plugs_specs([])
   end
 
   defp plugs_specs([], result), do: result
-  defp plugs_specs([module | rest], result),
-    do: plugs_specs(rest, [plug_spec(module) | result])
-
-  defp conns_sup_specs() do
-    Application.get_env(:sippet, __MODULE__)
-    |> Keyword.fetch!(:conns)
-    |> conns_sup_specs([])
-  end
-
-  defp conns_sup_specs([], result), do: result
-  defp conns_sup_specs([{protocol, _module} | rest], result),
-    do: conns_sup_specs(rest, [conn_sup_spec(protocol) | result])
+  defp plugs_specs([{_protocol, module} | rest], result),
+    do: plugs_specs(rest, [worker(module, []) | result])
 
   @doc """
   Sends a message to the network.
 
-  If specified, the `transaction` will receive errors, if they happen. See
-  `Sippet.Transaction.receive_error/2`.
+  If specified, the `transaction` will receive the transport error if occurs.
+  See `Sippet.Transaction.receive_error/2`.
+
+  This function may block the caller temporarily due to resource constraints.
   """
+  @spec send_message(Message.t, GenServer.server | nil) :: :ok
   def send_message(message, transaction \\ nil) do
     {protocol, host, port} = get_destination(message)
-    case Conn.start_connection(protocol, host, port, message, transaction) do
-      {:ok, _server} ->
-        :ok
-      {:error, {:already_started, server}} ->
-        Conn.send_message(server, message, transaction)
-      _otherwise ->
-        {:error, :unexpected}
-    end
+    plug = protocol |> to_plug()
+    apply(plug, :send_message, [message, host, port, transaction])
   end
-  
+
   defp get_destination(%Message{headers: %{via: via}} = message) do
     {_version, protocol, {host, port}, params} = hd(via)
     {host, port} =
@@ -84,12 +70,19 @@ defmodule Sippet.Transport do
     {protocol, host, port}
   end
 
+  defp to_plug(protocol) do
+    Application.get_env(:sippet, Sippet.Transport)
+    |> Keyword.fetch!(protocol)
+  end
+
   @doc """
   Verifies if the transport protocol used to send the given message is
   reliable.
   """
+  @spec reliable?(Message.t) :: boolean
   def reliable?(%Message{headers: %{via: via}}) do
     {_version, protocol, _host_and_port, _params} = hd(via)
-    Conn.reliable?(protocol)
+    plug = protocol |> to_plug()
+    apply(plug, :reliable?, [])
   end
 end

@@ -1,24 +1,49 @@
 defmodule Sippet.Transport.UDP.Conn do
-  use Sippet.Transport.Conn
+  alias Sippet.Transport.UDP.Plug, as: Plug
+  alias Sippet.Transport.UDP.Pool, as: Pool
 
   require Logger
 
-  def connect(address, port) do
-    Logger.info("started conn #{:inet.ntoa(address)}:#{port}/udp")
-    socket = Sippet.Transport.UDP.Plug.get_socket()
-    {:ok, {socket, address, port}}
+  def start_link(_), do: GenServer.start_link(__MODULE__, nil)
+
+  def init(_) do
+    Logger.info("#{inspect self()} udp worker ready")
+    {:ok, nil}
   end
 
-  def send_message({socket, address, port}, message),
-    do: Socket.Datagram.send(socket, message, {address, port})
+  @doc false
+  def handle_cast({:send_message, message, host, port, transaction}, _) do
+    socket = Plug.get_socket()
 
-  def reliable?(), do: false
+    result =
+      case Socket.Address.for(host, :inet) do
+        {:ok, [address|_]} ->
+          case Socket.Datagram.send(socket, message, {address, port}) do
+            :ok -> :ok
+            other -> other
+          end
+        other ->
+          other
+      end
 
-  def terminate(reason, {_socket, address, port}) do
-    Logger.info("stopped conn #{:inet.ntoa(address)}:#{port}/udp, " <>
-                "reason: #{inspect reason}")
+    case result do
+      :ok ->
+        :ok
+      {:error, reason} ->
+        Logger.warn("#{inspect self()} udp worker error for " <>
+                    "#{host}:#{port}: #{inspect reason}")
+        if transaction != nil do
+          Sippet.Transaction.receive_error(transaction, reason)
+        end
+    end
+
+    Pool.check_in(self())
+
+    {:noreply, nil}
   end
 
-  def terminate(reason, state),
-    do: super(reason, state)
+  def terminate(reason, _) do
+    Logger.info("#{inspect self()} stopped udp worker, " <>
+                "reason #{inspect reason}")
+  end
 end

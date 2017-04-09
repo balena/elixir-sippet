@@ -2,6 +2,8 @@ defmodule Sippet.Transport.UDP.Plug do
   use GenServer
   use Sippet.Transport.Plug
 
+  alias Sippet.Transport.UDP.Pool, as: Pool
+
   import Supervisor.Spec
 
   require Logger
@@ -18,34 +20,49 @@ defmodule Sippet.Transport.UDP.Plug do
       raise ArgumentError, "invalid port #{inspect port}"
     end
 
+    address =
+      Application.get_env(:sippet, __MODULE__)
+      |> Keyword.get(:address)
+
+    opts =
+      case address do
+        nil -> []
+        ip -> [address: ip]
+      end
+
     children = [
-      worker(Agent, [fn -> %{} end, [name: agent_name()]]),
-      worker(GenServer, [__MODULE__, port])
+      worker(GenServer, [__MODULE__, [port, opts], [name: __MODULE__]]),
+      Pool.spec()
     ]
 
-    options = [
-      strategy: :one_for_one,
-      name: __MODULE__
-    ]
-
-    Supervisor.start_link(children, options)
+    Supervisor.start_link(children, [strategy: :one_for_one])
   end
 
-  defp agent_name(), do: Module.concat(__MODULE__, Agent)
+  def send_message(message, host, port, transaction) do
+    conn = Pool.check_out()
+    GenServer.cast(conn, {:send_message, message, host, port, transaction})
+  end
+
+  def reliable?(), do: false
 
   def get_socket(),
-    do: Agent.get(agent_name(), fn %{socket: socket} -> socket end)
+    do: GenServer.call(__MODULE__, :get_socket, :infinity)
 
-  def init(port) do
-    sock_opts = [as: :binary, mode: :active]
+  def init([port, opts]) do
+    sock_opts =
+      [as: :binary, mode: :active] ++
+      if Keyword.has_key?(opts, :address) do
+        [local: [address: opts[:address]]]
+      else
+        []
+      end
 
     socket = Socket.UDP.open!(port, sock_opts)
-    Agent.update(agent_name(), &Map.put(&1, :socket, socket))
 
     {:ok, {address, _port}} = :inet.sockname(socket)
-
     Logger.info("#{inspect self()} started plug " <>
                 "#{:inet.ntoa(address)}:#{port}/udp")
+
     {:ok, {socket, address, port}}
   end
 
@@ -54,11 +71,18 @@ defmodule Sippet.Transport.UDP.Plug do
     {:noreply, state}
   end
 
-  def handle_info(msg, state),
-    do: super(msg, state)
+  def handle_info(request, state),
+    do: super(request, state)
+
+  def handle_call(:get_socket, _from, {socket, _address, _port} = state),
+    do: {:reply, socket, state}
+
+  def handle_call(request, from, state),
+    do: super(request, from, state)
 
   def terminate(reason, {socket, address, port}) do
-    Logger.info("stopped plug #{:inet.ntoa(address)}:#{port}/udp, " <>
+    Logger.info("#{inspect self()} stopped plug " <>
+                "#{:inet.ntoa(address)}:#{port}/udp, " <>
                 "reason: #{inspect reason}")
     :ok = :gen_udp.close(socket)
   end

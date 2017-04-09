@@ -1,8 +1,8 @@
-defmodule Sippet.Transport.Pool do
+defmodule Sippet.Transport.UDP.Pool do
 
   @spec spec() :: Supervisor.Spec.spec
   def spec() do
-    alias Sippet.Transport.Worker, as: Worker
+    alias Sippet.Transport.UDP.Conn, as: Conn
 
     defaults = [
       size: System.schedulers_online(),
@@ -12,7 +12,7 @@ defmodule Sippet.Transport.Pool do
       max_overflow: 0
     ]
 
-    Sippet.PoolboyUtil.child_spec(__MODULE__, Worker, defaults)
+    Sippet.PoolboyUtil.child_spec(__MODULE__, Conn, defaults)
   end
 
   @spec check_out() :: pid
