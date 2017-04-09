@@ -25,3 +25,6 @@ erl_crash.dump
 
 # C/C++ NIF modules
 *.o
+
+# Ignore mix.lock
+mix.lock
