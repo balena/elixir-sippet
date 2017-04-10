@@ -1,15 +1,10 @@
 defmodule Sippet.Transport.Plug do
   @moduledoc """
-  A behaviour module for implementing `Sippet` transports.
-  """
+  A behaviour module for implementing Sippet network transport protocols.
 
-  @type message :: %Sippet.Message{}
-  @type host :: binary
-  @type dport :: integer
-  @type transaction :: client_transaction | server_transaction | nil
-  @type client_transaction :: Sippet.Transaction.Client.t
-  @type server_transaction :: Sippet.Transaction.Server.t
-  @type reason :: term
+  A `Sippet.Transport.Plug` behavior module is started and supervised by the
+  `Sippet.Transport` module at initialization.
+  """
 
   @doc """
   Invoked to start listening for datagrams or connections.
@@ -21,10 +16,19 @@ defmodule Sippet.Transport.Plug do
   the message, and the transaction is not `nil`, the transaction should be
   informed so by calling `error/2`.
   """
-  @callback send_message(message, host, dport, transaction) :: :ok | {:error, reason}
+  @callback send_message(message :: Sippet.Message.t,
+                         remote_host :: binary,
+                         remote_port :: integer,
+                         transaction ::
+                            Sippet.Transaction.Client.t |
+                            Sippet.Transaction.Server.t |
+                            nil)
+                         :: :ok | {:error, reason :: term}
 
   @doc """
-  Invoked to check if this connection is reliable (stream-based).
+  Invoked to check if this connection is reliable (connection-oriented). If
+  `false` then the `Sippet.Transaction` has to retransmit requests or handle
+  request retransmissions.
   """
   @callback reliable?() :: boolean
 

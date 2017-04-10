@@ -15,10 +15,19 @@ defmodule Sippet.Transaction do
 
   require Logger
 
+  @typedoc "A SIP message request"
   @type request :: Message.request
+
+  @typedoc "A SIP message response"
   @type response :: Message.response
-  @type reason :: atom
+
+  @typedoc "An network error that occurred while sending a message"
+  @type reason :: term
+
+  @typedoc "A client transaction identifier"
   @type client_transaction :: Transaction.Client.t
+
+  @typedoc "A server transaction identifier"
   @type server_transaction :: Transaction.Server.t
 
   @doc """
