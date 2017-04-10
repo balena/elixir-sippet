@@ -1,4 +1,18 @@
 defmodule Sippet.Transport do
+  @moduledoc """
+  The `Sippet.Transport` is responsible for the actual transmission of requests
+  and responses over network transports.
+
+  Network transport protocols are implemented following the
+  `Sippet.Transport.Plug` behavior, and they are configured as:
+
+      config :sippet, Sippet.Transport,
+        udp: Sippet.Transport.UDP.Plug
+
+  Whenever a message is received by a plug, the `Sippet.Transport.Queue` is
+  used to process, validate and route it through the transaction layer or core.
+  """
+
   import Supervisor.Spec
 
   alias Sippet.Message, as: Message
