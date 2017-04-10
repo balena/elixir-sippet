@@ -758,24 +758,46 @@ defmodule Sippet.Message do
   @spec parse(iodata) :: {:ok, t} | {:error, atom}
   def parse(data) do
     case Sippet.Parser.parse(IO.iodata_to_binary(data)) do
-      {:ok, message} -> {:ok, do_parse(message)}
-      other -> other
+      {:ok, message} ->
+        case do_parse(message) do
+          {:error, reason} ->
+            {:error, reason}
+          message ->
+            {:ok, message}
+        end
+      other ->
+        other
     end
   end
 
   defp do_parse(message) do
-    %__MODULE__{
-      start_line: do_parse_start_line(message.start_line),
-      headers: do_parse_headers(message.headers)
-    }
+    case do_parse_start_line(message.start_line) do
+      {:error, reason} ->
+        {:error, reason}
+      start_line ->
+        case do_parse_headers(message.headers) do
+          {:error, reason} ->
+            {:error, reason}
+          headers ->
+            %__MODULE__{
+              start_line: start_line,
+              headers: headers
+            }
+        end
+    end
   end
 
   defp do_parse_start_line(%{method: _} = start_line) do
-    %RequestLine{
-      method: start_line.method,
-      request_uri: URI.parse(start_line.request_uri),
-      version: start_line.version
-    }
+    case URI.parse(start_line.request_uri) do
+      {:ok, uri} ->
+        %RequestLine{
+          method: start_line.method,
+          request_uri: uri,
+          version: start_line.version
+        }
+      other ->
+        other
+    end
   end
 
   defp do_parse_start_line(%{status_code: _} = start_line) do
@@ -786,16 +808,21 @@ defmodule Sippet.Message do
     }
   end
 
-  defp do_parse_headers(%{} = headers) do
-    do_parse_headers(Map.to_list(headers), [])
-  end
+  defp do_parse_headers(%{} = headers),
+    do: do_parse_headers(Map.to_list(headers), [])
 
   defp do_parse_headers([], result), do: Map.new(result)
-  defp do_parse_headers([{name, value}|tail], result),
-    do: do_parse_headers(tail, [{name, do_parse_header_value(value)}|result])
+  defp do_parse_headers([{name, value} | tail], result) do
+    case do_parse_header_value(value) do
+      {:error, reason} ->
+        {:error, reason}
+      value ->
+        do_parse_headers(tail, [{name, value} | result])
+    end
+  end
 
   defp do_parse_header_value(values) when is_list(values),
-    do: do_parse_header_value(values, [])
+    do: do_parse_each_header_value(values, [])
 
   defp do_parse_header_value({{year, month, day}, {hour, minute, second},
       microsecond}) do
@@ -803,14 +830,26 @@ defmodule Sippet.Message do
         microsecond)
   end
 
-  defp do_parse_header_value({display_name, uri, %{} = parameters}),
-    do: {display_name, URI.parse(uri), parameters}
+  defp do_parse_header_value({display_name, uri, %{} = parameters}) do
+    case URI.parse(uri) do
+      {:ok, uri} ->
+        {display_name, uri, parameters}
+      other ->
+        other
+    end
+  end
 
   defp do_parse_header_value(value), do: value
 
-  defp do_parse_header_value([], result), do: Enum.reverse(result)
-  defp do_parse_header_value([head|tail], result),
-    do: do_parse_header_value(tail, [do_parse_header_value(head)|result])
+  defp do_parse_each_header_value([], result), do: Enum.reverse(result)
+  defp do_parse_each_header_value([head | tail], result) do
+    case do_parse_header_value(head) do
+      {:error, reason} ->
+        {:error, reason}
+      value ->
+        do_parse_each_header_value(tail, [value | result])
+    end
+  end
 
   @doc """
   Parses a SIP message header block as received by the transport layer.

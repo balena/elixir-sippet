@@ -309,38 +309,62 @@ defmodule Sippet.URI do
   returns it unmodified.
   ## Examples
       iex> Sippet.URI.parse("sip:user@host?Call-Info=%3Chttp://www.foo.com%3E&Subject=foo")
-      %Sippet.URI{scheme: "sip", userinfo: "user", authority: "user@host",
+      {:ok, %Sippet.URI{scheme: "sip", userinfo: "user", authority: "user@host",
                   host: "host", port: 5060, parameters: nil,
-                  headers: "?Call-Info=%3Chttp://www.foo.com%3E&Subject=foo"}
+                  headers: "?Call-Info=%3Chttp://www.foo.com%3E&Subject=foo"}}
       iex> Sippet.URI.parse("sip:user@host;transport=FOO")
-      %Sippet.URI{scheme: "sip", userinfo: "user", authority: "user@host",
+      {:ok, %Sippet.URI{scheme: "sip", userinfo: "user", authority: "user@host",
                   host: "host", port: 5060, parameters: ";transport=FOO",
-                  headers: nil}
+                  headers: nil}}
       iex> Sippet.URI.parse("sip:user@host")
-      %Sippet.URI{scheme: "sip", userinfo: "user", authority: "user@host",
+      {:ok, %Sippet.URI{scheme: "sip", userinfo: "user", authority: "user@host",
                   host: "host", port: 5060, parameters: nil,
-                  headers: nil}
+                  headers: nil}}
   """
-  @spec parse(t | binary) :: t
-  def parse(uri)
-
+  @spec parse(t | binary) :: {:ok, t} | {:error, reason :: term}
   def parse(%URI{} = uri), do: uri
 
   def parse(string) when is_binary(string) do
     regex = ~r{^(([^:;?]+):)([^;?]+)([^?]*)(\?.*)?}
     parts = nillify(Regex.run(regex, string))
+    case parts do
+      {:error, reason} ->
+        {:error, reason}
+      _otherwise ->
+        destructure [_, _, scheme, authority, parameters, headers], parts
+        {userinfo, host, port} = split_authority(authority)
 
-    destructure [_, _, scheme, authority, parameters, headers], parts
-    {userinfo, host, port} = split_authority(authority)
+        scheme = scheme && String.downcase(scheme)
+        port   = port || (scheme && default_port(scheme))
 
-    scheme = scheme && String.downcase(scheme)
-    port   = port || (scheme && default_port(scheme))
+        if not Enum.member?(["sip", "sips"], scheme) do
+          {:error, :invalid_scheme}
+        else
+          {:ok, %Sippet.URI{
+            scheme: scheme, userinfo: userinfo,
+            authority: authority, parameters: parameters,
+            headers: headers, host: host, port: port
+          }}
+        end
+    end
+  end
 
-    %Sippet.URI{
-      scheme: scheme, userinfo: userinfo,
-      authority: authority, parameters: parameters,
-      headers: headers, host: host, port: port
-    }
+  @doc """
+  Parses a well-formed SIP-URI reference into its components.
+
+  If invalid, raises an exception.
+  """
+  @spec parse!(t | binary) :: t | no_return
+  def parse!(%URI{} = uri), do: uri
+
+  def parse!(string) when is_binary(string) do
+    case parse(string) do
+      {:ok, message} ->
+        message
+      {:error, reason} ->
+        raise ArgumentError, "cannot convert #{inspect string} to SIP-URI, " <>
+            "reason: #{inspect reason}"
+    end
   end
 
   # Split an authority into its userinfo, host and port parts.
@@ -356,6 +380,7 @@ defmodule Sippet.URI do
 
   # Regex.run returns empty strings sometimes. We want
   # to replace those with nil for consistency.
+  defp nillify(nil), do: {:error, :invalid}
   defp nillify(list) do
     for string <- list do
       if byte_size(string) > 0, do: string

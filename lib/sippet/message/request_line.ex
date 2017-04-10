@@ -14,15 +14,18 @@ defmodule Sippet.Message.RequestLine do
   }
 
   def build(method, %URI{} = request_uri)
-    when is_atom(method) or is_binary(method),
-    do: %__MODULE__{
-        method: method,
-        request_uri: request_uri,
-        version: {2, 0}}
+      when is_atom(method) or is_binary(method) do
+    %__MODULE__{
+      method: method,
+      request_uri: request_uri,
+      version: {2, 0}
+    }
+  end
 
   def build(method, request_uri)
-    when is_binary(request_uri),
-    do: build(method, URI.parse(request_uri))
+      when is_binary(request_uri) do
+    build(method, URI.parse!(request_uri))
+  end
 
   defdelegate to_string(value), to: String.Chars.Sippet.Message.RequestLine
 
