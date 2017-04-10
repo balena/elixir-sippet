@@ -10,6 +10,8 @@ defmodule Sippet.Mixfile do
      compilers: [:make, :elixir, :app], # Add the make compiler
      aliases: aliases(), # Configure aliases
      deps: deps(),
+     description: description(),
+     package: package(),
      dialyzer: [ignore_warnings: "dialyzer.ignore-warnings"]]
   end
 
@@ -39,7 +41,24 @@ defmodule Sippet.Mixfile do
     [{:dialyxir, "~> 0.5", only: [:dev], runtime: false},
      {:gen_state_machine, "~> 2.0"},
      {:socket, "~> 0.3.5"},
-     {:poolboy, "~> 1.5.1"}]
+     {:poolboy, "~> 1.5.1"},
+     {:ex_doc, ">= 0.14", only: :dev, runtime: false}]
+  end
+
+  defp description do
+    """
+    An Elixir library designed to be used as SIP protocol middleware.
+    """
+  end
+
+  defp package do
+    [# These are the default files included in the package
+     name: :sippet,
+     files: ["lib", "priv", "config", "c_src", "support", "mix.exs",
+             "README.md", "LICENSE"],
+     maintainers: ["Guilherme Balena Versiani"],
+     licenses: ["BSD"],
+     links: %{"GitHub" => "https://github.com/balena/elixir-sippet"}]
   end
 end
 
