@@ -54,7 +54,7 @@ defmodule Sippet.Mixfile do
   defp package do
     [# These are the default files included in the package
      name: :sippet,
-     files: ["lib", "c_src/*.{h,cc}", "c_src/Makefile" "support",
+     files: ["lib", "c_src/*.{h,cc}", "c_src/Makefile", "support",
              "mix.exs", "README.md", "LICENSE"],
      maintainers: ["Guilherme Balena Versiani"],
      licenses: ["BSD"],
