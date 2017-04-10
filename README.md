@@ -50,7 +50,7 @@ If [available in Hex](https://hex.pm/docs/publish), the package can be installed
 
     ```elixir
     def application do
-      [applications: [:sippet]]
+      [applications: [:sippet, :logger, :gen_state_machine, :socket, poolboy]]
     end
     ```
 
