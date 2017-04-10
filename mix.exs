@@ -3,8 +3,8 @@ defmodule Sippet.Mixfile do
 
   def project do
     [app: :sippet,
-     version: "0.1.1",
-     elixir: "~> 1.3",
+     version: "0.1.2",
+     elixir: "~> 1.4",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
      compilers: [:make, :elixir, :app], # Add the make compiler
@@ -54,8 +54,8 @@ defmodule Sippet.Mixfile do
   defp package do
     [# These are the default files included in the package
      name: :sippet,
-     files: ["lib", "priv", "config", "c_src", "support", "mix.exs",
-             "README.md", "LICENSE"],
+     files: ["lib", "c_src/*.{h,cc}", "c_src/Makefile" "support",
+             "mix.exs", "README.md", "LICENSE"],
      maintainers: ["Guilherme Balena Versiani"],
      licenses: ["BSD"],
      links: %{"GitHub" => "https://github.com/balena/elixir-sippet"}]
