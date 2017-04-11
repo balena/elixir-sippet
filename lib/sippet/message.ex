@@ -1088,6 +1088,155 @@ defmodule Sippet.Message do
 
   defp upcase_atom_or_string(s),
     do: if(is_atom(s), do: String.upcase(Atom.to_string(s)), else: s)
+
+  @doc """
+  Checks whether a message is valid.
+  """
+  @spec validate(t) :: :ok | {:error, reason :: term}
+  def validate(message) do
+    validators = [
+      &has_valid_start_line_version/1,
+      &has_required_headers/1,
+      &has_valid_body/1,
+      &has_tag_on(:from, &1)
+    ]
+
+    validators =
+      if Message.request?(message) do
+        validators ++ [
+          &has_matching_cseq/1
+        ]
+      else
+        if message.start_line.status_code > 100 do
+          # If the status code is > 100, it has to have a to-tag
+          validators ++ [
+            &has_tag_on(:to, &1)
+          ]
+        else
+          validators
+        end
+      end
+
+    do_validate(validators, message)
+  end
+
+  defp do_validate([], _message), do: :ok
+  defp do_validate([f | rest], message) do
+    case f.(message) do
+      :ok -> do_validate(rest, message)
+      other -> other
+    end
+  end
+
+  defp has_valid_start_line_version(message) do
+    %{version: version} = message.start_line
+    if version == {2, 0} do
+      :ok
+    else
+      {:error, "invalid status line version #{inspect version}"}
+    end
+  end
+
+  defp has_required_headers(message) do
+    required = [:to, :from, :cseq, :call_id, :max_forwards, :via]
+    missing_headers =
+      for header <- required, not (message |> Message.has_header?(header)) do
+        header
+      end
+    if Enum.empty?(missing_headers) do
+      :ok
+    else
+      {:error, "missing headers: #{inspect missing_headers}"}
+    end
+  end
+
+  defp has_valid_body(message) do
+    case message.headers do
+      %{content_length: content_length} ->
+        if message.body != nil and
+           String.length(message.body) == content_length do
+          :ok
+        else
+          {:error, "Content-Length and message body size do not match"}
+        end
+      _otherwise ->
+        if message.body == nil do
+          :ok
+        else
+          {:error, "No Content-Length header, but body is not nil"}
+        end
+    end
+  end
+
+  defp has_tag_on(message, header) do
+    {_display_name, _uri, params} = message.headers[header]
+    case params do
+      %{"tag" => value} ->
+        if String.length(value) > 0 do
+          :ok
+        else
+          {:error, "empty #{inspect header} tag"}
+        end
+      _otherwise ->
+        {:error, "#{inspect header} does not have tag"}
+    end
+  end
+
+  defp has_matching_cseq(request) do
+    method1 = request.start_line.method
+    {_sequence, method2} = request.headers.cseq
+    if method1 == method2 do
+      :ok
+    else
+      {:error, "CSeq method and request method do no match"}
+    end
+  end
+
+  @doc """
+  Checks whether a message is valid, also checking if it corresponds to the
+  indicated incoming transport tuple `{protocol, host, port}`.
+  """
+  @spec validate(t, {protocol, host :: String.t, port :: integer}) ::
+            :ok | {:error, reason :: term}
+  def validate(message, from) do
+    case validate(message) do
+      :ok ->
+        validators = [
+          &has_valid_via(from, &1)
+        ]
+        do_validate(validators, message)
+      other ->
+        other
+    end
+  end
+
+  defp has_valid_via(message, {protocol1, _ip, _port}) do
+    {_version, protocol2, _sent_by, _params} = hd(message.headers.via)
+    if protocol1 != protocol2 do
+      {:error, "Via protocol doesn't match transport protocol"}
+    else
+      has_valid_via(message, message.headers.via)
+    end
+  end
+
+  defp has_valid_via(_, []), do: :ok
+  defp has_valid_via(message, [via | rest]) do
+    {version, _protocol, _sent_by, params} = via
+    if version != {2, 0} do
+      {:error, "Via version #{inspect version} is unknown"}
+    else
+      case params do
+        %{"branch" => branch} ->
+          if branch |> String.starts_with?("z9hG4bK") do
+            has_valid_via(message, rest)
+          else
+            {:error, "Via branch doesn't start with the magic cookie"}
+          end
+        _otherwise ->
+          {:error, "Via header doesn't have branch parameter"}
+      end
+    end
+  end
 end
 
 defimpl String.Chars, for: Sippet.Message do
