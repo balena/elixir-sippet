@@ -1,38 +1,55 @@
 ![Sippet](http://sippet.github.io/sippet/public/apple-touch-icon-144-precomposed.png)
 =========
 
-An Elixir library designed to write SIP protocol middleware.
+An Elixir library designed to write Session Initiation Protocol middleware.
+
 
 # Introduction
 
-Sippet is not intended to be a fully functional SIP UAC/UAS, proxy server,
-B2BUA, SBC or application; instead, it has only the very basic to build any
-kind of SIP middleware.
+SIP is a very flexible protocol that has great depth. It was designed to be a
+general-purpose way to set up real-time multimedia sessions between groups of
+participants. It is a text-based protocol modeled on the request/response model
+used in HTTP. This makes it easy to debug because the messages are relatively
+easy to construct and easy to see.
+
+Sippet is designed as a simple SIP middleware library, aiming the developer to
+write any kind of function required to register users, get their availability,
+check capabilities, setup and manage sessions. On the other hand, Sippet does
+not intend to provide any feature available in a fully functional SIP UAC/UAS,
+proxy server, B2BUA, SBC or application; instead, it has only the essential
+building blocks to build any kind of SIP middleware.
 
 One of the most central parts of Sippet is the `Sippet.Message`. Instead of
 many headers that you end up having to parse by yourself, there's an internal
 parser written in C++ (an Erlang NIF) that does all the hard work for you. This
-way, the `Sippet.Message.headers` is a simple `Map` where the key is the header
-name, and the value varies accordingly the header type. For instance, the
-header `:cseq` has the form `{sequence :: integer, method}` where the
-`method`is an atom with the method name (like `:invite`), and `:via` is a list
-of tuples `{version, protocol, sent_by, parameters}`, where `version` is of the
-form `{major, minor}`, `protocol` is an atom representing the Via header
-protocol (such as `:udp`), `sent_by` is a tuple `{host :: binary, port}` and
-parameters is always a `Map` of the form `%{name => value}` where `name` and
-`value` are `String.t`.
+way, the `Sippet.Message.headers` is a key-value simple `Map` where the key is
+the header name, and the value varies accordingly the header type. For
+instance, the header `:cseq` has the form `{sequence :: integer, method}` where
+the `method` is an atom with the method name (like `:invite`).
 
 Other than the `Sippet.Message`, you will find the `Sippet.Transport` and the
 `Sippet.Transaction` modules, which implement the two standard SIP layers.
+Message routing is performed just manipulating `Sippet.Message` headers;
+everything else is performed by these layers in a very standard way. That means
+you may not be able to build some non-standard behaviors, like routing the
+message to a given host that wasn't correctly added to the topmost Via header.
 
 As Sippet is a simple SIP library, the developer has to understand the protocol
 very well before writing a middleware. This design decision came up because all
 attempts to hide any inherent SIP complexity by other frameworks have failed.
 
-There is no support for plugins or hooks, all just have to be done from a
-`Sippet.Core` module implementation. Also there is no support for fancy
-protocols; a simple `Sippet.Transport.UDP` (but still performatic)
-implementation is provided, which is enough for several SIP middleware apps.
+There is no support for plugins or hooks, these case be implemented easily with
+Elixir behaviors and macros, and the developer may custom as he likes. Incoming
+messages and transport errors are directed to a `Sippet.Core` module behavior.
+
+Finally, there is no support for many different transport protocols; a simple
+`Sippet.Transport.UDP` (but still performatic) implementation is provided,
+which is enough for several SIP middleware apps. Transport protocols can be
+implemented quite easily using the `Sippet.Transport.Plug` behavior. In order
+to optimize the message processing, there's a `Sippet.Transport.Queue` which
+receives datagrams, case the transport protocol is datagram-based, or a
+`Sippet.Message.t` message, generally performed by stream-based protocols.
+
 
 ## Installation
 
