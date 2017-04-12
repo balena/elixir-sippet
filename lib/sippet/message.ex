@@ -1138,7 +1138,7 @@ defmodule Sippet.Message do
   end
 
   defp has_required_headers(message) do
-    required = [:to, :from, :cseq, :call_id, :max_forwards, :via]
+    required = [:to, :from, :cseq, :call_id, :via]
     missing_headers =
       for header <- required, not (message |> Message.has_header?(header)) do
         header
