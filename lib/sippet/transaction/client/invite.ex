@@ -35,10 +35,22 @@ defmodule Sippet.Transaction.Client.Invite do
         ack
       end
 
-    {_, _, %{"tag": to_tag}} = last_response.headers.to
-    {display_name, uri, params} = Message.get_header(ack, :to)
-    params = Map.put(params, "tag", to_tag)
-    ack |> Message.put_header(:to, {display_name, uri, params})
+    ack =
+      case last_response.headers.to do
+        {_, _, %{"tag": to_tag}} ->
+          ack |> Message.update_header(:to, nil,
+                  fn {display_name, uri, params} ->
+                    {display_name, uri, params |> Map.put("tag", to_tag)}
+                  end)
+        _otherwise ->
+          ack
+      end
+
+    if request |> Map.has_key?(:route) do
+      ack |> Message.put_header(:route, request.headers.route)
+    else
+      ack
+    end
   end
 
   def calling(:enter, _old_state, %State{request: request} = data) do

@@ -42,18 +42,18 @@ defmodule Sippet.Message.TortureTest do
 
     assert request.start_line.method == :invite
     assert request.start_line.request_uri ==
-      URI.parse("sip:vivekg@chair-dnrc.example.com;unknownparam")
+      URI.parse!("sip:vivekg@chair-dnrc.example.com;unknownparam")
     assert request.start_line.version == {2, 0}
 
     assert elem(request.headers.to, 0) == ""
     assert elem(request.headers.to, 1)
-      URI.parse("sip:vivekg@chair-dnrc.example.com")
+      URI.parse!("sip:vivekg@chair-dnrc.example.com")
     assert elem(request.headers.to, 2) ==
       %{"tag" => "1918181833n"}
 
     assert elem(request.headers.from, 0) == "J Rosenberg \\\""
     assert elem(request.headers.from, 1) ==
-      URI.parse("sip:jdrosen@example.com")
+      URI.parse!("sip:jdrosen@example.com")
     assert elem(request.headers.from, 2) ==
       %{"tag" => "98asjd8"}
 
@@ -88,10 +88,10 @@ defmodule Sippet.Message.TortureTest do
     assert request.headers.content_type == {{"application", "sdp"}, %{}}
 
     assert List.first(request.headers.route) ==
-      {"", URI.parse("sip:services.example.com;lr;unknownwith=value;unknown-no-value"), %{}}
+      {"", URI.parse!("sip:services.example.com;lr;unknownwith=value;unknown-no-value"), %{}}
 
     assert List.first(request.headers.contact) ==
-      {"Quoted string \"\"", URI.parse("sip:jdrosen@example.com"),
+      {"Quoted string \"\"", URI.parse!("sip:jdrosen@example.com"),
           %{"newparam" => "newvalue", "secondparam" => "", "q" => "0.33"}}
   end
 
@@ -115,7 +115,7 @@ defmodule Sippet.Message.TortureTest do
     assert request.start_line.method ==
       "!interesting-Method0123456789_*+`.%indeed'~"
     assert request.start_line.request_uri ==
-      URI.parse("sip:1_unusual.URI~(to-be!sure)&isn't+it$/crazy?,/;;*:&it+has=1,weird!*pas$wo~d_too.(doesn't-it)@example.com")
+      URI.parse!("sip:1_unusual.URI~(to-be!sure)&isn't+it$/crazy?,/;;*:&it+has=1,weird!*pas$wo~d_too.(doesn't-it)@example.com")
     assert request.start_line.version == {2, 0}
 
     assert List.first(request.headers.via) ==
@@ -123,11 +123,11 @@ defmodule Sippet.Message.TortureTest do
 
     assert request.headers.to ==
       {"BEL: NUL:\u{0000} DEL:",
-          URI.parse("sip:1_unusual.URI~(to-be!sure)&isn't+it$/crazy?,/;;*@example.com"),
+          URI.parse!("sip:1_unusual.URI~(to-be!sure)&isn't+it$/crazy?,/;;*@example.com"),
           %{}}
 
     assert request.headers.from ==
-      {"token1~` token2'+_ token3*%!.-", URI.parse("sip:mundane@example.com"),
+      {"token1~` token2'+_ token3*%!.-", URI.parse!("sip:mundane@example.com"),
           %{"fromParam''~+*_!.-%" => "Ñ\u{20AC}Ð°Ð±Ð¾Ñ\u{2012}Ð°Ñ×ÑÐ¸Ð¹",
             "tag" => "_token~1'+`*%!-."}}
 
