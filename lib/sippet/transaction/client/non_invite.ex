@@ -67,7 +67,7 @@ defmodule Sippet.Transaction.Client.NonInvite do
     do: retry(min(last_delay * 2, @t2), data)
 
   def trying(:cast, {:incoming_response, response}, data) do
-    data = receive_response(response, data)
+    receive_response(response, data)
     case StatusLine.status_code_class(response.start_line) do
       1 -> {:next_state, :proceeding, data}
       _ -> {:next_state, :completed, data}
@@ -90,7 +90,7 @@ defmodule Sippet.Transaction.Client.NonInvite do
     do: retry(@t2, data)
 
   def proceeding(:cast, {:incoming_response, response}, data) do
-    data = receive_response(response, data)
+    receive_response(response, data)
     case StatusLine.status_code_class(response.start_line) do
       1 -> {:keep_state, data}
       _ -> {:next_state, :completed, data}
