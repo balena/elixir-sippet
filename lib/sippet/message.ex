@@ -892,6 +892,15 @@ defmodule Sippet.Message do
         %StatusLine{} -> StatusLine.to_iodata(message.start_line)
       end
 
+    # includes a Content-Length header case it does not have one
+    message =
+      if message.headers |> Map.has_key?(:content_length) do
+        message
+      else
+        len = if(message.body == nil, do: 0, else: String.length(message.body))
+        %{message | headers: Map.put(message.headers, :content_length, len)}
+      end
+
     [start_line, "\n",
       do_headers(message.headers), "\n",
       if(message.body == nil, do: "", else: message.body)]
