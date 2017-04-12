@@ -1,4 +1,4 @@
-defmodule Sippet.Transaction.Server.Invite do
+defmodule Sippet.Transaction.Server.Invite.Test do
   use ExUnit.Case, async: false
 
   alias Sippet.Message
@@ -23,9 +23,9 @@ defmodule Sippet.Transaction.Server.Invite do
       |> Message.parse!()
 
     transaction = Server.new(request)
-    state = State.new(request, transaction)
+    data = State.new(request, transaction)
 
-    {:ok, %{request: request, transaction: transaction, state: state}}
+    {:ok, %{request: request, transaction: transaction, data: data}}
   end
 
   test "server transaction data", %{transaction: transaction} do
@@ -34,16 +34,20 @@ defmodule Sippet.Transaction.Server.Invite do
     assert transaction.sent_by == {"pc33.atlanta.com", 5060}
   end
 
-  test "client invite proceeding state",
-      %{request: request, transaction: transaction, state: state} do
-    # test if the retry timer has been started for unreliable transports, and
-    # if the received request is sent to the core
-    with_mock Sippet.Transport,
-        [send_message: fn _, _ -> :ok end,
-         reliable?: fn _ -> false end] do
+  test "server invite proceeding state",
+      %{request: request, transaction: transaction, data: data} do
+    with_mocks([
+        {Sippet.Transport, [],
+          [send_message: fn _, _ -> :ok end,
+           reliable?: fn _ -> false end]},
+        {Sippet.Core, [],
+          [receive_request: fn _, _ -> :ok end,
+           receive_error: fn _, _ -> :ok end]}]) do
 
+      # test if the retry timer has been started for unreliable transports, and
+      # if the received request is sent to the core
       {:keep_state_and_data, actions} =
-          Invite.proceeding(:enter, :none, state)
+          Invite.proceeding(:enter, :none, data)
 
       # ensure that a timer of 200ms is started in order to send a 100 Trying
       # automatically
@@ -60,13 +64,13 @@ defmodule Sippet.Transaction.Server.Invite do
       assert not called Sippet.Transport.send_response(response, transaction)
 
       # ensure that the 100 Trying is created and sent automatically
-      {:keep_state, data, actions} =
+      {:keep_state, data, _actions} =
           Invite.proceeding(:state_timeout, :still_trying, data)
 
       assert data.extras |> Map.has_key?(:last_response)
 
       last_response = data.extras.last_response
-      assert called Sippet.Transport.send_response(last_response, transaction)
+      assert called Sippet.Transport.send_message(last_response, transaction)
 
       # ensure that the state machine finishes case the idle timer fires
       {:stop, :shutdown, _data} =
@@ -76,7 +80,17 @@ defmodule Sippet.Transaction.Server.Invite do
       :keep_state_and_data =
           Invite.proceeding(:cast, {:incoming_request, request}, data)
 
-      assert called Sippet.Transport.send_response(last_response, transaction)
+      assert called Sippet.Transport.send_message(last_response, transaction)
     end
+  end
+
+  defp action_timeout(actions, delay) do
+    timeout_actions =
+      for x <- actions,
+          {:state_timeout, ^delay, _data} = x do
+        x
+      end
+
+    assert length(timeout_actions) == 1
   end
 end
