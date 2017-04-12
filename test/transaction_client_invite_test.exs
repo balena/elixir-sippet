@@ -1,15 +1,14 @@
-defmodule Sippet.Transaction.Test do
+defmodule Sippet.Transaction.Client.Invite.Test do
   use ExUnit.Case, async: false
 
   alias Sippet.Message
+  alias Sippet.Transaction.Client
+  alias Sippet.Transaction.Client.State
+  alias Sippet.Transaction.Client.Invite
 
   import Mock
 
-  test "client invite transaction" do
-    alias Sippet.Transaction.Client
-    alias Sippet.Transaction.Client.State
-    alias Sippet.Transaction.Client.Invite
-
+  setup do
     request =
       """
       INVITE sip:bob@biloxi.com SIP/2.0
@@ -24,14 +23,18 @@ defmodule Sippet.Transaction.Test do
       |> Message.parse!()
 
     transaction = Client.new(request)
-
-    assert transaction.branch == "z9hG4bK776asdhds"
-    assert transaction.method == :invite
-
     state = State.new(request, transaction)
 
-    # --- test the calling state
+    {:ok, %{request: request, transaction: transaction, state: state}}
+  end
 
+  test "client transaction data", %{transaction: transaction} do
+    assert transaction.branch == "z9hG4bK776asdhds"
+    assert transaction.method == :invite
+  end
+
+  test "client invite calling state",
+      %{request: request, transaction: transaction, state: state} do
     # test if the retry timer has been started for unreliable transports, and
     # if the received request is sent to the core
     with_mock Sippet.Transport,
@@ -100,9 +103,10 @@ defmodule Sippet.Transaction.Test do
       {:next_state, :completed, _data} =
         Invite.calling(:cast, {:incoming_response, response}, state)
     end
+  end
 
-    # --- test the proceeding state
-
+  test "client invite proceeding state",
+      %{request: request, state: state} do
     # check state transitions depending on the received responses
     with_mock Sippet.Core,
         [receive_response: fn _, _ -> :ok end] do
@@ -128,9 +132,10 @@ defmodule Sippet.Transaction.Test do
       {:stop, :shutdown, _data} =
         Invite.proceeding(:cast, {:error, :uh_oh}, state)
     end
+  end
 
-    # --- test the completed state
-
+  test "client invite completed state",
+      %{request: request, transaction: transaction, state: state} do
     # test the ACK request creation
     with_mock Sippet.Transport,
         [send_message: fn _, _ -> :ok end,
