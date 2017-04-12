@@ -17,7 +17,8 @@ defmodule Sippet.Message do
   defstruct [
     start_line: nil,
     headers: %{},
-    body: nil
+    body: nil,
+    target: nil
   ]
 
   @type uri :: URI.t
@@ -143,19 +144,20 @@ defmodule Sippet.Message do
   @type t :: %__MODULE__{
     start_line: RequestLine.t | StatusLine.t,
     headers: %{header => value},
-    body: String.t | nil
+    body: String.t | nil,
+    target: nil | {
+      protocol :: atom | binary,
+      host :: binary,
+      dport :: integer
+    }
   }
 
   @type request :: %__MODULE__{
     start_line: RequestLine.t,
-    headers: %{header => value},
-    body: String.t | nil
   }
 
   @type response :: %__MODULE__{
     start_line: StatusLine.t,
-    headers: %{header => value},
-    body: String.t | nil
   }
 
   defmacrop is_method(data) do

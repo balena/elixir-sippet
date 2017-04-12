@@ -16,7 +16,10 @@ defmodule Sippet.Transport do
   import Supervisor.Spec
 
   alias Sippet.Message, as: Message
+  alias Sippet.Message.RequestLine, as: RequestLine
+  alias Sippet.Message.StatusLine, as: StatusLine
   alias Sippet.Transport.Pool, as: Pool
+  alias Sippet.URI, as: URI
 
   @doc """
   Starts the transport process hierarchy.
@@ -60,7 +63,12 @@ defmodule Sippet.Transport do
     apply(plug, :send_message, [message, host, port, transaction])
   end
 
-  defp get_destination(%Message{headers: %{via: via}} = message) do
+  defp get_destination(%Message{target: target}) when is_tuple(target) do
+    target
+  end
+
+  defp get_destination(%Message{start_line: %StatusLine{},
+      headers: %{via: via}} = message) do
     {_version, protocol, {host, port}, params} = hd(via)
     {host, port} =
       if Message.response?(message) do
@@ -79,6 +87,35 @@ defmodule Sippet.Transport do
         {host, port}
       else
         {host, port}
+      end
+
+    {protocol, host, port}
+  end
+
+  defp get_destination(%Message{start_line: %RequestLine{request_uri: uri}}) do
+    host = uri.host
+    port = uri.port
+
+    params = URI.decode_parameters(uri.parameters)
+    protocol =
+      if params |> Map.has_key?("transport") do
+        case String.downcase(params["transport"]) do
+          "dccp" -> :dccp
+          "dtls" -> :dtls
+          "sctp" -> :sctp
+          "stomp" -> :stomp
+          "tcp" -> :tcp
+          "tls" -> :tls
+          "udp" -> :udp
+          "ws" -> :ws
+          "wss" -> :wss
+          other -> other
+        end
+      else
+        case uri.scheme do
+          "sips" -> :tls
+          _other -> :udp
+        end
       end
 
     {protocol, host, port}
