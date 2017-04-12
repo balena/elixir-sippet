@@ -41,7 +41,7 @@ defmodule Sippet.Core do
                              :: any
 
   @doc """
-  Sends receives an error from the transaction.
+  Receives an error from the server or client transaction.
 
   The function `receive_error/2` is called from the client or server
   transaction process created when sending or receiving requests.
