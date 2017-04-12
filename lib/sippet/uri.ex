@@ -337,15 +337,11 @@ defmodule Sippet.URI do
         scheme = scheme && String.downcase(scheme)
         port   = port || (scheme && default_port(scheme))
 
-        if not Enum.member?(["sip", "sips"], scheme) do
-          {:error, :invalid_scheme}
-        else
-          {:ok, %Sippet.URI{
-            scheme: scheme, userinfo: userinfo,
-            authority: authority, parameters: parameters,
-            headers: headers, host: host, port: port
-          }}
-        end
+        {:ok, %Sippet.URI{
+          scheme: scheme, userinfo: userinfo,
+          authority: authority, parameters: parameters,
+          headers: headers, host: host, port: port
+        }}
     end
   end
 
