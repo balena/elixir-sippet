@@ -53,13 +53,13 @@ receives datagrams, case the transport protocol is datagram-based, or a
 
 ## Installation
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed as:
+The package can be installed from [Hex](https://hex.pm/docs/publish) as:
 
   1. Add `sippet` to your list of dependencies in `mix.exs`:
 
     ```elixir
     def deps do
-      [{:sippet, "~> 0.1.1"}]
+      [{:sippet, "~> 0.1.2"}]
     end
     ```
 
@@ -67,7 +67,7 @@ If [available in Hex](https://hex.pm/docs/publish), the package can be installed
 
     ```elixir
     def application do
-      [applications: [:sippet, :logger, :gen_state_machine, :socket, poolboy]]
+      [applications: [:sippet, :logger, :gen_state_machine, :socket, :poolboy]]
     end
     ```
 
