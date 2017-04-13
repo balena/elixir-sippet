@@ -8,6 +8,18 @@ defmodule Sippet.Transaction.Client.Invite.Test do
 
   import Mock
 
+  defmacro action_timeout(actions, delay) do
+    quote do
+      unquote(actions) |> Enum.count(
+        fn x ->
+          case x do
+            {:state_timeout, unquote(delay), _data} -> true
+            _otherwise -> false
+          end
+        end)
+    end
+  end
+
   setup do
     request =
       """
@@ -44,7 +56,7 @@ defmodule Sippet.Transaction.Client.Invite.Test do
       {:keep_state_and_data, actions} =
           Invite.calling(:enter, :none, state)
 
-      assert_action_timeout actions, 600
+      assert action_timeout actions, 600
 
       assert called Sippet.Transport.reliable?(request)
       assert called Sippet.Transport.send_message(request, transaction)
@@ -58,7 +70,7 @@ defmodule Sippet.Transaction.Client.Invite.Test do
       {:keep_state_and_data, actions} =
         Invite.calling(:enter, :none, state)
 
-      assert_action_timeout actions, 64 * 600
+      assert action_timeout actions, 64 * 600
 
       assert called Sippet.Transport.reliable?(request)
       assert called Sippet.Transport.send_message(request, transaction)
@@ -72,7 +84,7 @@ defmodule Sippet.Transaction.Client.Invite.Test do
       {:keep_state_and_data, actions} =
         Invite.calling(:state_timeout, {1200, 1200}, state)
 
-      assert_action_timeout actions, 2400
+      assert action_timeout actions, 2400
 
       assert called Sippet.Transport.send_message(request, transaction)
     end
@@ -147,7 +159,7 @@ defmodule Sippet.Transaction.Client.Invite.Test do
       {:keep_state, data, actions} =
         Invite.completed(:enter, :proceeding, %{state | extras: extras})
 
-      assert_action_timeout actions, 32000
+      assert action_timeout actions, 32000
 
       %{extras: %{ack: ack}} = data
       assert :ack == ack.start_line.method
@@ -179,15 +191,5 @@ defmodule Sippet.Transaction.Client.Invite.Test do
     # check state completion after timer D
     {:stop, :normal, nil} =
       Invite.completed(:state_timeout, nil, nil)
-  end
-
-  defp assert_action_timeout(actions, delay) do
-    timeout_actions =
-      for x <- actions,
-          {:state_timeout, ^delay, _data} = x do
-        x
-      end
-
-    assert length(timeout_actions) == 1
   end
 end

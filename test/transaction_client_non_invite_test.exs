@@ -8,6 +8,32 @@ defmodule Sippet.Transaction.Client.NonInvite.Test do
 
   import Mock
 
+  defmacro action_timeout(actions, delay) do
+    quote do
+      unquote(actions) |> Enum.count(
+        fn x ->
+          case x do
+            {:state_timeout, unquote(delay), _data} -> true
+            _otherwise -> false
+          end
+        end)
+    end
+  end
+
+  defmacro data_timeout(data, name) do
+    quote do
+      unquote(data).extras |> Map.has_key?(unquote(name))
+    end
+  end
+
+  defmacro data_timeout(data, name, interval) do
+    quote do
+      data_timeout(unquote(data), unquote(name)) and
+        unquote(data).extras[unquote(name)]
+        |> Process.read_timer() == unquote(interval)
+    end
+  end
+
   setup do
     request =
       """
@@ -88,24 +114,5 @@ defmodule Sippet.Transaction.Client.NonInvite.Test do
 
       assert action_timeout actions, 5000
     end
-  end
-
-  defp data_timeout(%{extras: extras}, name) do
-    extras |> Map.has_key?(name)
-  end
-
-  defp data_timeout(%{extras: extras} = data, name, interval) do
-    data_timeout(data, name) and
-      extras[name] |> Process.read_timer() == interval
-  end
-
-  defp action_timeout(actions, delay) do
-    timeout_actions =
-      for x <- actions,
-          {:state_timeout, ^delay, _data} = x do
-        x
-      end
-
-    assert length(timeout_actions) == 1
   end
 end

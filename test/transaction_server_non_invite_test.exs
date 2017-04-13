@@ -8,6 +8,18 @@ defmodule Sippet.Transaction.Server.NonInvite.Test do
 
   import Mock
 
+  defmacro action_timeout(actions, delay) do
+    quote do
+      unquote(actions) |> Enum.count(
+        fn x ->
+          case x do
+            {:state_timeout, unquote(delay), _data} -> true
+            _otherwise -> false
+          end
+        end)
+    end
+  end
+
   setup do
     request =
       """
@@ -61,15 +73,5 @@ defmodule Sippet.Transaction.Server.NonInvite.Test do
     # while in trying state, there's no answer, so no retransmission is made
     :keep_state_and_data =
         NonInvite.trying(:cast, {:incoming_request, request}, data)
-  end
-
-  defp action_timeout(actions, delay) do
-    timeout_actions =
-      for x <- actions,
-          {:state_timeout, ^delay, _data} = x do
-        x
-      end
-
-    assert length(timeout_actions) == 1
   end
 end

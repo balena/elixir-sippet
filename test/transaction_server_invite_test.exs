@@ -8,6 +8,18 @@ defmodule Sippet.Transaction.Server.Invite.Test do
 
   import Mock
 
+  defmacro action_timeout(actions, delay) do
+    quote do
+      unquote(actions) |> Enum.count(
+        fn x ->
+          case x do
+            {:state_timeout, unquote(delay), _data} -> true
+            _otherwise -> false
+          end
+        end)
+    end
+  end
+
   setup do
     request =
       """
@@ -82,15 +94,5 @@ defmodule Sippet.Transaction.Server.Invite.Test do
 
       assert called Sippet.Transport.send_message(last_response, transaction)
     end
-  end
-
-  defp action_timeout(actions, delay) do
-    timeout_actions =
-      for x <- actions,
-          {:state_timeout, ^delay, _data} = x do
-        x
-      end
-
-    assert length(timeout_actions) == 1
   end
 end
