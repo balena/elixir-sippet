@@ -92,7 +92,8 @@ defmodule Sippet.Transport do
     {protocol, host, port}
   end
 
-  defp get_destination(%Message{start_line: %RequestLine{request_uri: uri}}) do
+  defp get_destination(%Message{start_line:
+      %RequestLine{request_uri: uri}} = request) do
     host = uri.host
     port = uri.port
 
@@ -112,10 +113,9 @@ defmodule Sippet.Transport do
           other -> other
         end
       else
-        case uri.scheme do
-          "sips" -> :tls
-          _other -> :udp
-        end
+        {_version, protocol, _sent_by, _params} =
+          hd(request.headers.via)
+        protocol
       end
 
     {protocol, host, port}

@@ -182,6 +182,19 @@ defmodule Sippet.Transaction do
   @doc """
   Sends a response to a server transaction.
 
+  The server transaction identifier is obtained from the message attributes.
+
+  See `send_response/2`.
+  """
+  @spec send_response(response) :: :ok | {:error, reason}
+  def send_response(%Message{start_line: %StatusLine{}} = outgoing_response) do
+    server_transaction = Transaction.Server.new(outgoing_response)
+    send_response(server_transaction, outgoing_response)
+  end
+
+  @doc """
+  Sends a response to a server transaction.
+
   Server transactions are created when the incoming request is received, see
   `receive_message/1`. The first parameter `server_transaction` indicates the
   reference passed to `Sippet.Core` when the request is received.
@@ -198,7 +211,6 @@ defmodule Sippet.Transaction do
         # Send the response through the existing server transaction.
         Transaction.Server.send_response(pid, outgoing_response)
       [] ->
-        Logger.warn("server transaction #{server_transaction} not found")
         {:error, :no_transaction}
     end
   end

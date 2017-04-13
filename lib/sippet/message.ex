@@ -540,7 +540,7 @@ defmodule Sippet.Message do
   """
   @spec update_header(t, header, value,
             (value -> value)) :: t
-  def update_header(message, header, initial, fun) do
+  def update_header(message, header, initial \\ nil, fun) do
     %{message | headers: Map.update(message.headers, header, initial, fun)}
   end
 
@@ -553,12 +553,10 @@ defmodule Sippet.Message do
   list, `initial` is inserted as the single value of `header`.
   """
   @spec update_header_front(t, header, value, (value -> value)) :: t
-  def update_header_front(message, header, initial, fun)
+  def update_header_front(message, header, initial \\ [], fun)
       when is_function(fun, 1) do
-    update_header(message, header, [initial],
-        fn [] -> [initial]
-           [head|tail] -> [fun.(head)|tail]
-        end)
+    update_header(message, header, initial,
+        fn [head|tail] -> [fun.(head)|tail] end)
   end
 
   @doc """
@@ -570,12 +568,10 @@ defmodule Sippet.Message do
   list, `initial` is inserted as the single value of `header`.
   """
   @spec update_header_back(t, header, value, (value -> value)) :: t
-  def update_header_back(message, header, initial, fun)
+  def update_header_back(message, header, initial \\ [], fun)
       when is_function(fun, 1) do
-    update_header(message, header, [initial],
-        fn [] -> [initial]
-           values -> do_update_last(values, fun)
-        end)
+    update_header(message, header, initial,
+        fn values -> do_update_last(values, fun) end)
   end
 
   defp do_update_last(values, fun) do

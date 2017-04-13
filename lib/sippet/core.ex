@@ -91,4 +91,10 @@ defmodule Sippet.Core do
     args = [reason, client_or_server_transaction]
     apply(get_module!(), :receive_error, args)
   end
+
+  defmacro __using__(_opts) do
+    quote location: :keep do
+      @behaviour Sippet.Core
+    end
+  end
 end
