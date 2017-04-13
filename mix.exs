@@ -3,7 +3,7 @@ defmodule Sippet.Mixfile do
 
   def project do
     [app: :sippet,
-     version: "0.1.5",
+     version: "0.1.6",
      elixir: "~> 1.4",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
@@ -56,7 +56,7 @@ defmodule Sippet.Mixfile do
     [# These are the default files included in the package
      name: :sippet,
      files: ["lib", "c_src/*.{h,cc}", "c_src/Makefile", "support/getrebar",
-             "mix.exs", "README.md", "LICENSE"],
+             "mix.exs", "README.md", "LICENSE", "Makefile"],
      maintainers: ["Guilherme Balena Versiani"],
      licenses: ["BSD"],
      links: %{"GitHub" => "https://github.com/balena/elixir-sippet"}]
