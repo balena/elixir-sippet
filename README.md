@@ -59,7 +59,7 @@ The package can be installed from [Hex](https://hex.pm/docs/publish) as:
 
     ```elixir
     def deps do
-      [{:sippet, "~> 0.1.6"}]
+      [{:sippet, "~> 0.1.7"}]
     end
     ```
 
