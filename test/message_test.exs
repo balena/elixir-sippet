@@ -158,11 +158,11 @@ defmodule Sippet.Message.Test do
         fn(values) -> values end)
     assert Message.get_header(r4, :b) == [%{value: 99}]
 
-    r5 = response |> Message.update_header_front(:b, [%{value: 99}],
+    r5 = response |> Message.update_header_front(:b, %{value: 99},
         fn(values) -> values end)
     assert Message.get_header(r5, :b) == [%{value: 99}]
 
-    r6 = response |> Message.update_header_back(:b, [%{value: 99}],
+    r6 = response |> Message.update_header_back(:b, %{value: 99},
         fn(values) -> values end)
     assert Message.get_header(r6, :b) == [%{value: 99}]
   end

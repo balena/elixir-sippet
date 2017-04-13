@@ -553,9 +553,9 @@ defmodule Sippet.Message do
   list, `initial` is inserted as the single value of `header`.
   """
   @spec update_header_front(t, header, value, (value -> value)) :: t
-  def update_header_front(message, header, initial \\ [], fun)
+  def update_header_front(message, header, initial \\ nil, fun)
       when is_function(fun, 1) do
-    update_header(message, header, initial,
+    update_header(message, header, List.wrap(initial),
         fn [head|tail] -> [fun.(head)|tail] end)
   end
 
@@ -568,9 +568,9 @@ defmodule Sippet.Message do
   list, `initial` is inserted as the single value of `header`.
   """
   @spec update_header_back(t, header, value, (value -> value)) :: t
-  def update_header_back(message, header, initial \\ [], fun)
+  def update_header_back(message, header, initial \\ nil, fun)
       when is_function(fun, 1) do
-    update_header(message, header, initial,
+    update_header(message, header, List.wrap(initial),
         fn values -> do_update_last(values, fun) end)
   end
 
