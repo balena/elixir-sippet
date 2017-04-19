@@ -1,6 +1,8 @@
 ![Sippet](http://sippet.github.io/sippet/public/apple-touch-icon-144-precomposed.png)
 =========
 
+[![Hex.pm](https://img.shields.io/hexpm/l/sippet.svg "BSD Licensed")](https://github.com/balena/elixir-sippet/blob/master/LICENSE)
+[![Hex version](https://img.shields.io/hexpm/v/sippet.svg "Hex version")](https://hex.pm/packages/sippet)
 [![Build Status](https://travis-ci.org/balena/elixir-sippet.svg)](https://travis-ci.org/balena/elixir-sippet)
 
 An Elixir library designed to write Session Initiation Protocol middleware.
