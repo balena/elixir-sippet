@@ -40,7 +40,7 @@ defmodule Sippet.Transport do
   end
 
   defp plugs_specs() do
-    Application.get_env(:sippet, __MODULE__)
+    Application.get_env(:sippet, __MODULE__, [])
     |> plugs_specs([])
   end
 
