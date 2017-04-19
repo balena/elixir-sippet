@@ -35,7 +35,7 @@ defmodule Sippet.Transport.UDP.Plug do
       Pool.spec()
     ]
 
-    Supervisor.start_link(children, [strategy: :one_for_one])
+    Supervisor.start_link(children, [strategy: :one_for_all])
   end
 
   def send_message(message, host, port, transaction) do

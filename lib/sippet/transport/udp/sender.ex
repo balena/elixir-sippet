@@ -8,14 +8,13 @@ defmodule Sippet.Transport.UDP.Sender do
   def start_link(_), do: GenServer.start_link(__MODULE__, nil)
 
   def init(_) do
+    socket = Plug.get_socket()
     Logger.info("#{inspect self()} udp worker ready")
-    {:ok, nil}
+    {:ok, socket}
   end
 
   @doc false
-  def handle_cast({:send_message, message, host, port, transaction}, _) do
-    socket = Plug.get_socket()
-
+  def handle_cast({:send_message, message, host, port, transaction}, socket) do
     result =
       case Socket.Address.for(host, :inet) do
         {:ok, [address|_]} ->
@@ -40,10 +39,10 @@ defmodule Sippet.Transport.UDP.Sender do
     end
 
     Pool.check_in(self())
-    {:noreply, nil}
+    {:noreply, socket}
   end
 
-  def terminate(reason, _) do
+  def terminate(reason, _socket) do
     Logger.info("#{inspect self()} stopped udp worker, " <>
                 "reason #{inspect reason}")
   end
