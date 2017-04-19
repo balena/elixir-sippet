@@ -39,6 +39,7 @@ defmodule Sippet.Mixfile do
   # Type "mix help deps" for more examples and options
   defp deps do
     [{:dialyxir, "~> 0.5", only: [:dev], runtime: false},
+     {:credo, "~> 0.7", only: [:dev, :test]},
      {:gen_state_machine, "~> 2.0"},
      {:socket, "~> 0.3.5"},
      {:poolboy, "~> 1.5.1"},

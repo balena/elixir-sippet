@@ -1025,30 +1025,32 @@ defmodule Sippet.Message do
   end
 
   defp do_header_value(%NaiveDateTime{} = value) do
-    day_of_week = case Date.day_of_week(NaiveDateTime.to_date(value)) do
-      1 -> "Mon"
-      2 -> "Tue"
-      3 -> "Wed"
-      4 -> "Thu"
-      5 -> "Fri"
-      6 -> "Sat"
-      7 -> "Sun"
-    end
+    day_of_week =
+      case Date.day_of_week(NaiveDateTime.to_date(value)) do
+        1 -> "Mon"
+        2 -> "Tue"
+        3 -> "Wed"
+        4 -> "Thu"
+        5 -> "Fri"
+        6 -> "Sat"
+        7 -> "Sun"
+      end
 
-    month = case value.month do
-      1 -> "Jan"
-      2 -> "Feb"
-      3 -> "Mar"
-      4 -> "Apr"
-      5 -> "May"
-      6 -> "Jun"
-      7 -> "Jul"
-      8 -> "Aug"
-      9 -> "Sep"
-      10 -> "Oct"
-      11 -> "Nov"
-      12 -> "Dec"
-    end
+    month =
+      case value.month do
+        1 -> "Jan"
+        2 -> "Feb"
+        3 -> "Mar"
+        4 -> "Apr"
+        5 -> "May"
+        6 -> "Jun"
+        7 -> "Jul"
+        8 -> "Aug"
+        9 -> "Sep"
+        10 -> "Oct"
+        11 -> "Nov"
+        12 -> "Dec"
+      end
 
     # Microsecond is explicitly removed here, as the RFC 3261 does not define
     # it. Therefore, while it is accepted, it won't be forwarded.

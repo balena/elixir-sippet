@@ -7,9 +7,8 @@ defmodule Sippet.PoolboyUtil do
       if env_config == nil do
         defaults
       else
-        accepted = [:size, :max_overflow]
         Keyword.merge(defaults,
-          for {k, v} <- env_config, Enum.member?(accepted, k) do
+          for {k, v} <- env_config, k in [:size, :max_overflow] do
             {k, v}
           end)
       end
