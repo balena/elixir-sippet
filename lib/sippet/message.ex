@@ -1109,7 +1109,7 @@ defmodule Sippet.Message do
     ]
 
     validators =
-      if Message.request?(message) do
+      if request?(message) do
         validators ++ [
           &has_matching_cseq/1
         ]
@@ -1147,7 +1147,7 @@ defmodule Sippet.Message do
   defp has_required_headers(message) do
     required = [:to, :from, :cseq, :call_id, :via]
     missing_headers =
-      for header <- required, not (message |> Message.has_header?(header)) do
+      for header <- required, not (message |> has_header?(header)) do
         header
       end
     if Enum.empty?(missing_headers) do
