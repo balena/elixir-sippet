@@ -75,6 +75,9 @@ def application do
 end
 ```
 
+Further documentation can found at
+[https://hexdocs.pm/sippet](https://hexdocs.pm/sippet).
+
 ## Copyright
 
 Copyright (c) 2016-2017 Guilherme Balena Versiani. See [LICENSE](LICENSE) for
