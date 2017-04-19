@@ -61,19 +61,19 @@ The package can be installed from [Hex](https://hex.pm/docs/publish) as:
 
   1. Add `sippet` to your list of dependencies in `mix.exs`:
 
-    ```elixir
-    def deps do
-      [{:sippet, "~> 0.1.9"}]
-    end
-    ```
+```elixir
+def deps do
+  [{:sippet, "~> 0.1.9"}]
+end
+```
 
   2. Ensure `sippet` is started before your application:
 
-    ```elixir
-    def application do
-      [applications: [:sippet, :logger, :gen_state_machine, :socket, :poolboy]]
-    end
-    ```
+```elixir
+def application do
+  [applications: [:sippet, :logger, :gen_state_machine, :socket, :poolboy]]
+end
+```
 
 ## Copyright
 
