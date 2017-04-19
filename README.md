@@ -71,3 +71,7 @@ The package can be installed from [Hex](https://hex.pm/docs/publish) as:
     end
     ```
 
+## Copyright
+
+Copyright (c) 2016-2017 Guilherme Balena Versiani. See [LICENSE](LICENSE) for
+further details.
