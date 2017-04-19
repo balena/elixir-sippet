@@ -3,7 +3,7 @@ defmodule Sippet.Mixfile do
 
   def project do
     [app: :sippet,
-     version: "0.1.8",
+     version: "0.1.9",
      elixir: "~> 1.4",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
