@@ -1,6 +1,8 @@
 ![Sippet](http://sippet.github.io/sippet/public/apple-touch-icon-144-precomposed.png)
 =========
 
+[![Build Status](https://travis-ci.org/balena/elixir-sippet.svg)](https://travis-ci.org/balena/elixir-sippet)
+
 An Elixir library designed to write Session Initiation Protocol middleware.
 
 
