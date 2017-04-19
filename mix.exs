@@ -7,7 +7,7 @@ defmodule Sippet.Mixfile do
      elixir: "~> 1.4",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
-     compilers: [:make, :elixir, :app], # Add the make compiler
+     compilers: [:make] ++ Mix.compilers, # Add the make compiler
      aliases: aliases(), # Configure aliases
      deps: deps(),
      description: description(),
@@ -69,7 +69,16 @@ defmodule Mix.Tasks.Compile.Make do
   # Compiles helper in c_src
 
   def run(_) do
-    {result, _error_code} = System.cmd("make", [], stderr_to_stdout: true)
+    {result, error_code} = System.cmd("make", [], stderr_to_stdout: true)
+
+    # XXX(balena): Because the compiler changes the priv directory, we need to
+    # notify Mix to rebuild the project structure under _build, copying the new
+    # priv files.
+    # https://github.com/riverrun/comeonin/pull/41/commits/5670e424f7d4feba0839211090f5dcf79b340577
+    if error_code == 0 do
+      Mix.Project.build_structure
+    end
+
     Mix.shell.info result
 
     :ok
