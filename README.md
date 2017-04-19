@@ -100,6 +100,27 @@ config :sippet, Sippet.Transport,
 config :sippet, core_module: MyCore
 ```
 
+After the above steps, you should see a similar output when you `iex -S mix`
+your project:
+
+```
+16:05:08.160 [info]  #PID<0.180.0> message worker ready
+16:05:08.160 [info]  #PID<0.181.0> message worker ready
+16:05:08.160 [info]  #PID<0.182.0> message worker ready
+16:05:08.160 [info]  #PID<0.183.0> message worker ready
+16:05:08.167 [info]  #PID<0.185.0> started plug 127.0.0.1:5060/udp
+16:05:08.167 [info]  #PID<0.188.0> udp worker ready
+16:05:08.167 [info]  #PID<0.189.0> udp worker ready
+16:05:08.167 [info]  #PID<0.190.0> udp worker ready
+16:05:08.167 [info]  #PID<0.191.0> udp worker ready
+Interactive Elixir (1.4.2) - press Ctrl+C to exit (type h() ENTER for help)
+iex(1)> 
+```
+
+Voilà! The SIP stack will be listening on the indicated address and port, and
+your `MyCore` module will receive callbacks from it whenever a SIP message
+arrives on it.
+
 Further documentation can found at
 [https://hexdocs.pm/sippet](https://hexdocs.pm/sippet).
 
