@@ -75,8 +75,34 @@ def application do
 end
 ```
 
+  3. Configure the transport layer. For using the bundled UDP plug, add the
+     following to your `config/config.exs` file:
+
+```elixir
+# Sets the UDP plug settings:
+#
+# * `:port` is the UDP port to listen (required).
+# * `:address` is the local address to bind (optional, defaults to "0.0.0.0")
+config :sippet, Sippet.Transport.UDP.Plug,
+  port: 5060,
+  address: "127.0.0.1"
+
+# Sets the transport plugs, or the supported SIP transport protocols.
+config :sippet, Sippet.Transport,
+  udp: Sippet.Transport.UDP.Plug
+```
+
+  4. Set your Sippet.Core behavior implementation in your `config/config.exs`
+     too:
+
+```elixir
+# Configures the sippet core
+config :sippet, core_module: MyCore
+```
+
 Further documentation can found at
 [https://hexdocs.pm/sippet](https://hexdocs.pm/sippet).
+
 
 ## Copyright
 
