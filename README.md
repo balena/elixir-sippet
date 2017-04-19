@@ -71,7 +71,7 @@ end
 
 ```elixir
 def application do
-  [applications: [:sippet, :logger, :gen_state_machine, :socket, :poolboy]]
+  [applications: [:sippet]]
 end
 ```
 
