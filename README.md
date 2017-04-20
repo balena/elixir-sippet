@@ -6,6 +6,7 @@
 [![Docs Status](https://inch-ci.org/github/balena/elixir-sippet.svg?branch=master)](http://inch-ci.org/github/balena/elixir-sippet)
 [![Hex version](https://img.shields.io/hexpm/v/sippet.svg "Hex version")](https://hex.pm/packages/sippet)
 [![Hex.pm](https://img.shields.io/hexpm/l/sippet.svg "BSD Licensed")](https://github.com/balena/elixir-sippet/blob/master/LICENSE)
+[![Code Triagers Badge](https://www.codetriage.com/balena/elixir-sippet/badges/users.svg)](https://www.codetriage.com/balena/elixir-sippet)
 
 An Elixir library designed to write Session Initiation Protocol middleware.
 

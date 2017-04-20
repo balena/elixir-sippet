@@ -50,8 +50,8 @@ defmodule Sippet.Mixfile do
      {:gen_state_machine, "~> 2.0"},
      {:socket, "~> 0.3.5"},
      {:poolboy, "~> 1.5.1"},
-     {:ex_doc, "~> 0.14", only: :dev, runtime: false},
-     {:inch_ex, only: :docs},
+     {:ex_doc, "~> 0.15.1", only: :dev, runtime: false},
+     {:inch_ex, "~> 0.5", only: :docs},
      {:mock, "~> 0.2.0", only: :test},
      {:excoveralls, "~> 0.6", only: :test}]
   end
