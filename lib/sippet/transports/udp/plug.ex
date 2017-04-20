@@ -14,7 +14,8 @@ defmodule Sippet.Transports.UDP.Plug do
   """
   def start_link() do
     port =
-      Application.get_env(:sippet, __MODULE__)
+      :sippet
+      |> Application.get_env(__MODULE__)
       |> Keyword.fetch!(:port)
 
     if port <= 0 do
@@ -22,7 +23,8 @@ defmodule Sippet.Transports.UDP.Plug do
     end
 
     address =
-      Application.get_env(:sippet, __MODULE__)
+      :sippet
+      |> Application.get_env(__MODULE__)
       |> Keyword.get(:address)
 
     opts =

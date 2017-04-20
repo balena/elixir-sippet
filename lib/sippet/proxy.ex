@@ -61,7 +61,7 @@ defmodule Sippet.Proxy do
       end
 
     params = %{"branch" => branch}
-    new_via = {{2,0}, protocol, {host, port}, params}
+    new_via = {{2, 0}, protocol, {host, port}, params}
     request |> Message.update_header(:via, fn list -> [new_via|list] end)
   end
 

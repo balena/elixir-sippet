@@ -4,8 +4,8 @@ defmodule Sippet.Transactions.Server.NonInvite do
   alias Sippet.Message.StatusLine, as: StatusLine
   alias Sippet.Transactions.Server.State, as: State
 
-  @max_idle 4000
-  @timer_j 32000
+  @max_idle 4_000
+  @timer_j 32_000
 
   def trying(:enter, _old_state, %State{request: request} = data) do
     receive_request(request, data)

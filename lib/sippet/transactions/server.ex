@@ -93,7 +93,7 @@ defmodule Sippet.Transactions.Server do
       require Logger
 
       def init(%State{} = data) do
-        Logger.info("server transaction #{data.name} started")
+        Logger.info(fn -> "server transaction #{data.name} started" end)
         initial_state = unquote(opts)[:initial_state]
         {:ok, initial_state, data}
       end
@@ -109,7 +109,7 @@ defmodule Sippet.Transactions.Server do
         do: Sippet.Core.receive_request(request, name)
 
       def shutdown(reason, %State{name: name} = data) do
-        Logger.warn("server transaction #{name} shutdown: #{reason}")
+        Logger.warn(fn -> "server transaction #{name} shutdown: #{reason}" end)
         Sippet.Core.receive_error(reason, name)
         {:stop, :shutdown, data}
       end
@@ -121,9 +121,9 @@ defmodule Sippet.Transactions.Server do
 
       def unhandled_event(event_type, event_content,
           %State{name: name} = data) do
-        Logger.error("server transaction #{name} got " <>
-                     "unhandled_event/3: #{inspect event_type}, " <>
-                     "#{inspect event_content}, #{inspect data}")
+            Logger.error(fn -> "server transaction #{name} got " <>
+                               "unhandled_event/3: #{inspect event_type}, " <>
+                               "#{inspect event_content}, #{inspect data}" end)
         {:stop, :shutdown, data}
       end
     end

@@ -145,7 +145,9 @@ defmodule Sippet.Transactions do
       {:ok, _} -> {:ok, transaction}
       {:ok, _, _} -> {:ok, transaction}
       _errors ->
-        Logger.warn("client transaction #{transaction} already exists")
+        Logger.warn fn ->
+          "client transaction #{transaction} already exists"
+        end
         {:error, :already_started}
     end
   end
@@ -207,9 +209,13 @@ defmodule Sippet.Transactions do
       [] ->
         case transaction do
           %Transactions.Client{} ->
-            Logger.warn("client transaction #{transaction} not found")
+            Logger.warn fn ->
+              "client transaction #{transaction} not found"
+            end
           %Transactions.Server{} ->
-            Logger.warn("server transaction #{transaction} not found")
+            Logger.warn fn ->
+              "server transaction #{transaction} not found"
+            end
         end
         {:error, :no_transaction}
     end

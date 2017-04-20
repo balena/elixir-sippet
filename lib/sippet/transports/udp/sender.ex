@@ -10,7 +10,7 @@ defmodule Sippet.Transports.UDP.Sender do
 
   def init(_) do
     socket = Plug.get_socket()
-    Logger.info("#{inspect self()} udp worker ready")
+    Logger.debug(fn -> "#{inspect self()} udp sender ready" end)
     {:ok, socket}
   end
 
@@ -32,8 +32,8 @@ defmodule Sippet.Transports.UDP.Sender do
       :ok ->
         :ok
       {:error, reason} ->
-        Logger.warn("#{inspect self()} udp worker error for " <>
-                    "#{host}:#{port}: #{inspect reason}")
+        Logger.warn(fn -> "#{inspect self()} udp sender error for " <>
+                          "#{host}:#{port}: #{inspect reason}" end)
         if transaction != nil do
           Transactions.receive_error(transaction, reason)
         end
@@ -44,7 +44,7 @@ defmodule Sippet.Transports.UDP.Sender do
   end
 
   def terminate(reason, _socket) do
-    Logger.info("#{inspect self()} stopped udp worker, " <>
-                "reason #{inspect reason}")
+    Logger.warn(fn -> "#{inspect self()} stopped udp sender, " <>
+                      "reason #{inspect reason}" end)
   end
 end

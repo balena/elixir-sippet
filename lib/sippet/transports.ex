@@ -40,7 +40,8 @@ defmodule Sippet.Transports do
   end
 
   defp plugs_specs() do
-    Application.get_env(:sippet, __MODULE__, [])
+    :sippet
+    |> Application.get_env(__MODULE__, [])
     |> plugs_specs([])
   end
 
@@ -122,7 +123,8 @@ defmodule Sippet.Transports do
   end
 
   defp to_plug(protocol) do
-    Application.get_env(:sippet, Sippet.Transports)
+    :sippet
+    |> Application.get_env(Sippet.Transports)
     |> Keyword.fetch!(protocol)
   end
 

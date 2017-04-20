@@ -194,7 +194,8 @@ defmodule Sippet.Message do
   def build_response(%__MODULE__{start_line: %RequestLine{}} = request,
       %StatusLine{} = status_line) do
     response =
-      build_response(status_line)
+      status_line
+      |> build_response()
       |> put_header(:via, get_header(request, :via))
       |> put_header(:from, get_header(request, :from))
       |> put_header(:to, get_header(request, :to))
@@ -232,8 +233,9 @@ defmodule Sippet.Message do
   def create_tag(), do: do_random_string(48)
 
   defp do_random_string(length) do
-    bytes = round(Float.ceil(length / 8))
-    :crypto.strong_rand_bytes(bytes) |> Base.url_encode64(padding: false)
+    round(Float.ceil(length / 8))
+    |> :crypto.strong_rand_bytes()
+    |> Base.url_encode64(padding: false)
   end
 
   @doc """
@@ -1250,5 +1252,5 @@ end
 
 defimpl String.Chars, for: Sippet.Message do
   def to_string(%Sippet.Message{} = message),
-    do: Sippet.Message.to_iodata(message) |> IO.iodata_to_binary
+    do: message |> Sippet.Message.to_iodata() |> IO.iodata_to_binary
 end

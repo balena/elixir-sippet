@@ -7,7 +7,7 @@ defmodule Sippet.Transactions.Client.Invite do
 
   @timer_a 600  # optimization: transaction ends in 37.8s
   @timer_b 64 * @timer_a
-  @timer_d 32000  # timer D should be > 32s
+  @timer_d 32_000  # timer D should be > 32s
 
   defp retry({past_wait, passed_time}, %State{request: request} = data) do
     send_request(request, data)
@@ -18,7 +18,8 @@ defmodule Sippet.Transactions.Client.Invite do
 
   defp build_ack(request, last_response) do
     ack =
-      Message.build_request(:ack, request.start_line.request_uri)
+      :ack
+      |> Message.build_request(request.start_line.request_uri)
       |> Message.put_header(:via, Message.get_header(request, :via))
       |> Message.put_header(:max_forwards, 70)
       |> Message.put_header(:from, Message.get_header(request, :from))

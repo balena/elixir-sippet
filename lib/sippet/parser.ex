@@ -1,5 +1,5 @@
 defmodule Sippet.Parser do
-  @on_load { :init, 0 }
+  @on_load {:init, 0}
 
   app = Mix.Project.config[:app]
 

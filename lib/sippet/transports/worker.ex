@@ -10,7 +10,7 @@ defmodule Sippet.Transports.Worker do
   def start_link(_), do: GenServer.start_link(__MODULE__, nil)
 
   def init(_) do
-    Logger.info("#{inspect self()} message worker ready")
+    Logger.debug(fn -> "#{inspect self()} message worker ready" end)
     {:ok, nil}
   end
 
@@ -20,9 +20,9 @@ defmodule Sippet.Transports.Worker do
         receive_message(message, from)
       {:error, reason} ->
         {address, port, protocol} = from
-        Logger.error("couldn't parse incoming packet from " <>
-                     "#{:inet.ntoa(address)}:#{port}/#{protocol}: " <>
-                     "#{inspect reason}")
+        Logger.error(fn -> "couldn't parse incoming packet from " <>
+                           "#{:inet.ntoa(address)}:#{port}/#{protocol}: " <>
+                           "#{inspect reason}" end)
     end
 
     Pool.check_in(self())
@@ -56,32 +56,34 @@ defmodule Sippet.Transports.Worker do
   end
 
   defp receive_message(message, {_protocol, ip, from_port} = from) do
-    if Message.request?(message) do
-      host = to_string(:inet.ntoa(ip))
+    message = 
+      if message |> Message.request?() do
+        host = to_string(:inet.ntoa(ip))
+      
+        message
+        |> Message.update_header_back(:via, nil,
+          fn({version, protocol, {via_host, via_port}, params}) ->
+            params =
+              if host != via_host do
+                params |> Map.put("received", host)
+              else
+                params
+              end
+      
+            params =
+              if from_port != via_port do
+                params |> Map.put("rport", to_string(from_port))
+              else
+                params
+              end
+      
+            {version, protocol, {via_host, via_port}, params}
+          end)
+      else
+        message
+      end
 
-      message
-      |> Message.update_header_back(:via, nil,
-        fn({version, protocol, {via_host, via_port}, params}) ->
-          params =
-            if host != via_host do
-              params |> Map.put("received", host)
-            else
-              params
-            end
-
-          params =
-            if from_port != via_port do
-              params |> Map.put("rport", to_string(from_port))
-            else
-              params
-            end
-
-          {version, protocol, {via_host, via_port}, params}
-        end)
-    else
-      message
-    end
-    |> validate_message(from)
+    message |> validate_message(from)
   end
 
   defp validate_message(message, from) do
@@ -89,8 +91,8 @@ defmodule Sippet.Transports.Worker do
       :ok ->
         message |> Transactions.receive_message()
       {:error, reason} ->
-        Logger.warn("discarded #{message_kind message}, " <>
-                    "#{inspect reason}")
+      Logger.warn(fn -> "discarded #{message_kind message}, " <>
+                        "#{inspect reason}" end)
     end
   end
 
@@ -98,7 +100,7 @@ defmodule Sippet.Transports.Worker do
     do: if(Message.request?(message), do: "request", else: "response")
 
   def terminate(reason, _) do
-    Logger.info("#{inspect self()} stopped message worker, " <>
-                "reason #{inspect reason}")
+    Logger.warn(fn -> "#{inspect self()} stopped message worker, " <>
+                      "reason #{inspect reason}" end)
   end
 end

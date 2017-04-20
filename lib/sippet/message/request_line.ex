@@ -38,7 +38,11 @@ defmodule Sippet.Message.RequestLine do
 end
 
 defimpl String.Chars, for: Sippet.Message.RequestLine do
-  def to_string(%Sippet.Message.RequestLine{} = request_line) do
-    Sippet.Message.RequestLine.to_iodata(request_line) |> IO.iodata_to_binary
+  alias Sippet.Message.RequestLine, as: RequestLine
+
+  def to_string(%RequestLine{} = request_line) do
+    request_line
+    |> RequestLine.to_iodata()
+    |> IO.iodata_to_binary
   end
 end

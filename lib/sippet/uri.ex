@@ -111,7 +111,7 @@ defmodule Sippet.URI do
     cond do
       string == "" -> ""
       String.starts_with?(string, first_character) ->
-        String.slice(string, 1, String.length(string)-1)
+        String.slice(string, 1, String.length(string) - 1)
       :otherwise ->
         raise ArgumentError,
             function_name <> " string has to start with '"
