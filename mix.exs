@@ -12,6 +12,13 @@ defmodule Sippet.Mixfile do
      deps: deps(),
      description: description(),
      package: package(),
+     test_coverage: [tool: ExCoveralls],
+     preferred_cli_env: [
+       "coveralls": :test,
+       "coveralls.detail": :test,
+       "coveralls.post": :test,
+       "coveralls.html": :test
+     ],
      dialyzer: [ignore_warnings: "dialyzer.ignore-warnings"]]
   end
 
@@ -44,7 +51,8 @@ defmodule Sippet.Mixfile do
      {:socket, "~> 0.3.5"},
      {:poolboy, "~> 1.5.1"},
      {:ex_doc, "~> 0.14", only: :dev, runtime: false},
-     {:mock, "~> 0.2.0", only: :test}]
+     {:mock, "~> 0.2.0", only: :test},
+     {:excoveralls, "~> 0.6", only: :test}]
   end
 
   defp description do
