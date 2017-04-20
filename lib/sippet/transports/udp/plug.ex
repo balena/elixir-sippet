@@ -50,6 +50,10 @@ defmodule Sippet.Transports.UDP.Plug do
     do: GenServer.call(__MODULE__, :get_socket, :infinity)
 
   def init([port, opts]) do
+    open_socket(port, opts)
+  end
+
+  defp open_socket(port, opts) do
     sock_opts =
       [as: :binary, mode: :active] ++
       if Keyword.has_key?(opts, :address) do
@@ -58,13 +62,19 @@ defmodule Sippet.Transports.UDP.Plug do
         []
       end
 
-    socket = Socket.UDP.open!(port, sock_opts)
+    case Socket.UDP.open(port, sock_opts) do
+      {:ok, socket} ->
+        {:ok, {address, _port}} = :inet.sockname(socket)
+        Logger.info("#{inspect self()} started plug " <>
+                    "#{:inet.ntoa(address)}:#{port}/udp")
 
-    {:ok, {address, _port}} = :inet.sockname(socket)
-    Logger.info("#{inspect self()} started plug " <>
-                "#{:inet.ntoa(address)}:#{port}/udp")
-
-    {:ok, {socket, address, port}}
+        {:ok, {socket, address, port}}
+      {:error, reason} ->
+        Logger.error("#{inspect self()} port #{port}/udp " <>
+                     "#{inspect reason}, retrying in 10s...")
+        Process.sleep(10_000)
+        open_socket(port, opts)
+    end
   end
 
   def handle_info({:udp, _socket, ip, from_port, packet}, state) do
