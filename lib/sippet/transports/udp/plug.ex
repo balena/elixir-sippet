@@ -1,8 +1,9 @@
-defmodule Sippet.Transport.UDP.Plug do
+defmodule Sippet.Transports.UDP.Plug do
   use GenServer
-  use Sippet.Transport.Plug
+  use Sippet.Transports.Plug
 
-  alias Sippet.Transport.UDP.Pool, as: Pool
+  alias Sippet.Transports.UDP.Pool, as: Pool
+  alias Sippet.Transports.Queue, as: Queue
 
   import Supervisor.Spec
 
@@ -67,7 +68,7 @@ defmodule Sippet.Transport.UDP.Plug do
   end
 
   def handle_info({:udp, _socket, ip, from_port, packet}, state) do
-    Sippet.Transport.Queue.incoming_datagram(packet, {:udp, ip, from_port})
+    Queue.incoming_datagram(packet, {:udp, ip, from_port})
     {:noreply, state}
   end
 

@@ -3,8 +3,8 @@ defmodule Sippet.Proxy do
   alias Sippet.Message.RequestLine, as: RequestLine
   alias Sippet.Message.StatusLine, as: StatusLine
   alias Sippet.URI, as: URI
-  alias Sippet.Transaction, as: Transaction
-  alias Sippet.Transport, as: Transport
+  alias Sippet.Transactions, as: Transactions
+  alias Sippet.Transports, as: Transport
 
   @doc """
   Adds a Record-Route header to the request.
@@ -23,7 +23,8 @@ defmodule Sippet.Proxy do
       %URI{} = hop) do
     hop = %{hop | parameters: hop.parameters |> Map.put("lr", nil)}
     record_route = {"", hop, %{}}
-    request |> Message.update_header(:record_route, [record_route],
+    %Message{start_line: %RequestLine{}} =
+      request |> Message.update_header(:record_route, [record_route],
         fn list -> [record_route | list] end)
   end
 
@@ -74,7 +75,7 @@ defmodule Sippet.Proxy do
   """
   @spec forward_request(Message.request) ::
       :ok |
-      {:ok, client_transaction :: Sippet.Transaction.Client.t} |
+      {:ok, client_transaction :: Sippet.Transactions.Client.t} |
       {:error, reason :: term}
   def forward_request(%Message{start_line: %RequestLine{}} = request) do
     if request.start_line.method == :ack do
@@ -83,7 +84,7 @@ defmodule Sippet.Proxy do
     else
       request
       |> do_add_max_forwards()
-      |> Transaction.send_request()
+      |> Transactions.send_request()
     end
   end
 
@@ -127,7 +128,7 @@ defmodule Sippet.Proxy do
       raise ArgumentError, "Via cannot be empty, wrong response forward"
     end
 
-    case Transaction.send_response(response) do
+    case Transactions.send_response(response) do
       {:error, :no_transaction} ->
         response |> Transport.send_message()
       other ->

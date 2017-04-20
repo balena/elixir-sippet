@@ -1,8 +1,8 @@
-defmodule Sippet.Transaction.Client do
+defmodule Sippet.Transactions.Client do
   alias Sippet.Message, as: Message
   alias Sippet.Message.RequestLine, as: RequestLine
   alias Sippet.Message.StatusLine, as: StatusLine
-  alias Sippet.Transaction.Client.State, as: State
+  alias Sippet.Transactions.Client.State, as: State
 
   @type request :: %Message{start_line: %RequestLine{}}
 
@@ -72,7 +72,7 @@ defmodule Sippet.Transaction.Client do
     quote location: :keep do
       use GenStateMachine, callback_mode: [:state_functions, :state_enter]
 
-      alias Sippet.Transaction.Client.State, as: State
+      alias Sippet.Transactions.Client.State, as: State
 
       require Logger
 
@@ -83,7 +83,7 @@ defmodule Sippet.Transaction.Client do
       end
 
       defp send_request(request, %State{name: name} = data),
-        do: Sippet.Transport.send_message(request, name)
+        do: Sippet.Transports.send_message(request, name)
 
       defp receive_response(response, %State{name: name} = data),
         do: Sippet.Core.receive_response(response, name)
@@ -97,7 +97,7 @@ defmodule Sippet.Transaction.Client do
       def timeout(%State{} = data),
         do: shutdown(:timeout, data)
 
-      defdelegate reliable?(request), to: Sippet.Transport
+      defdelegate reliable?(request), to: Sippet.Transports
 
       def unhandled_event(event_type, event_content,
           %State{name: name} = data) do
@@ -110,7 +110,7 @@ defmodule Sippet.Transaction.Client do
   end
 end
 
-defimpl String.Chars, for: Sippet.Transaction.Client do
-  def to_string(%Sippet.Transaction.Client{} = transaction),
+defimpl String.Chars, for: Sippet.Transactions.Client do
+  def to_string(%Sippet.Transactions.Client{} = transaction),
     do: "#{transaction.branch}/#{transaction.method}"
 end

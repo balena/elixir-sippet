@@ -1,9 +1,9 @@
-defmodule Sippet.Transaction.Server.Invite do
-  use Sippet.Transaction.Server, initial_state: :proceeding
+defmodule Sippet.Transactions.Server.Invite do
+  use Sippet.Transactions.Server, initial_state: :proceeding
 
   alias Sippet.Message, as: Message
   alias Sippet.Message.StatusLine, as: StatusLine
-  alias Sippet.Transaction.Server.State, as: State
+  alias Sippet.Transactions.Server.State, as: State
 
   @t2 4000
   @before_trying 200

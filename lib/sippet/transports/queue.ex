@@ -1,4 +1,4 @@
-defmodule Sippet.Transport.Queue do
+defmodule Sippet.Transports.Queue do
   @moduledoc """
   The transport queue receives datagrams or messages from network transport
   protocols, validates and routes them to the transaction module.
@@ -7,7 +7,7 @@ defmodule Sippet.Transport.Queue do
   """
 
   alias Sippet.Message, as: Message
-  alias Sippet.Transport.Pool, as: Pool
+  alias Sippet.Transports.Pool, as: Pool
 
   @type from :: {
     protocol :: atom | binary,

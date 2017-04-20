@@ -1,8 +1,8 @@
-defmodule Sippet.Transaction.Client.NonInvite do
-  use Sippet.Transaction.Client, initial_state: :trying
+defmodule Sippet.Transactions.Client.NonInvite do
+  use Sippet.Transactions.Client, initial_state: :trying
 
   alias Sippet.Message.StatusLine, as: StatusLine
-  alias Sippet.Transaction.Client.State, as: State
+  alias Sippet.Transactions.Client.State, as: State
 
   require Logger
 

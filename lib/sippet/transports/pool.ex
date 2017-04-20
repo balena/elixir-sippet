@@ -1,8 +1,8 @@
-defmodule Sippet.Transport.Pool do
+defmodule Sippet.Transports.Pool do
 
   @spec spec() :: Supervisor.Spec.spec
   def spec() do
-    alias Sippet.Transport.Worker, as: Worker
+    alias Sippet.Transports.Worker, as: Worker
 
     defaults = [
       size: System.schedulers_online(),

@@ -7,7 +7,7 @@ defmodule Sippet.Core do
   """
 
   alias Sippet.Message, as: Message
-  alias Sippet.Transaction, as: Transaction
+  alias Sippet.Transactions, as: Transactions
 
   @doc """
   Receives a new incoming request from a remote host, or ACK.
@@ -22,14 +22,14 @@ defmodule Sippet.Core do
   `server_transaction` is `nil`.
   """
   @callback receive_request(incoming_request :: Message.request,
-                            server_transaction :: Transaction.Server.t | nil)
+                            server_transaction :: Transactions.Server.t | nil)
                             :: any
 
   @doc """
   Receives a response for a sent request.
 
   The `client_transaction` indicates the name of the transaction created when
-  the request was sent using `Sippet.Transaction.send_request/1`.
+  the request was sent using `Sippet.Transactions.send_request/1`.
 
   The function `receive_response/2` is called from the client transaction
   process when the parameter `client_transaction` is not `nil`, and from the
@@ -37,7 +37,7 @@ defmodule Sippet.Core do
   `client_transaction` is `nil`.
   """
   @callback receive_response(incoming_response :: Message.response,
-                             client_transaction :: Transaction.Client.t | nil)
+                             client_transaction :: Transactions.Client.t | nil)
                              :: any
 
   @doc """
@@ -48,15 +48,15 @@ defmodule Sippet.Core do
   """
   @callback receive_error(reason :: term,
                           client_or_server_transaction ::
-                              Transaction.Client.t |
-                              Transaction.Server.t)
+                              Transactions.Client.t |
+                              Transactions.Server.t)
                           :: any
 
   @doc """
   Dispatches the received request to the registered `Sippet.Core`
   implementation.
   """
-  @spec receive_request(Message.request, Transaction.Server.t | nil) :: any
+  @spec receive_request(Message.request, Transactions.Server.t | nil) :: any
   def receive_request(incoming_request, server_transaction) do
     args = [incoming_request, server_transaction]
     apply(get_module!(), :receive_request, args)
@@ -75,7 +75,7 @@ defmodule Sippet.Core do
   Dispatches the received response to the registered `Sippet.Core`
   implementation.
   """
-  @spec receive_response(Message.response, Transaction.Client.t | nil) :: any
+  @spec receive_response(Message.response, Transactions.Client.t | nil) :: any
   def receive_response(incoming_response, client_transaction) do
     args = [incoming_response, client_transaction]
     apply(get_module!(), :receive_response, args)
@@ -86,7 +86,7 @@ defmodule Sippet.Core do
   implementation.
   """
   @spec receive_error(reason :: term,
-                      Transaction.Client.t | Transaction.Server.t) :: any
+                      Transactions.Client.t | Transactions.Server.t) :: any
   def receive_error(reason, client_or_server_transaction) do
     args = [reason, client_or_server_transaction]
     apply(get_module!(), :receive_error, args)

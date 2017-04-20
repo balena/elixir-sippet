@@ -1,8 +1,8 @@
-defmodule Sippet.Transport.UDP.Pool do
+defmodule Sippet.Transports.UDP.Pool do
 
   @spec spec() :: Supervisor.Spec.spec
   def spec() do
-    alias Sippet.Transport.UDP.Sender, as: Sender
+    alias Sippet.Transports.UDP.Sender, as: Sender
 
     defaults = [
       size: System.schedulers_online(),

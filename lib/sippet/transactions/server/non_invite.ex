@@ -1,8 +1,8 @@
-defmodule Sippet.Transaction.Server.NonInvite do
-  use Sippet.Transaction.Server, initial_state: :trying
+defmodule Sippet.Transactions.Server.NonInvite do
+  use Sippet.Transactions.Server, initial_state: :trying
 
   alias Sippet.Message.StatusLine, as: StatusLine
-  alias Sippet.Transaction.Server.State, as: State
+  alias Sippet.Transactions.Server.State, as: State
 
   @max_idle 4000
   @timer_j 32000

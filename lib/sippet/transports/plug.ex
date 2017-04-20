@@ -1,9 +1,9 @@
-defmodule Sippet.Transport.Plug do
+defmodule Sippet.Transports.Plug do
   @moduledoc """
   A behaviour module for implementing Sippet network transport protocols.
 
-  A `Sippet.Transport.Plug` behavior module is started and supervised by the
-  `Sippet.Transport` module at initialization.
+  A `Sippet.Transports.Plug` behavior module is started and supervised by the
+  `Sippet.Transports` module at initialization.
   """
 
   @doc """
@@ -20,21 +20,21 @@ defmodule Sippet.Transport.Plug do
                          remote_host :: binary,
                          remote_port :: integer,
                          transaction ::
-                            Sippet.Transaction.Client.t |
-                            Sippet.Transaction.Server.t |
+                            Sippet.Transactions.Client.t |
+                            Sippet.Transactions.Server.t |
                             nil)
                          :: :ok | {:error, reason :: term}
 
   @doc """
   Invoked to check if this connection is reliable (connection-oriented). If
-  `false` then the `Sippet.Transaction` has to retransmit requests or handle
+  `false` then the `Sippet.Transactions` has to retransmit requests or handle
   request retransmissions.
   """
   @callback reliable?() :: boolean
 
   defmacro __using__(_opts) do
     quote location: :keep do
-      @behaviour Sippet.Transport.Plug
+      @behaviour Sippet.Transports.Plug
     end
   end
 end

@@ -1,8 +1,9 @@
-defmodule Sippet.Transport.Worker do
+defmodule Sippet.Transports.Worker do
   use GenServer
 
   alias Sippet.Message, as: Message
-  alias Sippet.Transport.Pool, as: Pool
+  alias Sippet.Transports.Pool, as: Pool
+  alias Sippet.Transactions, as: Transactions
 
   require Logger
 
@@ -86,7 +87,7 @@ defmodule Sippet.Transport.Worker do
   defp validate_message(message, from) do
     case Message.validate(message, from) do
       :ok ->
-        message |> Sippet.Transaction.receive_message()
+        message |> Transactions.receive_message()
       {:error, reason} ->
         Logger.warn("discarded #{message_kind message}, " <>
                     "#{inspect reason}")

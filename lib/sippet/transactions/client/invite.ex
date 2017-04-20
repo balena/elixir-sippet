@@ -1,9 +1,9 @@
-defmodule Sippet.Transaction.Client.Invite do
-  use Sippet.Transaction.Client, initial_state: :calling
+defmodule Sippet.Transactions.Client.Invite do
+  use Sippet.Transactions.Client, initial_state: :calling
 
   alias Sippet.Message, as: Message
   alias Sippet.Message.StatusLine, as: StatusLine
-  alias Sippet.Transaction.Client.State, as: State
+  alias Sippet.Transactions.Client.State, as: State
 
   @timer_a 600  # optimization: transaction ends in 37.8s
   @timer_b 64 * @timer_a

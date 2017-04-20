@@ -1,7 +1,8 @@
-defmodule Sippet.Transport.UDP.Sender do
+defmodule Sippet.Transports.UDP.Sender do
   alias Sippet.Message, as: Message
-  alias Sippet.Transport.UDP.Plug, as: Plug
-  alias Sippet.Transport.UDP.Pool, as: Pool
+  alias Sippet.Transports.UDP.Plug, as: Plug
+  alias Sippet.Transports.UDP.Pool, as: Pool
+  alias Sippet.Transactions, as: Transactions
 
   require Logger
 
@@ -34,7 +35,7 @@ defmodule Sippet.Transport.UDP.Sender do
         Logger.warn("#{inspect self()} udp worker error for " <>
                     "#{host}:#{port}: #{inspect reason}")
         if transaction != nil do
-          Sippet.Transaction.receive_error(transaction, reason)
+          Transactions.receive_error(transaction, reason)
         end
     end
 

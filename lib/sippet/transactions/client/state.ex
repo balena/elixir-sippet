@@ -1,11 +1,11 @@
-defmodule Sippet.Transaction.Server.State do
+defmodule Sippet.Transactions.Client.State do
   alias Sippet.Message, as: Message
   alias Sippet.Message.RequestLine, as: RequestLine
-  alias Sippet.Transaction, as: Transaction
+  alias Sippet.Transactions, as: Transactions
 
   @type request :: %Message{start_line: %RequestLine{}}
 
-  @type name :: %Transaction.Server{}
+  @type name :: %Transactions.Client{}
 
   @type t :: [
     request: request,

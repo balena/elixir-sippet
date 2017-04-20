@@ -1,15 +1,15 @@
-defmodule Sippet.Transport do
+defmodule Sippet.Transports do
   @moduledoc """
-  The `Sippet.Transport` is responsible for the actual transmission of requests
+  The `Sippet.Transports` is responsible for the actual transmission of requests
   and responses over network transports.
 
   Network transport protocols are implemented following the
-  `Sippet.Transport.Plug` behavior, and they are configured as:
+  `Sippet.Transports.Plug` behavior, and they are configured as:
 
-      config :sippet, Sippet.Transport,
-        udp: Sippet.Transport.UDP.Plug
+      config :sippet, Sippet.Transports,
+        udp: Sippet.Transports.UDP.Plug
 
-  Whenever a message is received by a plug, the `Sippet.Transport.Queue` is
+  Whenever a message is received by a plug, the `Sippet.Transports.Queue` is
   used to process, validate and route it through the transaction layer or core.
   """
 
@@ -18,7 +18,7 @@ defmodule Sippet.Transport do
   alias Sippet.Message, as: Message
   alias Sippet.Message.RequestLine, as: RequestLine
   alias Sippet.Message.StatusLine, as: StatusLine
-  alias Sippet.Transport.Pool, as: Pool
+  alias Sippet.Transports.Pool, as: Pool
   alias Sippet.URI, as: URI
 
   @doc """
@@ -52,7 +52,7 @@ defmodule Sippet.Transport do
   Sends a message to the network.
 
   If specified, the `transaction` will receive the transport error if occurs.
-  See `Sippet.Transaction.receive_error/2`.
+  See `Sippet.Transactions.receive_error/2`.
 
   This function may block the caller temporarily due to resource constraints.
   """
@@ -122,7 +122,7 @@ defmodule Sippet.Transport do
   end
 
   defp to_plug(protocol) do
-    Application.get_env(:sippet, Sippet.Transport)
+    Application.get_env(:sippet, Sippet.Transports)
     |> Keyword.fetch!(protocol)
   end
 

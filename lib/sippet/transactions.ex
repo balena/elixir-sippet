@@ -1,16 +1,17 @@
-defmodule Sippet.Transaction do
+defmodule Sippet.Transactions do
   @moduledoc """
-  The `Sippet.Transaction` is responsible to dispatch messages from
+  The `Sippet.Transactions` is responsible to dispatch messages from
   `Sippet.Transport` and `Sippet.Core` modules to transactions, creating when
   necessary.
   """
 
-  import Sippet.Transaction.Registry
+  import Supervisor.Spec
+  import Sippet.Transactions.Registry
 
   alias Sippet.Message, as: Message
   alias Sippet.Message.RequestLine, as: RequestLine
   alias Sippet.Message.StatusLine, as: StatusLine
-  alias Sippet.Transaction, as: Transaction
+  alias Sippet.Transactions, as: Transactions
   alias Sippet.Core, as: Core
 
   require Logger
@@ -25,10 +26,10 @@ defmodule Sippet.Transaction do
   @type reason :: term
 
   @typedoc "A client transaction identifier"
-  @type client_transaction :: Transaction.Client.t
+  @type client_transaction :: Transactions.Client.t
 
   @typedoc "A server transaction identifier"
-  @type server_transaction :: Transaction.Server.t
+  @type server_transaction :: Transactions.Server.t
 
   @doc """
   Starts the transaction process hierarchy.
@@ -36,49 +37,19 @@ defmodule Sippet.Transaction do
   def start_link() do
     children = [
       registry_spec(),
-      sup_spec(__MODULE__)
+      supervisor(Sippet.Transactions.Supervisor, [])
     ]
 
-    options = [strategy: :one_for_one]
+    options = [strategy: :one_for_one, name: __MODULE__]
 
     Supervisor.start_link(children, options)
   end
 
-  @doc """
-  Starts a client transaction.
-  """
-  @spec start_client(Transaction.Client.t, request) ::
-    Supervisor.on_start_child
-  def start_client(%Transaction.Client{} = transaction,
-      %Message{start_line: %RequestLine{}} = outgoing_request) do
-    module =
-      case transaction.method do
-        :invite -> Transaction.Client.Invite
-        _otherwise -> Transaction.Client.NonInvite
-      end
+  defdelegate start_client(transaction, outgoing_request),
+    to: Sippet.Transactions.Supervisor
 
-    initial_data = Transaction.Client.State.new(outgoing_request, transaction)
-    Supervisor.start_child(__MODULE__, [module, initial_data,
-                           [name: via_tuple(transaction)]])
-  end
-
-  @doc """
-  Starts a server transaction.
-  """
-  @spec start_server(Transaction.Server.t, request) ::
-    Supervisor.on_start_child
-  def start_server(%Transaction.Server{} = transaction,
-      %Message{start_line: %RequestLine{}} = incoming_request) do
-    module =
-      case transaction.method do
-        :invite -> Transaction.Server.Invite
-        _otherwise -> Transaction.Server.NonInvite
-      end
-
-    initial_data = Transaction.Server.State.new(incoming_request, transaction)
-    Supervisor.start_child(__MODULE__, [module, initial_data,
-                           [name: via_tuple(transaction)]])
-  end
+  defdelegate start_server(transaction, incoming_request),
+    to: Sippet.Transactions.Supervisor
 
   @doc """
   Receives a message from the transport.
@@ -86,7 +57,7 @@ defmodule Sippet.Transaction do
   If the message is a request, then it will look if a server transaction
   already exists for it and redirect to it. Otherwise, if the request method
   is `:ack`, it will redirect the request directly to `Sippet.Core`; if not
-  `:ack`, then a new `Sippet.Transaction.Server` will be created.
+  `:ack`, then a new `Sippet.Transactions.Server` will be created.
 
   If the message is a response, it looks if a client transaction already exists
   in order to handle it, and if so, redirects to it. Otherwise the response is
@@ -103,13 +74,13 @@ defmodule Sippet.Transaction do
   @spec receive_message(request | response) :: :ok | {:error, reason}
   def receive_message(
       %Message{start_line: %RequestLine{}} = incoming_request) do
-    transaction = Transaction.Server.new(incoming_request)
+    transaction = Transactions.Server.new(incoming_request)
 
     case lookup(transaction) do
       [{_sup, pid}] ->
         # Redirect the request to the existing transaction. These are tipically
         # retransmissions or ACKs for 200 OK responses.
-        Transaction.Server.receive_request(pid, incoming_request)
+        Transactions.Server.receive_request(pid, incoming_request)
       [] ->
         if incoming_request.start_line.method == :ack do
           # Redirect to the core directly. ACKs sent out of transactions
@@ -130,13 +101,13 @@ defmodule Sippet.Transaction do
 
   def receive_message(
       %Message{start_line: %StatusLine{}} = incoming_response) do
-    transaction = Transaction.Client.new(incoming_response)
+    transaction = Transactions.Client.new(incoming_response)
 
     case lookup(transaction) do
       [{_sup, pid}] ->
         # Redirect the response to the existing client transaction. If needed,
         # the client transaction will redirect to the core from there.
-        Transaction.Client.receive_response(pid, incoming_response)
+        Transactions.Client.receive_response(pid, incoming_response)
       [] ->
         # Redirect the response to core. These are tipically retransmissions of
         # 200 OK for sent INVITE requests, and they have to be handled directly
@@ -151,7 +122,7 @@ defmodule Sippet.Transaction do
   Requests of method `:ack` shall be sent directly to `Sippet.Transport`. If an
   `:ack` request is detected, it returns `{:error, :not_allowed}`.
 
-  A `Sippet.Transaction.Client` is created to handle retransmissions, when the
+  A `Sippet.Transactions.Client` is created to handle retransmissions, when the
   transport presumes it, and match response retransmissions, so the
   `Sippet.Core` doesn't get retransmissions other than 200 OK for `:invite`
   requests.
@@ -166,7 +137,7 @@ defmodule Sippet.Transaction do
   end
 
   def send_request(%Message{start_line: %RequestLine{}} = outgoing_request) do
-    transaction = Transaction.Client.new(outgoing_request)
+    transaction = Transactions.Client.new(outgoing_request)
 
     # Create a new client transaction now. The request is passed to the
     # transport once it starts.
@@ -188,7 +159,7 @@ defmodule Sippet.Transaction do
   """
   @spec send_response(response) :: :ok | {:error, reason}
   def send_response(%Message{start_line: %StatusLine{}} = outgoing_response) do
-    server_transaction = Transaction.Server.new(outgoing_response)
+    server_transaction = Transactions.Server.new(outgoing_response)
     send_response(server_transaction, outgoing_response)
   end
 
@@ -204,12 +175,12 @@ defmodule Sippet.Transaction do
   In case of success, returns `:ok`.
   """
   @spec send_response(server_transaction, response) :: :ok | {:error, reason}
-  def send_response(%Transaction.Server{} = server_transaction,
+  def send_response(%Transactions.Server{} = server_transaction,
       %Message{start_line: %StatusLine{}} = outgoing_response) do
     case lookup(server_transaction) do
       [{_sup, pid}] ->
         # Send the response through the existing server transaction.
-        Transaction.Server.send_response(pid, outgoing_response)
+        Transactions.Server.send_response(pid, outgoing_response)
       [] ->
         {:error, :no_transaction}
     end
@@ -228,16 +199,16 @@ defmodule Sippet.Transaction do
       [{_sup, pid}] ->
         # Send the response through the existing server transaction.
         case transaction do
-          %Transaction.Client{} ->
-            Transaction.Client.receive_error(pid, reason)
-          %Transaction.Server{} ->
-            Transaction.Server.receive_error(pid, reason)
+          %Transactions.Client{} ->
+            Transactions.Client.receive_error(pid, reason)
+          %Transactions.Server{} ->
+            Transactions.Server.receive_error(pid, reason)
         end
       [] ->
         case transaction do
-          %Transaction.Client{} ->
+          %Transactions.Client{} ->
             Logger.warn("client transaction #{transaction} not found")
-          %Transaction.Server{} ->
+          %Transactions.Server{} ->
             Logger.warn("server transaction #{transaction} not found")
         end
         {:error, :no_transaction}

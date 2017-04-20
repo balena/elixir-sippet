@@ -9,7 +9,7 @@ use Mix.Config
 #
 # * `:port` is the UDP port to listen (required).
 # * `:address` is the local address to bind (optional, defaults to "0.0.0.0")
-config :sippet, Sippet.Transport.UDP.Plug,
+config :sippet, Sippet.Transports.UDP.Plug,
   port: 5060,
   address: "127.0.0.1"
 
@@ -19,10 +19,10 @@ config :sippet, Sippet.Transport.UDP.Plug,
 #   `System.schedulers_online/1`).
 # * `:max_overflow` is the acceptable number of extra workers under high load
 #   (optional, defaults to 0, or no overflow).
-config :sippet, Sippet.Transport.Pool,
+config :sippet, Sippet.Transports.Pool,
   size: System.schedulers_online(),
   max_overflow: 0
 
 # Sets the transport plugs, or the supported SIP transport protocols.
-config :sippet, Sippet.Transport,
-  udp: Sippet.Transport.UDP.Plug
+config :sippet, Sippet.Transports,
+  udp: Sippet.Transports.UDP.Plug
