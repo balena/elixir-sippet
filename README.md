@@ -31,8 +31,8 @@ the header name, and the value varies accordingly the header type. For
 instance, the header `:cseq` has the form `{sequence :: integer, method}` where
 the `method` is an atom with the method name (like `:invite`).
 
-Other than the `Sippet.Message`, you will find the `Sippet.Transport` and the
-`Sippet.Transaction` modules, which implement the two standard SIP layers.
+Other than the `Sippet.Message`, you will find the `Sippet.Transports` and the
+`Sippet.Transactions` modules, which implement the two standard SIP layers.
 Message routing is performed just manipulating `Sippet.Message` headers;
 everything else is performed by these layers in a very standard way. That means
 you may not be able to build some non-standard behaviors, like routing the
@@ -47,10 +47,10 @@ Elixir behaviors and macros, and the developer may custom as he likes. Incoming
 messages and transport errors are directed to a `Sippet.Core` module behavior.
 
 Finally, there is no support for many different transport protocols; a simple
-`Sippet.Transport.UDP` (but still performatic) implementation is provided,
+`Sippet.Transports.UDP` (but still performatic) implementation is provided,
 which is enough for several SIP middleware apps. Transport protocols can be
-implemented quite easily using the `Sippet.Transport.Plug` behavior. In order
-to optimize the message processing, there's a `Sippet.Transport.Queue` which
+implemented quite easily using the `Sippet.Transports.Plug` behavior. In order
+to optimize the message processing, there's a `Sippet.Transports.Queue` which
 receives datagrams, case the transport protocol is datagram-based, or a
 `Sippet.Message.t` message, generally performed by stream-based protocols.
 
@@ -63,7 +63,7 @@ The package can be installed from [Hex](https://hex.pm/docs/publish) as:
 
 ```elixir
 def deps do
-  [{:sippet, "~> 0.2.0"}]
+  [{:sippet, "~> 0.2.1"}]
 end
 ```
 
@@ -83,13 +83,13 @@ end
 #
 # * `:port` is the UDP port to listen (required).
 # * `:address` is the local address to bind (optional, defaults to "0.0.0.0")
-config :sippet, Sippet.Transport.UDP.Plug,
+config :sippet, Sippet.Transports.UDP.Plug,
   port: 5060,
   address: "127.0.0.1"
 
 # Sets the transport plugs, or the supported SIP transport protocols.
-config :sippet, Sippet.Transport,
-  udp: Sippet.Transport.UDP.Plug
+config :sippet, Sippet.Transports,
+  udp: Sippet.Transports.UDP.Plug
 ```
 
   4. Set your Sippet.Core behavior implementation in your `config/config.exs`
