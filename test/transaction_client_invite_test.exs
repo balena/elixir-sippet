@@ -1,10 +1,10 @@
-defmodule Sippet.Transaction.Client.Invite.Test do
+defmodule Sippet.Transactions.Client.Invite.Test do
   use ExUnit.Case, async: false
 
   alias Sippet.Message
-  alias Sippet.Transaction.Client
-  alias Sippet.Transaction.Client.State
-  alias Sippet.Transaction.Client.Invite
+  alias Sippet.Transactions.Client
+  alias Sippet.Transactions.Client.State
+  alias Sippet.Transactions.Client.Invite
 
   import Mock
 
@@ -49,7 +49,7 @@ defmodule Sippet.Transaction.Client.Invite.Test do
       %{request: request, transaction: transaction, state: state} do
     # test if the retry timer has been started for unreliable transports, and
     # if the received request is sent to the core
-    with_mock Sippet.Transport,
+    with_mock Sippet.Transports,
         [send_message: fn _, _ -> :ok end,
          reliable?: fn _ -> false end] do
 
@@ -58,12 +58,12 @@ defmodule Sippet.Transaction.Client.Invite.Test do
 
       assert action_timeout actions, 600
 
-      assert called Sippet.Transport.reliable?(request)
-      assert called Sippet.Transport.send_message(request, transaction)
+      assert called Sippet.Transports.reliable?(request)
+      assert called Sippet.Transports.send_message(request, transaction)
     end
 
     # test if the timeout timer has been started for reliable transports
-    with_mock Sippet.Transport,
+    with_mock Sippet.Transports,
         [send_message: fn _, _ -> :ok end,
          reliable?: fn _ -> true end] do
 
@@ -72,12 +72,12 @@ defmodule Sippet.Transaction.Client.Invite.Test do
 
       assert action_timeout actions, 64 * 600
 
-      assert called Sippet.Transport.reliable?(request)
-      assert called Sippet.Transport.send_message(request, transaction)
+      assert called Sippet.Transports.reliable?(request)
+      assert called Sippet.Transports.send_message(request, transaction)
     end
 
     # test timer expiration for unreliable transports
-    with_mock Sippet.Transport,
+    with_mock Sippet.Transports,
         [send_message: fn _, _ -> :ok end,
          reliable?: fn _ -> false end] do
 
@@ -86,7 +86,7 @@ defmodule Sippet.Transaction.Client.Invite.Test do
 
       assert action_timeout actions, 2400
 
-      assert called Sippet.Transport.send_message(request, transaction)
+      assert called Sippet.Transports.send_message(request, transaction)
     end
 
     # test timeout and errors
@@ -149,7 +149,7 @@ defmodule Sippet.Transaction.Client.Invite.Test do
   test "client invite completed state",
       %{request: request, transaction: transaction, state: state} do
     # test the ACK request creation
-    with_mock Sippet.Transport,
+    with_mock Sippet.Transports,
         [send_message: fn _, _ -> :ok end,
          reliable?: fn _ -> false end] do
       last_response = Message.build_response(request, 400)
@@ -169,11 +169,11 @@ defmodule Sippet.Transaction.Client.Invite.Test do
       :keep_state_and_data =
         Invite.completed(:cast, {:incoming_response, last_response}, data)
 
-      assert called Sippet.Transport.send_message(ack, transaction)
+      assert called Sippet.Transports.send_message(ack, transaction)
     end
 
     # reliable transports don't keep the completed state
-    with_mock Sippet.Transport,
+    with_mock Sippet.Transports,
         [send_message: fn _, _ -> :ok end,
          reliable?: fn _ -> true end] do
       last_response = Message.build_response(request, 400)

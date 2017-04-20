@@ -1,10 +1,10 @@
-defmodule Sippet.Transaction.Server.Invite.Test do
+defmodule Sippet.Transactions.Server.Invite.Test do
   use ExUnit.Case, async: false
 
   alias Sippet.Message
-  alias Sippet.Transaction.Server
-  alias Sippet.Transaction.Server.State
-  alias Sippet.Transaction.Server.Invite
+  alias Sippet.Transactions.Server
+  alias Sippet.Transactions.Server.State
+  alias Sippet.Transactions.Server.Invite
 
   import Mock
 
@@ -49,7 +49,7 @@ defmodule Sippet.Transaction.Server.Invite.Test do
   test "server invite proceeding state",
       %{request: request, transaction: transaction, data: data} do
     with_mocks([
-        {Sippet.Transport, [],
+        {Sippet.Transports, [],
           [send_message: fn _, _ -> :ok end,
            reliable?: fn _ -> false end]},
         {Sippet.Core, [],
@@ -73,7 +73,7 @@ defmodule Sippet.Transaction.Server.Invite.Test do
           Invite.proceeding(:cast, {:incoming_request, request}, data)
 
       response = request |> Message.build_response(100)
-      assert not called Sippet.Transport.send_response(response, transaction)
+      assert not called Sippet.Transports.send_response(response, transaction)
 
       # ensure that the 100 Trying is created and sent automatically
       {:keep_state, data, _actions} =
@@ -82,7 +82,7 @@ defmodule Sippet.Transaction.Server.Invite.Test do
       assert data.extras |> Map.has_key?(:last_response)
 
       last_response = data.extras.last_response
-      assert called Sippet.Transport.send_message(last_response, transaction)
+      assert called Sippet.Transports.send_message(last_response, transaction)
 
       # ensure that the state machine finishes case the idle timer fires
       {:stop, :shutdown, _data} =
@@ -92,7 +92,7 @@ defmodule Sippet.Transaction.Server.Invite.Test do
       :keep_state_and_data =
           Invite.proceeding(:cast, {:incoming_request, request}, data)
 
-      assert called Sippet.Transport.send_message(last_response, transaction)
+      assert called Sippet.Transports.send_message(last_response, transaction)
     end
   end
 end

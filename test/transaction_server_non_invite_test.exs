@@ -1,10 +1,10 @@
-defmodule Sippet.Transaction.Server.NonInvite.Test do
+defmodule Sippet.Transactions.Server.NonInvite.Test do
   use ExUnit.Case, async: false
 
   alias Sippet.Message
-  alias Sippet.Transaction.Server
-  alias Sippet.Transaction.Server.State
-  alias Sippet.Transaction.Server.NonInvite
+  alias Sippet.Transactions.Server
+  alias Sippet.Transactions.Server.State
+  alias Sippet.Transactions.Server.NonInvite
 
   import Mock
 
@@ -44,7 +44,7 @@ defmodule Sippet.Transaction.Server.NonInvite.Test do
   test "server non-invite trying state",
       %{request: request, transaction: transaction, data: data} do
     with_mocks([
-        {Sippet.Transport, [],
+        {Sippet.Transports, [],
           [send_message: fn _, _ -> :ok end,
            reliable?: fn _ -> false end]},
         {Sippet.Core, [],

@@ -1,10 +1,10 @@
-defmodule Sippet.Transaction.Client.NonInvite.Test do
+defmodule Sippet.Transactions.Client.NonInvite.Test do
   use ExUnit.Case, async: false
 
   alias Sippet.Message
-  alias Sippet.Transaction.Client
-  alias Sippet.Transaction.Client.State
-  alias Sippet.Transaction.Client.NonInvite
+  alias Sippet.Transactions.Client
+  alias Sippet.Transactions.Client.State
+  alias Sippet.Transactions.Client.NonInvite
 
   import Mock
 
@@ -65,7 +65,7 @@ defmodule Sippet.Transaction.Client.NonInvite.Test do
     # test if the retry timer has been started for unreliable transports, and
     # if the received request is sent to the core
     with_mocks([
-        {Sippet.Transport, [],
+        {Sippet.Transports, [],
           [send_message: fn _, _ -> :ok end,
            reliable?: fn _ -> false end]},
         {Sippet.Core, [],
@@ -78,8 +78,8 @@ defmodule Sippet.Transaction.Client.NonInvite.Test do
       assert data_timeout data, :retry_timer, 500
       assert data_timeout data, :deadline_timer, 64 * 500
 
-      assert called Sippet.Transport.reliable?(request)
-      assert called Sippet.Transport.send_message(request, transaction)
+      assert called Sippet.Transports.reliable?(request)
+      assert called Sippet.Transports.send_message(request, transaction)
 
       # the retry timer should send the request again and double the retry
       # timer
@@ -87,7 +87,7 @@ defmodule Sippet.Transaction.Client.NonInvite.Test do
           NonInvite.trying(:info, {:timeout, 500, 500}, data)
 
       assert data_timeout data, :retry_timer, 1000
-      assert called Sippet.Transport.send_message(request, transaction)
+      assert called Sippet.Transports.send_message(request, transaction)
 
       # the deadline timer should terminate the process and send timeout
       # to core
