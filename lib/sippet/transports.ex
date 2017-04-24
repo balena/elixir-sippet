@@ -101,18 +101,7 @@ defmodule Sippet.Transports do
     params = URI.decode_parameters(uri.parameters)
     protocol =
       if params |> Map.has_key?("transport") do
-        case String.downcase(params["transport"]) do
-          "dccp" -> :dccp
-          "dtls" -> :dtls
-          "sctp" -> :sctp
-          "stomp" -> :stomp
-          "tcp" -> :tcp
-          "tls" -> :tls
-          "udp" -> :udp
-          "ws" -> :ws
-          "wss" -> :wss
-          other -> other
-        end
+        Sippet.Message.to_protocol(params["transport"])
       else
         {_version, protocol, _sent_by, _params} =
           hd(request.headers.via)
