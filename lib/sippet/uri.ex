@@ -1,6 +1,7 @@
 defmodule Sippet.URI do
   @moduledoc """
   Utilities for working with SIP-URIs.
+
   This module provides functions for working with URIs (for example, parsing
   SIP-URIs, encoding parameters or header strings).
   """
@@ -25,7 +26,9 @@ defmodule Sippet.URI do
   Returns the default port for a given SIP scheme.
   If the scheme is unknown to the `Sippet.URI` module, this function returns
   `nil`.
+
   ## Examples
+
       iex> Sippet.URI.default_port("sip")
       5060
       iex> Sippet.URI.default_port("ponzi")
@@ -42,12 +45,15 @@ defmodule Sippet.URI do
 
   @doc """
   Encodes an enumerable into a "uri-parameters" string.
+
   Takes an enumerable that enumerates as a list of two-element tuples (e.g., a
   map or a keyword list) and returns a string in the form of
   `;key1=value1;key2=value2...` where keys and values are encoded as per
   `encode_paramchar/1`. Keys and values can be any term that implements the
   `String.Chars` protocol, except lists which are explicitly forbidden.
+
   ## Examples
+
       iex> hd = %{"foo" => 1, "bar" => 2}
       iex> Sippet.URI.encode_parameters(hd)
       ";bar=2;foo=1"
@@ -88,12 +94,16 @@ defmodule Sippet.URI do
 
   @doc """
   Decodes a "uri-parameters" string into a map.
+
   Given a "uri-parameters" string of the form of `;key1=value1;key2=value2...`,
   this function inserts each key-value pair in the query string as one entry in
   the given `map`. Keys and values in the resulting map will be binaries. Keys
   and values will be percent-unescaped.
+
   Use `parameters_decoder/1` if you want to iterate over each value manually.
+
   ## Examples
+
       iex> Sippet.URI.decode_parameters(";foo=1;bar=2")
       %{"bar" => "2", "foo" => "1"}
   """
@@ -150,8 +160,11 @@ defmodule Sippet.URI do
   @doc """
   Returns a stream of two-element tuples representing key-value pairs in the
   given `parameters`.
+
   Key and value in each tuple will be binaries and will be percent-unescaped.
+
   ## Examples
+
       iex> Sippet.URI.parameters_decoder(";foo=1;bar=2") |> Enum.to_list()
       [{"foo", "1"}, {"bar", "2"}]
   """
@@ -163,12 +176,15 @@ defmodule Sippet.URI do
 
   @doc """
   Encodes an enumerable into a "headers" string.
+
   Takes an enumerable that enumerates as a list of two-element tuples (e.g., a
   map or a keyword list) and returns a string in the form of
   `?key1=value1&key2=value2...` where keys and values are encoded as per
   `encode_header/1`. Keys and values can be any term that implements the
   `String.Chars` protocol, except lists which are explicitly forbidden.
+
   ## Examples
+
       iex> hd = %{"foo" => 1, "bar" => 2}
       iex> Sippet.URI.encode_headers(hd)
       "?bar=2&foo=1"
@@ -185,12 +201,16 @@ defmodule Sippet.URI do
 
   @doc """
   Decodes a "headers" string into a map.
+
   Given a "headers" string of the form of `?key1=value1&key2=value2...`,
   this function inserts each key-value pair in the query string as one entry in
   the given `map`. Keys and values in the resulting map will be binaries. Keys
   and values will be percent-unescaped.
+
   Use `headers_decoder/1` if you want to iterate over each value manually.
+
   ## Examples
+
       iex> Sippet.URI.decode_headers("?foo=1&bar=2")
       %{"bar" => "2", "foo" => "1"}
   """
@@ -202,8 +222,11 @@ defmodule Sippet.URI do
   @doc """
   Returns a stream of two-element tuples representing key-value pairs in the
   given `headers`.
+
   Key and value in each tuple will be binaries and will be percent-unescaped.
+
   ## Examples
+
       iex> Sippet.URI.headers_decoder("?foo=1&bar=2") |> Enum.to_list()
       [{"foo", "1"}, {"bar", "2"}]
   """
@@ -250,7 +273,9 @@ defmodule Sippet.URI do
   @doc """
   Decodes an encoded string, transforming any percent encoding back to
   corresponding characters.
+
   ## Examples
+
       iex> Sippet.URI.percent_unescape("%3Call%20in%2F")
       "<all in/"
   """
@@ -261,7 +286,9 @@ defmodule Sippet.URI do
 
   @doc """
   Checks if the character is an "unreserved" character in a SIP-URI.
+
   ## Examples
+
       iex> Sippet.URI.char_unreserved?(?~)
       true
   """
@@ -278,7 +305,9 @@ defmodule Sippet.URI do
 
   @doc """
   Checks if the character is an "param-unreserved" character in a SIP-URI.
+
   ## Examples
+
       iex> Sippet.URI.char_param_unreserved?(?~)
       false
   """
@@ -289,7 +318,9 @@ defmodule Sippet.URI do
 
   @doc """
   Checks if the character is an "hnv-unreserved" character in a SIP-URI.
+
   ## Examples
+
       iex> Sippet.URI.char_hnv_unreserved?(?:)
       true
   """
@@ -300,6 +331,7 @@ defmodule Sippet.URI do
 
   @doc """
   Parses a well-formed SIP-URI reference into its components.
+
   Note this function expects a well-formed SIP-URI and does not perform
   any validation. See the "Examples" section below for examples of how
   `Sippet.URI.parse/1` can be used to parse a wide range of URIs.
@@ -307,7 +339,9 @@ defmodule Sippet.URI do
   `Sippet.URI.default_port/1` for the SIP-URI's scheme is used for the `:port`
   field. If a `%Sippet.URI{}` struct is given to this function, this function
   returns it unmodified.
+
   ## Examples
+
       iex> Sippet.URI.parse("sip:user@host?Call-Info=%3Chttp://www.foo.com%3E&Subject=foo")
       {:ok, %Sippet.URI{scheme: "sip", userinfo: "user", authority: "user@host",
                   host: "host", port: 5060, parameters: nil,
@@ -385,6 +419,9 @@ defmodule Sippet.URI do
 
   @doc """
   Returns the string representation of the given `Sippet.URI` struct.
+
+  ## Examples
+
       iex> Sippet.URI.to_string(Sippet.URI.parse("sip:foo@bar.com"))
       "sip:foo@bar.com"
       iex> Sippet.URI.to_string(%URI{scheme: "foo", host: "bar.baz"})
