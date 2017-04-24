@@ -4,7 +4,7 @@ defmodule Sippet.Proxy do
   alias Sippet.Message.StatusLine, as: StatusLine
   alias Sippet.URI, as: URI
   alias Sippet.Transactions, as: Transactions
-  alias Sippet.Transports, as: Transport
+  alias Sippet.Transports, as: Transports
 
   @doc """
   Adds a Record-Route header to the request.
@@ -23,9 +23,12 @@ defmodule Sippet.Proxy do
       %URI{} = hop) do
     parameters =
       if hop.parameters == nil do
-        %{"lr" => nil}
+        ";lr"
       else
-        hop.parameters |> Map.put("lr", nil)
+        hop.parameters
+        |> URI.decode_parameters()
+        |> Map.put("lr", nil)
+        |> URI.encode_parameters()
       end
 
     record_route = {"", %{hop | parameters: parameters}, %{}}
@@ -82,11 +85,13 @@ defmodule Sippet.Proxy do
   @spec forward_request(Message.request) ::
       :ok |
       {:ok, client_transaction :: Sippet.Transactions.Client.t} |
-      {:error, reason :: term}
+      {:error, reason :: term} |
+      no_return
   def forward_request(%Message{start_line: %RequestLine{}} = request) do
     if request.start_line.method == :ack do
       request
-      |> Transport.send_message()
+      |> do_add_max_forwards()
+      |> Transports.send_message(nil)
     else
       request
       |> do_add_max_forwards()
@@ -96,8 +101,12 @@ defmodule Sippet.Proxy do
 
   defp do_add_max_forwards(message) do
     if message.headers |> Map.has_key?(:max_forwards) do
-      %{message | headers: %{message.headers | max_forwards:
-          message.headers.max_forwards - 1}}
+      max_fws = message.headers.max_forwards
+      if max_fws <= 0 do
+        raise ArgumentError, "invalid :max_forwards => #{inspect max_fws}"
+      else
+        %{message | headers: %{message.headers | max_forwards: max_fws - 1}}
+      end
     else
       %{message | headers: message.headers |> Map.put(:max_forwards, 70)}
     end
@@ -136,7 +145,7 @@ defmodule Sippet.Proxy do
 
     case Transactions.send_response(response) do
       {:error, :no_transaction} ->
-        response |> Transport.send_message()
+        response |> Transports.send_message()
       other ->
         other
     end
