@@ -26,6 +26,9 @@ not intend to provide any feature available in a fully functional SIP UAC/UAS,
 proxy server, B2BUA, SBC or application; instead, it has only the essential
 building blocks to build any kind of SIP middleware.
 
+
+## Overview
+
 One of the most central parts of Sippet is the `Sippet.Message`. Instead of
 many headers that you end up having to parse by yourself, there's an internal
 parser written in C++ (an Erlang NIF) that does all the hard work for you. This
