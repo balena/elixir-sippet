@@ -92,6 +92,7 @@ defmodule Sippet.Message do
     binary
 
   @type protocol ::
+    :amqp |
     :dccp |
     :dtls |
     :sctp |
@@ -165,6 +166,95 @@ defmodule Sippet.Message do
       is_atom(unquote(data)) or is_binary(unquote(data))
     end
   end
+
+  @external_resource protocols_path =
+    Path.join([__DIR__, "..", "..", "c_src", "protocol_list.h"])
+
+  known_protocols =
+    for line <- File.stream!(protocols_path, [], :line),
+        line |> String.starts_with?("SIP_PROTOCOL") do
+      [_, protocol] =
+        Regex.run(~r/SIP_PROTOCOL\(([^,]+)\)/, line)
+      atom = protocol |> String.downcase() |> String.to_atom()
+      defp string_to_protocol(unquote(protocol)),
+        do: unquote(atom)
+      protocol
+    end
+
+  defp string_to_protocol(string), do: string
+
+  @doc """
+  Returns a list of all known transport protocols, as a list of uppercase
+  strings.
+
+  ## Example:
+
+      iex> Sippet.Message.known_protocols()
+      ["AMQP", "DCCP", "DTLS", "SCTP", "STOMP", "TCP", "TLS", "UDP", "WS", "WSS"]
+  """
+  @spec known_protocols() :: [String.t]
+  def known_protocols(), do: unquote(known_protocols)
+
+  @doc """
+  Converts a string representing a known protocol into an atom, otherwise as an
+  uppercase string.
+
+  ## Example:
+
+      iex> Sippet.Message.to_protocol("UDP")
+      :udp
+      iex> Sippet.Message.to_protocol("uDp")
+      :udp
+      iex> Sippet.Message.to_protocol("aaa")
+      "AAA"
+  """
+  @spec to_protocol(String.t) :: atom | String.t
+  def to_protocol(string), do: string_to_protocol(string |> String.upcase())
+
+  @external_resource methods_path =
+    Path.join([__DIR__, "..", "..", "c_src", "method_list.h"])
+
+  known_methods =
+    for line <- File.stream!(methods_path, [], :line),
+        line |> String.starts_with?("SIP_METHOD") do
+      [_, method] =
+        Regex.run(~r/SIP_METHOD\(([^,]+)\)/, line)
+      atom = method |> String.downcase() |> String.to_atom()
+      defp string_to_method(unquote(method)),
+        do: unquote(atom)
+      method
+    end
+
+  defp string_to_method(string), do: string
+
+  @doc """
+  Returns a list of all known methods, as a list of uppercase strings.
+
+  ## Example:
+
+      iex> Sippet.Message.known_methods()
+      ["ACK", "BYE", "CANCEL", "INFO", "INVITE", "MESSAGE", "NOTIFY", "OPTIONS",
+       "PRACK", "PUBLISH", "PULL", "PUSH", "REFER", "REGISTER", "STORE", "SUBSCRIBE",
+       "UPDATE"]
+  """
+  @spec known_methods() :: [String.t]
+  def known_methods(), do: unquote(known_methods)
+
+  @doc """
+  Converts a string representing a known method into an atom, otherwise as an
+  uppercase string.
+
+  ## Example:
+
+      iex> Sippet.Message.to_method("INVITE")
+      :invite
+      iex> Sippet.Message.to_method("InViTe")
+      :invite
+      iex> Sippet.Message.to_method("aaa")
+      "AAA"
+  """
+  @spec to_method(String.t) :: atom | String.t
+  def to_method(string), do: string_to_method(string |> String.upcase())
 
   @doc """
   Build a SIP request.

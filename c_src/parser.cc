@@ -1011,15 +1011,10 @@ void LoadHeaderNameAtoms(ErlNifEnv* env) {
 }
 
 void LoadProtocolAtoms(ErlNifEnv* env) {
-  enif_make_atom(env, "dccp");
-  enif_make_atom(env, "dtls");
-  enif_make_atom(env, "sctp");
-  enif_make_atom(env, "stomp");
-  enif_make_atom(env, "tcp");
-  enif_make_atom(env, "tls");
-  enif_make_atom(env, "udp");
-  enif_make_atom(env, "ws");
-  enif_make_atom(env, "wss");
+#define SIP_PROTOCOL(protocol_name, atom_name) \
+  enif_make_atom(env, #atom_name);
+#include "protocol_list.h"
+#undef SIP_PROTOCOL
 }
 
 }  // namespace
