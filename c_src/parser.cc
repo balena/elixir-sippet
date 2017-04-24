@@ -1011,8 +1011,8 @@ void LoadHeaderNameAtoms(ErlNifEnv* env) {
 }
 
 void LoadProtocolAtoms(ErlNifEnv* env) {
-#define SIP_PROTOCOL(protocol_name, atom_name) \
-  enif_make_atom(env, #atom_name);
+#define SIP_PROTOCOL(x) \
+  enif_make_atom(env, ToLowerASCII(#x).c_str());
 #include "protocol_list.h"
 #undef SIP_PROTOCOL
 }
