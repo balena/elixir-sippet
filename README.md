@@ -127,7 +127,7 @@ Further documentation can found at
 
 ```elixir
 # Definitions
-# =========================================================================
+# ======================================================================================
 @type type :: String.t
 @type subtype :: String.t
 @type token :: String.t
@@ -164,7 +164,7 @@ Further documentation can found at
   :content_length      => integer,
   :content_type        => {{type, subtype}, parameters},
   :cseq                => {integer, method},
-  :date                => NaiveDateTime,
+  :date                => NaiveDateTime.t,
   :error_info          => [{uri, parameters}, ...],
   :expires             => integer,
   :from                => {display_name, uri, parameters},

@@ -21,11 +21,16 @@ defmodule Sippet.Proxy do
   @spec add_record_route(Message.request, URI.t) :: Message.request
   def add_record_route(%Message{start_line: %RequestLine{}} = request,
       %URI{} = hop) do
-    hop = %{hop | parameters: hop.parameters |> Map.put("lr", nil)}
-    record_route = {"", hop, %{}}
-    %Message{start_line: %RequestLine{}} =
-      request |> Message.update_header(:record_route, [record_route],
-        fn list -> [record_route | list] end)
+    parameters =
+      if hop.parameters == nil do
+        %{"lr" => nil}
+      else
+        hop.parameters |> Map.put("lr", nil)
+      end
+
+    record_route = {"", %{hop | parameters: parameters}, %{}}
+    request |> Message.update_header(:record_route, [record_route],
+      fn list -> [record_route | list] end)
   end
 
   @doc """
@@ -62,7 +67,8 @@ defmodule Sippet.Proxy do
 
     params = %{"branch" => branch}
     new_via = {{2, 0}, protocol, {host, port}, params}
-    request |> Message.update_header(:via, fn list -> [new_via|list] end)
+    request |> Message.update_header(:via, [new_via],
+      fn list -> [new_via | list] end)
   end
 
   @doc """

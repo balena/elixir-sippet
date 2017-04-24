@@ -8,7 +8,7 @@ defmodule Sippet.Message.RequestLine do
   ]
 
   @type t :: %__MODULE__{
-    method: atom | binary,
+    method: Sippet.Message.method,
     request_uri: URI.t,
     version: {number, number}
   }

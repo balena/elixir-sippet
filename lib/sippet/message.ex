@@ -23,99 +23,83 @@ defmodule Sippet.Message do
 
   @type uri :: URI.t
 
-  @type method ::
-    :ack |
-    :bye |
-    :cancel |
-    :info |
-    :invite |
-    :message |
-    :notify |
-    :options |
-    :prack |
-    :publish |
-    :pull |
-    :push |
-    :refer |
-    :register |
-    :store |
-    :subscribe |
-    :update |
-    binary
+  @type method :: atom | binary
 
-  @type header ::
-    :accept |
-    :accept_encoding |
-    :accept_language |
-    :alert_info |
-    :allow |
-    :authentication_info |
-    :authorization |
-    :call_id |
-    :call_info |
-    :contact |
-    :content_disposition |
-    :content_encoding |
-    :content_language |
-    :content_length |
-    :content_type |
-    :cseq |
-    :date |
-    :error_info |
-    :expires |
-    :from |
-    :in_reply_to |
-    :max_forwards |
-    :mime_version |
-    :min_expires |
-    :organization |
-    :priority |
-    :proxy_authenticate |
-    :proxy_authorization |
-    :proxy_require |
-    :reason |
-    :record_route |
-    :reply_to |
-    :require |
-    :retry_after |
-    :route |
-    :server |
-    :subject |
-    :supported |
-    :timestamp |
-    :to |
-    :unsupported |
-    :user_agent |
-    :via |
-    :warning |
-    :www_authenticate |
-    binary
+  @type header :: atom | binary
 
-  @type protocol ::
-    :amqp |
-    :dccp |
-    :dtls |
-    :sctp |
-    :stomp |
-    :tcp |
-    :tls |
-    :udp |
-    :ws |
-    :wss |
-    binary
+  @type protocol :: atom | binary
+
+  @type token :: binary
+
+  @type params :: %{binary => binary}
 
   @type token_params ::
-    {token :: binary, params :: %{}}
+    {token :: binary, params}
 
   @type type_subtype_params ::
-    {{type :: binary, subtype :: binary}, params :: %{}}
+    {{type :: binary, subtype :: binary}, params}
 
   @type uri_params ::
-    {display_name :: binary, uri :: URI.t, params :: %{}}
+    {display_name :: binary, uri :: URI.t, params}
+
+  @type name_uri_params ::
+    {display_name :: binary, uri :: URI.t, params}
+
+  @type auth_params ::
+    {scheme :: binary, params}
 
   @type via_value ::
     {{major :: integer, minor :: integer}, protocol,
-        {host :: binary, port :: integer}, params :: %{}}
+        {host :: binary, port :: integer}, params}
+
+  @type headers :: %{
+    :accept              => [type_subtype_params, ...],
+    :accept_encoding     => [token_params, ...],
+    :accept_language     => [token_params, ...],
+    :alert_info          => [uri_params, ...],
+    :allow               => [token, ...],
+    :authentication_info => params,
+    :authorization       => [auth_params, ...],
+    :call_id             => token,
+    :call_info           => [uri_params, ...],
+    :contact             => <<_::1>> | [name_uri_params, ...],
+    :content_disposition => token_params,
+    :content_encoding    => [token, ...],
+    :content_language    => [token, ...],
+    :content_length      => integer,
+    :content_type        => type_subtype_params,
+    :cseq                => {integer, method},
+    :date                => NaiveDateTime.t,
+    :error_info          => [uri_params, ...],
+    :expires             => integer,
+    :from                => name_uri_params,
+    :in_reply_to         => [token, ...],
+    :max_forwards        => integer,
+    :mime_version        => {major :: integer, minor :: integer},
+    :min_expires         => integer,
+    :organization        => binary,
+    :priority            => token,
+    :proxy_authenticate  => [auth_params, ...],
+    :proxy_authorization => [auth_params, ...],
+    :proxy_require       => [token, ...],
+    :reason              => {binary, params},
+    :record_route        => [name_uri_params, ...],
+    :reply_to            => name_uri_params,
+    :require             => [token, ...],
+    :retry_after         => {integer, binary, params},
+    :route               => [name_uri_params, ...],
+    :server              => binary,
+    :subject             => binary,
+    :supported           => [token, ...],
+    :timestamp           => {timestamp :: float, delay :: float},
+    :to                  => name_uri_params,
+    :unsupported         => [token, ...],
+    :user_agent          => binary,
+    :via                 => [via_value, ...],
+    :warning             => [{integer, agent :: binary, binary}, ...],
+    :www_authenticate    => [auth_params, ...],
+    binary               => [binary, ...]
+  }
 
   @type single_value ::
     binary |
@@ -125,17 +109,20 @@ defmodule Sippet.Message do
     token_params |
     type_subtype_params |
     uri_params |
-    {delta_seconds :: integer, comment :: binary, params :: %{}} |
+    name_uri_params |
+    {delta_seconds :: integer, comment :: binary, params} |
     {timestamp :: integer, delay :: integer} |
-    NativeDateTime.t
+    <<_::1>> | [name_uri_params, ...] |
+    NaiveDateTime.t
 
   @type multiple_value ::
     token_params |
     type_subtype_params |
     uri_params |
+    name_uri_params |
     via_value |
-    auth_params :: %{} |
-    {scheme :: binary, params :: %{}} |
+    auth_params |
+    params |
     {code :: integer, agent :: binary, text :: binary}
 
   @type value ::
@@ -145,7 +132,7 @@ defmodule Sippet.Message do
   @type t :: %__MODULE__{
     start_line: RequestLine.t | StatusLine.t,
     headers: %{header => value},
-    body: String.t | nil,
+    body: binary | nil,
     target: nil | {
       protocol :: atom | binary,
       host :: binary,
@@ -154,11 +141,11 @@ defmodule Sippet.Message do
   }
 
   @type request :: %__MODULE__{
-    start_line: RequestLine.t,
+    start_line: RequestLine.t
   }
 
   @type response :: %__MODULE__{
-    start_line: StatusLine.t,
+    start_line: StatusLine.t
   }
 
   defmacrop is_method(data) do
@@ -208,7 +195,7 @@ defmodule Sippet.Message do
       iex> Sippet.Message.to_protocol("aaa")
       "AAA"
   """
-  @spec to_protocol(String.t) :: atom | String.t
+  @spec to_protocol(String.t) :: protocol
   def to_protocol(string), do: string_to_protocol(string |> String.upcase())
 
   @external_resource methods_path =
@@ -253,7 +240,7 @@ defmodule Sippet.Message do
       iex> Sippet.Message.to_method("aaa")
       "AAA"
   """
-  @spec to_method(String.t) :: atom | String.t
+  @spec to_method(String.t) :: method
   def to_method(string), do: string_to_method(string |> String.upcase())
 
   @doc """
@@ -267,16 +254,14 @@ defmodule Sippet.Message do
   Build a SIP response.
   """
   @spec build_response(integer | StatusLine.t) :: response
-  @spec build_response(integer | request,
-                       integer | String.t | StatusLine.t) :: response
-  @spec build_response(request, integer, String.t) :: response
-
   def build_response(%StatusLine{} = status_line),
     do: %__MODULE__{start_line: status_line}
 
   def build_response(status_code) when is_integer(status_code),
     do: build_response(StatusLine.build(status_code))
 
+  @spec build_response(integer | request,
+                       integer | String.t | StatusLine.t) :: response
   def build_response(status_code, reason_phrase)
     when is_integer(status_code) and is_binary(reason_phrase),
     do: build_response(StatusLine.build(status_code, reason_phrase))
@@ -312,6 +297,7 @@ defmodule Sippet.Message do
   def build_response(request, status_code) when is_integer(status_code),
     do: build_response(request, StatusLine.build(status_code))
 
+  @spec build_response(request, integer, String.t) :: response
   def build_response(request, status_code, reason_phrase)
     when is_integer(status_code) and is_binary(reason_phrase),
     do: build_response(request, StatusLine.build(status_code, reason_phrase))
@@ -630,8 +616,7 @@ defmodule Sippet.Message do
   If `header` is not present in `message`, `initial` is inserted as the value
   of `header`.
   """
-  @spec update_header(t, header, value,
-            (value -> value)) :: t
+  @spec update_header(t, header, value | nil, (value -> value)) :: t
   def update_header(message, header, initial \\ nil, fun) do
     %{message | headers: Map.update(message.headers, header, initial, fun)}
   end
@@ -644,7 +629,7 @@ defmodule Sippet.Message do
   of `header` front.  If `header` is not present in `message`, or it is an empty
   list, `initial` is inserted as the single value of `header`.
   """
-  @spec update_header_front(t, header, value, (value -> value)) :: t
+  @spec update_header_front(t, header, value | nil, (value -> value)) :: t
   def update_header_front(message, header, initial \\ nil, fun)
       when is_function(fun, 1) do
     update_header(message, header, List.wrap(initial),
@@ -659,7 +644,7 @@ defmodule Sippet.Message do
   `header` back.  If `header` is not present in `message`, or it is an empty
   list, `initial` is inserted as the single value of `header`.
   """
-  @spec update_header_back(t, header, value, (value -> value)) :: t
+  @spec update_header_back(t, header, value | nil, (value -> value)) :: t
   def update_header_back(message, header, initial \\ nil, fun)
       when is_function(fun, 1) do
     update_header(message, header, List.wrap(initial),
@@ -1049,6 +1034,7 @@ defmodule Sippet.Message do
         :via -> {"Via", true}
         :warning -> {"Warning", true}
         :www_authenticate -> {"WWW-Authenticate", false}
+        other -> {other, true}
       end
 
     if multiple do
