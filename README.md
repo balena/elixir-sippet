@@ -125,73 +125,77 @@ Further documentation can found at
 
 ## Headers format
 
+```elixir
+# Definitions
+# =========================================================================
+@type type :: String.t
+@type subtype :: String.t
+@type token :: String.t
+@type name :: String.t
+@type scheme :: String.t
+@type parameters :: %{String.t => String.t}
+@type uri :: Sippet.URI.t
+@type major :: integer
+@type minor :: integer
+@type display_name :: String.t
+@type string :: String.t
+@type timestamp :: double
+@type delay :: double
+@type protocol :: atom | String.t
+@type method :: atom | String.t
 
-    Definitions
-    =========================================================================
-    @type type :: String.t
-    @type subtype :: String.t
-    @type token :: String.t
-    @type name :: String.t
-    @type scheme :: String.t
-    @type parameters :: %{String.t => String.t}
-    @type uri :: Sippet.URI.t
-    @type major :: integer
-    @type minor :: integer
-    @type display_name :: String.t
-    @type string :: String.t
-    @type timestamp :: double
-    @type delay :: double
-    @type protocol :: atom | String.t
-    @type method :: atom | String.t
 
-
-    Header Name                   Type
-    =========================================================================
-    :accept                       [{{type, subtype}, parameters}, ...]
-    :accept_encoding              [{token, parameters}, ...]
-    :accept_language              [{token, parameters}, ...]
-    :alert_info                   [{uri, parameters}, ...]
-    :allow                        [token, ...]
-    :authentication_info          %{name => value}
-    :authorization                [{scheme, parameters}, ...]
-    :call_id                      token
-    :call_info                    [{uri, parameters}, ...]
-    :contact                      "*" | [{display_name, uri, parameters}, ...]
-    :content_disposition          {token, parameters}
-    :content_encoding             [token, ...]
-    :content_language             [token, ...]
-    :content_length               integer
-    :content_type                 {{type, subtype}, parameters}
-    :cseq                         {integer, method}
-    :date                         NaiveDateTime
-    :error_info                   [{uri, parameters}, ...]
-    :expires                      integer
-    :from                         {display_name, uri, parameters}
-    :in_reply_to                  [token, ...]
-    :max_forwards                 integer
-    :mime_version                 {major, minor}
-    :min_expires                  integer
-    :organization                 string
-    :priority                     token
-    :proxy_authenticate           [{scheme, parameters}, ...]
-    :proxy_authorization          [{scheme, parameters}, ...]
-    :proxy_require                [token, ...]
-    :reason                       {token, parameters}
-    :record_route                 [{display_name, uri, parameters}, ...]
-    :reply_to                     {display_name, uri, parameters}
-    :require                      [token, ...]
-    :retry_after                  {integer, comment, parameters}
-    :route                        [{display_name, uri, parameters}, ...]
-    :server                       string
-    :subject                      string
-    :supported                    [token, ...]
-    :timestamp                    {timestamp, delay}
-    :to                           {display_name, uri, parameters}
-    :unsupported                  [token, ...]
-    :user_agent                   string
-    :via                          [{{major, minor}, protocol, {address, port}, parameters}, ...]
-    :warning                      [{integer, agent, text}, ...]
-    :www_authenticate             [{scheme, parameters}, ...]
+# Header Name             Type
+# ======================================================================================
+@type headers :: %{
+  :accept              => [{{type, subtype}, parameters}, ...],
+  :accept_encoding     => [{token, parameters}, ...],
+  :accept_language     => [{token, parameters}, ...],
+  :alert_info          => [{uri, parameters}, ...],
+  :allow               => [token, ...],
+  :authentication_info => %{name => value},
+  :authorization       => [{scheme, parameters}, ...],
+  :call_id             => token,
+  :call_info           => [{uri, parameters}, ...],
+  :contact             => "*" | [{display_name, uri, parameters}, ...],
+  :content_disposition => {token, parameters},
+  :content_encoding    => [token, ...],
+  :content_language    => [token, ...],
+  :content_length      => integer,
+  :content_type        => {{type, subtype}, parameters},
+  :cseq                => {integer, method},
+  :date                => NaiveDateTime,
+  :error_info          => [{uri, parameters}, ...],
+  :expires             => integer,
+  :from                => {display_name, uri, parameters},
+  :in_reply_to         => [token, ...],
+  :max_forwards        => integer,
+  :mime_version        => {major, minor},
+  :min_expires         => integer,
+  :organization        => string,
+  :priority            => token,
+  :proxy_authenticate  => [{scheme, parameters}, ...],
+  :proxy_authorization => [{scheme, parameters}, ...],
+  :proxy_require       => [token, ...],
+  :reason              => {token, parameters},
+  :record_route        => [{display_name, uri, parameters}, ...],
+  :reply_to            => {display_name, uri, parameters},
+  :require             => [token, ...],
+  :retry_after         => {integer, comment, parameters},
+  :route               => [{display_name, uri, parameters}, ...],
+  :server              => string,
+  :subject             => string,
+  :supported           => [token, ...],
+  :timestamp           => {timestamp, delay},
+  :to                  => {display_name, uri, parameters},
+  :unsupported         => [token, ...],
+  :user_agent          => string,
+  :via                 => [{{major, minor}, protocol, {address, port}, parameters}, ...],
+  :warning             => [{integer, agent, text}, ...],
+  :www_authenticate    => [{scheme, parameters}, ...],
+  String.t             => [String.t, ...]
+}
+```
 
 
 ## Copyright
