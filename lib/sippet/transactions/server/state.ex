@@ -1,28 +1,35 @@
 defmodule Sippet.Transactions.Server.State do
+  @moduledoc """
+  Defines the state data used in all server transaction types.
+  """
+
   alias Sippet.Message, as: Message
   alias Sippet.Message.RequestLine, as: RequestLine
   alias Sippet.Transactions, as: Transactions
 
-  @type request :: %Message{start_line: %RequestLine{}}
-
-  @type name :: %Transactions.Server{}
+  @typedoc "The server transaction key"
+  @type key :: Transactions.Server.Key.t
 
   @type t :: [
-    request: request,
-    name: name,
+    request: Message.request,
+    key: key,
     extras: %{}
   ]
 
   defstruct [
     request: nil,
-    name: nil,
+    key: nil,
     extras: %{}
   ]
 
-  def new(request, name) do
+  @doc """
+  Creates the server transaction state.
+  """
+  def new(%Message{start_line: %RequestLine{}} = incoming_request,
+          %Transactions.Server.Key{} = key) do
     %__MODULE__{
-      request: request,
-      name: name
+      request: incoming_request,
+      key: key
     }
   end
 end

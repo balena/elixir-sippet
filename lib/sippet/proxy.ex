@@ -1,10 +1,25 @@
 defmodule Sippet.Proxy do
+  @moduledoc """
+  Defines very basic operations commonly used in SIP Proxies.
+  """
+
   alias Sippet.Message, as: Message
   alias Sippet.Message.RequestLine, as: RequestLine
   alias Sippet.Message.StatusLine, as: StatusLine
   alias Sippet.URI, as: URI
   alias Sippet.Transactions, as: Transactions
   alias Sippet.Transports, as: Transports
+
+  @type on_request_sent ::
+      :ok |
+      {:ok, client_transaction :: Sippet.Transactions.Client.Key.t} |
+      {:error, reason :: term} |
+      no_return
+
+  @type on_response_sent ::
+      :ok |
+      {:error, reason :: term} |
+      no_return
 
   @doc """
   Adds a Record-Route header to the request.
@@ -82,11 +97,7 @@ defmodule Sippet.Proxy do
 
   This function will honor the start line `request_uri`.
   """
-  @spec forward_request(Message.request) ::
-      :ok |
-      {:ok, client_transaction :: Sippet.Transactions.Client.t} |
-      {:error, reason :: term} |
-      no_return
+  @spec forward_request(Message.request) :: on_request_sent
   def forward_request(%Message{start_line: %RequestLine{}} = request) do
     if request.start_line.method == :ack do
       request
@@ -120,6 +131,7 @@ defmodule Sippet.Proxy do
 
   This function will override the start line `request_uri` with the supplied one.
   """
+  @spec forward_request(Message.request, URI.t) :: on_request_sent
   def forward_request(%Message{start_line: %RequestLine{}} = request,
       %URI{} = request_uri) do
     %{request | start_line: %{request.start_line | request_uri: request_uri}}
@@ -134,7 +146,14 @@ defmodule Sippet.Proxy do
   The response will find its way back to an existing server transaction, if one
   exists, or will be sent directly to the network transport otherwise.
   """
+  @spec forward_response(Message.response) :: on_response_sent
   def forward_response(%Message{start_line: %StatusLine{}} = response) do
+    response
+    |> Transactions.send_response()
+    |> maybe_to_transport(response)
+  end
+
+  defp remove_topmost_via(message) do
     response =
       response |> Message.update_header(:via, [],
           fn [_ | t] -> t end)
@@ -142,12 +161,28 @@ defmodule Sippet.Proxy do
     if response.headers.via == [] do
       raise ArgumentError, "Via cannot be empty, wrong response forward"
     end
+  end
 
-    case Transactions.send_response(response) do
+  defp maybe_to_transport(result, message) do
+    case result do
       {:error, :no_transaction} ->
-        response |> Transports.send_message()
+        message |> Transports.send_message()
       other ->
         other
     end
+  end
+
+  @doc """
+  Forwards a response using an existing server transaction key.
+
+  See `forward_response/1`.
+  """
+  @spec forward_response(Message.response, Transactions.Server.Key.t)
+                         :: on_response_sent
+  def forward_response(%Message{start_line: %StatusLine{}} = response,
+                       %Transactions.Server.Key{} = server_key) do
+    server_key
+    |> Transactions.send_response(response)
+    |> maybe_to_transport(response)
   end
 end

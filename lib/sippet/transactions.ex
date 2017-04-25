@@ -1,7 +1,7 @@
 defmodule Sippet.Transactions do
   @moduledoc """
   The `Sippet.Transactions` is responsible to dispatch messages from
-  `Sippet.Transport` and `Sippet.Core` modules to transactions, creating when
+  `Sippet.Transports` and `Sippet.Core` modules to transactions, creating when
   necessary.
   """
 
@@ -26,10 +26,10 @@ defmodule Sippet.Transactions do
   @type reason :: term
 
   @typedoc "A client transaction identifier"
-  @type client_transaction :: Transactions.Client.t
+  @type client_key :: Transactions.Client.Key.t
 
   @typedoc "A server transaction identifier"
-  @type server_transaction :: Transactions.Server.t
+  @type server_key :: Transactions.Server.Key.t
 
   @doc """
   Starts the transaction process hierarchy.
@@ -74,7 +74,7 @@ defmodule Sippet.Transactions do
   @spec receive_message(request | response) :: :ok | {:error, reason}
   def receive_message(
       %Message{start_line: %RequestLine{}} = incoming_request) do
-    transaction = Transactions.Server.new(incoming_request)
+    transaction = Transactions.Server.Key.new(incoming_request)
 
     case lookup(transaction) do
       [{_sup, pid}] ->
@@ -101,7 +101,7 @@ defmodule Sippet.Transactions do
 
   def receive_message(
       %Message{start_line: %StatusLine{}} = incoming_response) do
-    transaction = Transactions.Client.new(incoming_response)
+    transaction = Transactions.Client.Key.new(incoming_response)
 
     case lookup(transaction) do
       [{_sup, pid}] ->
@@ -119,8 +119,8 @@ defmodule Sippet.Transactions do
   @doc """
   Sends a request using client transactions.
 
-  Requests of method `:ack` shall be sent directly to `Sippet.Transport`. If an
-  `:ack` request is detected, it returns `{:error, :not_allowed}`.
+  Requests of method `:ack` shall be sent directly to `Sippet.Transports`. If
+  an `:ack` request is detected, it returns `{:error, :not_allowed}`.
 
   A `Sippet.Transactions.Client` is created to handle retransmissions, when the
   transport presumes it, and match response retransmissions, so the
@@ -137,7 +137,7 @@ defmodule Sippet.Transactions do
   end
 
   def send_request(%Message{start_line: %RequestLine{}} = outgoing_request) do
-    transaction = Transactions.Client.new(outgoing_request)
+    transaction = Transactions.Client.Key.new(outgoing_request)
 
     # Create a new client transaction now. The request is passed to the
     # transport once it starts.
@@ -161,7 +161,7 @@ defmodule Sippet.Transactions do
   """
   @spec send_response(response) :: :ok | {:error, reason}
   def send_response(%Message{start_line: %StatusLine{}} = outgoing_response) do
-    server_transaction = Transactions.Server.new(outgoing_response)
+    server_transaction = Transactions.Server.Key.new(outgoing_response)
     send_response(server_transaction, outgoing_response)
   end
 
@@ -176,10 +176,10 @@ defmodule Sippet.Transactions do
 
   In case of success, returns `:ok`.
   """
-  @spec send_response(server_transaction, response) :: :ok | {:error, reason}
-  def send_response(%Transactions.Server{} = server_transaction,
+  @spec send_response(server_key, response) :: :ok | {:error, reason}
+  def send_response(%Transactions.Server.Key{} = server_key,
       %Message{start_line: %StatusLine{}} = outgoing_response) do
-    case lookup(server_transaction) do
+    case lookup(server_key) do
       [{_sup, pid}] ->
         # Send the response through the existing server transaction.
         Transactions.Server.send_response(pid, outgoing_response)
@@ -195,29 +195,29 @@ defmodule Sippet.Transactions do
   transactions. If the transport faces an error, it has to inform the
   transaction using this function.
   """
-  @spec receive_error(client_transaction | server_transaction, reason) :: :ok
-  def receive_error(transaction, reason) do
-    case lookup(transaction) do
+  @spec receive_error(client_key | server_key, reason) :: :ok
+  def receive_error(key, reason) do
+    case lookup(key) do
       [{_sup, pid}] ->
-        # Send the response through the existing server transaction.
-        case transaction do
-          %Transactions.Client{} ->
+        # Send the response through the existing server key.
+        case key do
+          %Transactions.Client.Key{} ->
             Transactions.Client.receive_error(pid, reason)
-          %Transactions.Server{} ->
+          %Transactions.Server.Key{} ->
             Transactions.Server.receive_error(pid, reason)
         end
       [] ->
-        case transaction do
-          %Transactions.Client{} ->
+        case key do
+          %Transactions.Client.Key{} ->
             Logger.warn fn ->
-              "client transaction #{transaction} not found"
+              "client key #{key} not found"
             end
-          %Transactions.Server{} ->
+          %Transactions.Server.Key{} ->
             Logger.warn fn ->
-              "server transaction #{transaction} not found"
+              "server key #{key} not found"
             end
         end
-        {:error, :no_transaction}
+        {:error, :no_key}
     end
   end
 end

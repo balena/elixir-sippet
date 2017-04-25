@@ -41,9 +41,9 @@ defmodule Sippet.Transports.UDP.Plug do
     Supervisor.start_link(children, [strategy: :one_for_all])
   end
 
-  def send_message(message, host, port, transaction) do
+  def send_message(message, host, port, key) do
     conn = Pool.check_out()
-    GenServer.cast(conn, {:send_message, message, host, port, transaction})
+    GenServer.cast(conn, {:send_message, message, host, port, key})
   end
 
   def reliable?(), do: false

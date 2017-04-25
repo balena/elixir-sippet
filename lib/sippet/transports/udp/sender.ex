@@ -15,7 +15,7 @@ defmodule Sippet.Transports.UDP.Sender do
   end
 
   @doc false
-  def handle_cast({:send_message, message, host, port, transaction}, socket) do
+  def handle_cast({:send_message, message, host, port, key}, socket) do
     result =
       case Socket.Address.for(host, :inet) do
         {:ok, [address|_]} ->
@@ -34,8 +34,8 @@ defmodule Sippet.Transports.UDP.Sender do
       {:error, reason} ->
         Logger.warn(fn -> "#{inspect self()} udp sender error for " <>
                           "#{host}:#{port}: #{inspect reason}" end)
-        if transaction != nil do
-          Transactions.receive_error(transaction, reason)
+        if key != nil do
+          Transactions.receive_error(key, reason)
         end
     end
 

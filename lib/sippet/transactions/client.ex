@@ -1,70 +1,15 @@
 defmodule Sippet.Transactions.Client do
   alias Sippet.Message, as: Message
-  alias Sippet.Message.RequestLine, as: RequestLine
   alias Sippet.Message.StatusLine, as: StatusLine
   alias Sippet.Transactions.Client.State, as: State
 
-  @type request :: %Message{start_line: %RequestLine{}}
-
-  @type response :: %Message{start_line: %StatusLine{}}
-
-  @type reason :: atom | any
-
-  @type branch :: binary
-
-  @type method :: atom | binary
-
-  @type t :: %__MODULE__{
-    branch: branch,
-    method: method
-  }
-
-  @type transaction :: pid | t
-
-  defstruct [
-    branch: nil,
-    method: nil
-  ]
-
-  @doc """
-  Create a client transaction identifier explicitly.
-  """
-  @spec new(branch, method) :: t
-  def new(branch, method) do
-    %__MODULE__{branch: branch, method: method}
-  end
-
-  @doc """
-  Create a client transaction identifier from an outgoing `request` or an
-  incoming `response`. If they are related, they will be equal.
-  """
-  @spec new(request | response) :: t
-  def new(%Message{start_line: %RequestLine{}} = incoming_request) do
-    method = incoming_request.start_line.method
-
-    # Take the topmost via branch
-    {_version, _protocol, _sent_by, %{"branch" => branch}} =
-      hd(incoming_request.headers.via)
-
-    new(branch, method)
-  end
-  def new(%Message{start_line: %StatusLine{}} = outgoing_response) do
-    {_sequence, method} = outgoing_response.headers.cseq
-
-    # Take the topmost via branch
-    {_version, _protocol, _sent_by, %{"branch" => branch}} =
-      hd(outgoing_response.headers.via)
-
-    new(branch, method)
-  end
-
   @doc false
-  @spec receive_response(GenServer.server, response) :: :ok
+  @spec receive_response(GenServer.server, Message.response) :: :ok
   def receive_response(server, %Message{start_line: %StatusLine{}} = response),
     do: GenStateMachine.cast(server, {:incoming_response, response})
 
   @doc false
-  @spec receive_error(GenServer.server, reason) :: :ok
+  @spec receive_error(GenServer.server, reason :: term) :: :ok
   def receive_error(server, reason),
     do: GenStateMachine.cast(server, {:error, reason})
 
@@ -76,21 +21,21 @@ defmodule Sippet.Transactions.Client do
 
       require Logger
 
-      def init(%State{} = data) do
-        Logger.info(fn -> "client transaction #{data.name} started" end)
+      def init(%State{key: key} = data) do
+        Logger.info(fn -> "client transaction #{key} started" end)
         initial_state = unquote(opts)[:initial_state]
         {:ok, initial_state, data}
       end
 
-      defp send_request(request, %State{name: name} = data),
-        do: Sippet.Transports.send_message(request, name)
+      defp send_request(request, %State{key: key} = data),
+        do: Sippet.Transports.send_message(request, key)
 
-      defp receive_response(response, %State{name: name} = data),
-        do: Sippet.Core.receive_response(response, name)
+      defp receive_response(response, %State{key: key} = data),
+        do: Sippet.Core.receive_response(response, key)
 
-      def shutdown(reason, %State{name: name} = data) do
-        Logger.warn(fn -> "client transaction #{name} shutdown: #{reason}" end)
-        Sippet.Core.receive_error(reason, name)
+      def shutdown(reason, %State{key: key} = data) do
+        Logger.warn(fn -> "client transaction #{key} shutdown: #{reason}" end)
+        Sippet.Core.receive_error(reason, key)
         {:stop, :shutdown, data}
       end
 
@@ -100,17 +45,12 @@ defmodule Sippet.Transactions.Client do
       defdelegate reliable?(request), to: Sippet.Transports
 
       def unhandled_event(event_type, event_content,
-          %State{name: name} = data) do
-        Logger.error(fn -> "client transaction #{name} got " <>
+          %State{key: key} = data) do
+        Logger.error(fn -> "client transaction #{key} got " <>
                            "unhandled_event/3: #{inspect event_type}, " <>
                            "#{inspect event_content}, #{inspect data}" end)
         {:stop, :shutdown, data}
       end
     end
   end
-end
-
-defimpl String.Chars, for: Sippet.Transactions.Client do
-  def to_string(%Sippet.Transactions.Client{} = transaction),
-    do: "#{transaction.branch}/#{transaction.method}"
 end

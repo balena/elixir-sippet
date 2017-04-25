@@ -17,37 +17,37 @@ defmodule Sippet.Transactions.Supervisor do
   @doc """
   Starts a client transaction.
   """
-  @spec start_client(Transactions.Client.t, request) ::
+  @spec start_client(Transactions.Client.Key.t, request) ::
     Supervisor.on_start_child
-  def start_client(%Transactions.Client{} = transaction,
+  def start_client(%Transactions.Client.Key{} = key,
       %Message{start_line: %RequestLine{}} = outgoing_request) do
     module =
-      case transaction.method do
+      case key.method do
         :invite -> Transactions.Client.Invite
         _otherwise -> Transactions.Client.NonInvite
       end
 
-    initial_data = Transactions.Client.State.new(outgoing_request, transaction)
+    initial_data = Transactions.Client.State.new(outgoing_request, key)
     Supervisor.start_child(__MODULE__, [module, initial_data,
-                           [name: via_tuple(transaction)]])
+                           [name: via_tuple(key)]])
   end
 
   @doc """
   Starts a server transaction.
   """
-  @spec start_server(Transactions.Server.t, request) ::
+  @spec start_server(Transactions.Server.Key.t, request) ::
     Supervisor.on_start_child
-  def start_server(%Transactions.Server{} = transaction,
+  def start_server(%Transactions.Server.Key{} = key,
       %Message{start_line: %RequestLine{}} = incoming_request) do
     module =
-      case transaction.method do
+      case key.method do
         :invite -> Transactions.Server.Invite
         _otherwise -> Transactions.Server.NonInvite
       end
 
-    initial_data = Transactions.Server.State.new(incoming_request, transaction)
+    initial_data = Transactions.Server.State.new(incoming_request, key)
     Supervisor.start_child(__MODULE__, [module, initial_data,
-                           [name: via_tuple(transaction)]])
+                           [name: via_tuple(key)]])
   end
 
   @doc false
