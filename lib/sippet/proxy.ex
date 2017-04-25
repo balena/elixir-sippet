@@ -12,7 +12,7 @@ defmodule Sippet.Proxy do
 
   @type on_request_sent ::
       :ok |
-      {:ok, client_transaction :: Sippet.Transactions.Client.Key.t} |
+      {:ok, client_key :: Transactions.Client.Key.t} |
       {:error, reason :: term} |
       no_return
 
@@ -148,12 +148,9 @@ defmodule Sippet.Proxy do
   """
   @spec forward_response(Message.response) :: on_response_sent
   def forward_response(%Message{start_line: %StatusLine{}} = response) do
-    response =
-      response |> remove_topmost_via()
-
     response
-    |> Transactions.send_response()
-    |> maybe_to_transport(response)
+    |> remove_topmost_via()
+    |> fallback_to_transport(&Transactions.send_response/1)
   end
 
   defp remove_topmost_via(message) do
@@ -168,8 +165,8 @@ defmodule Sippet.Proxy do
     message
   end
 
-  defp maybe_to_transport(result, message) do
-    case result do
+  defp fallback_to_transport(message, fun) do
+    case fun.(message) do
       {:error, :no_transaction} ->
         message |> Transports.send_message()
       other ->
@@ -186,11 +183,8 @@ defmodule Sippet.Proxy do
                          :: on_response_sent
   def forward_response(%Message{start_line: %StatusLine{}} = response,
                        %Transactions.Server.Key{} = server_key) do
-    response =
-      response |> remove_topmost_via()
-
-    server_key
-    |> Transactions.send_response(response)
-    |> maybe_to_transport(response)
+    response
+    |> remove_topmost_via()
+    |> fallback_to_transport(&Transactions.send_response(&1, server_key))
   end
 end

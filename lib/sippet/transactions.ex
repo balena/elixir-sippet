@@ -161,24 +161,24 @@ defmodule Sippet.Transactions do
   """
   @spec send_response(response) :: :ok | {:error, reason}
   def send_response(%Message{start_line: %StatusLine{}} = outgoing_response) do
-    server_transaction = Transactions.Server.Key.new(outgoing_response)
-    send_response(server_transaction, outgoing_response)
+    server_key = Transactions.Server.Key.new(outgoing_response)
+    send_response(outgoing_response, server_key)
   end
 
   @doc """
   Sends a response to a server transaction.
 
   Server transactions are created when the incoming request is received, see
-  `receive_message/1`. The first parameter `server_transaction` indicates the
-  reference passed to `Sippet.Core` when the request is received.
+  `receive_message/1`. The first parameter `server_key` indicates the reference
+  passed to `Sippet.Core` when the request is received.
 
   If there is no such server transaction, returns `{:error, :no_transaction}`.
 
   In case of success, returns `:ok`.
   """
-  @spec send_response(server_key, response) :: :ok | {:error, reason}
-  def send_response(%Transactions.Server.Key{} = server_key,
-      %Message{start_line: %StatusLine{}} = outgoing_response) do
+  @spec send_response(response, server_key) :: :ok | {:error, reason}
+  def send_response(%Message{start_line: %StatusLine{}} = outgoing_response,
+                    %Transactions.Server.Key{} = server_key) do
     case lookup(server_key) do
       [{_sup, pid}] ->
         # Send the response through the existing server transaction.
