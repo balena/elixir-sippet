@@ -148,19 +148,24 @@ defmodule Sippet.Proxy do
   """
   @spec forward_response(Message.response) :: on_response_sent
   def forward_response(%Message{start_line: %StatusLine{}} = response) do
+    response =
+      response |> remove_topmost_via()
+
     response
     |> Transactions.send_response()
     |> maybe_to_transport(response)
   end
 
   defp remove_topmost_via(message) do
-    response =
-      response |> Message.update_header(:via, [],
+    message =
+      message |> Message.update_header(:via, [],
           fn [_ | t] -> t end)
 
-    if response.headers.via == [] do
-      raise ArgumentError, "Via cannot be empty, wrong response forward"
+    if message.headers.via == [] do
+      raise ArgumentError, "Via cannot be empty, wrong message forward"
     end
+
+    message
   end
 
   defp maybe_to_transport(result, message) do
@@ -181,6 +186,9 @@ defmodule Sippet.Proxy do
                          :: on_response_sent
   def forward_response(%Message{start_line: %StatusLine{}} = response,
                        %Transactions.Server.Key{} = server_key) do
+    response =
+      response |> remove_topmost_via()
+
     server_key
     |> Transactions.send_response(response)
     |> maybe_to_transport(response)
