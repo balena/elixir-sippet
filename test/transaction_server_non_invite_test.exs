@@ -35,7 +35,7 @@ defmodule Sippet.Transactions.Server.NonInvite.Test do
       """
       |> Message.parse!()
 
-    transaction = Server.new(request)
+    transaction = Server.Key.new(request)
     data = State.new(request, transaction)
 
     {:ok, %{request: request, transaction: transaction, data: data}}

@@ -34,7 +34,7 @@ defmodule Sippet.Transactions.Server.Invite.Test do
       """
       |> Message.parse!()
 
-    transaction = Server.new(request)
+    transaction = Server.Key.new(request)
     data = State.new(request, transaction)
 
     {:ok, %{request: request, transaction: transaction, data: data}}
@@ -43,7 +43,7 @@ defmodule Sippet.Transactions.Server.Invite.Test do
   test "server transaction data", %{transaction: transaction} do
     assert transaction.branch == "z9hG4bK776asdhds"
     assert transaction.method == :invite
-    assert transaction.sent_by == {"pc33.atlanta.com", 5060}
+    assert transaction.sentby == {"pc33.atlanta.com", 5060}
   end
 
   test "server invite proceeding state",

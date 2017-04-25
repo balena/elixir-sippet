@@ -34,7 +34,7 @@ defmodule Sippet.Transactions.Client.Invite.Test do
       """
       |> Message.parse!()
 
-    transaction = Client.new(request)
+    transaction = Client.Key.new(request)
     state = State.new(request, transaction)
 
     {:ok, %{request: request, transaction: transaction, state: state}}
