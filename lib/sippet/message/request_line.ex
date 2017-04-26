@@ -35,9 +35,11 @@ defmodule Sippet.Message.RequestLine do
   }
 
   @doc """
-  Builds a Request-Line struct.
+  Creates a Request-Line struct.
+
+  The version will assume the default value `{2, 0}`.
   """
-  def build(method, %URI{} = request_uri)
+  def new(method, %URI{} = request_uri)
       when is_atom(method) or is_binary(method) do
     %__MODULE__{
       method: method,
@@ -46,9 +48,9 @@ defmodule Sippet.Message.RequestLine do
     }
   end
 
-  def build(method, request_uri)
+  def new(method, request_uri)
       when is_binary(request_uri) do
-    build(method, URI.parse!(request_uri))
+    new(method, URI.parse!(request_uri))
   end
 
   @doc """

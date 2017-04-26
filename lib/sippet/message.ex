@@ -248,7 +248,7 @@ defmodule Sippet.Message do
   """
   @spec build_request(method, uri | binary) :: request
   def build_request(method, request_uri) when is_method(method),
-    do: %__MODULE__{start_line: RequestLine.build(method, request_uri)}
+    do: %__MODULE__{start_line: RequestLine.new(method, request_uri)}
 
   @doc """
   Build a SIP response.
@@ -258,13 +258,13 @@ defmodule Sippet.Message do
     do: %__MODULE__{start_line: status_line}
 
   def build_response(status_code) when is_integer(status_code),
-    do: build_response(StatusLine.build(status_code))
+    do: build_response(StatusLine.new(status_code))
 
   @spec build_response(integer | request,
                        integer | String.t | StatusLine.t) :: response
   def build_response(status_code, reason_phrase)
     when is_integer(status_code) and is_binary(reason_phrase),
-    do: build_response(StatusLine.build(status_code, reason_phrase))
+    do: build_response(StatusLine.new(status_code, reason_phrase))
 
   def build_response(%__MODULE__{start_line: %RequestLine{}} = request,
       %StatusLine{} = status_line) do
@@ -295,12 +295,12 @@ defmodule Sippet.Message do
   end
 
   def build_response(request, status_code) when is_integer(status_code),
-    do: build_response(request, StatusLine.build(status_code))
+    do: build_response(request, StatusLine.new(status_code))
 
   @spec build_response(request, integer, String.t) :: response
   def build_response(request, status_code, reason_phrase)
     when is_integer(status_code) and is_binary(reason_phrase),
-    do: build_response(request, StatusLine.build(status_code, reason_phrase))
+    do: build_response(request, StatusLine.new(status_code, reason_phrase))
 
   @doc """
   Creates a local tag (48-bit random string, 8 characters long).

@@ -110,23 +110,46 @@ defmodule Sippet.Message.StatusLine do
   }
 
   @doc """
-  Builds a Status-Line struct.
+  Returns a Status-Line struct.
 
-  The `reason_phrase` is obtained from default values. If the `status_code` is
-  not standard, an exception is raised.
+  The `reason_phrase` is obtained from default values.
+
+  The function will throw an exception if the `status_code` is not in the valid
+  range `100..699` or if the `status_code` does not have a default reason
+  phrase.
+
+  The version will assume the default value `{2, 0}`.
+
+  ## Examples
+
+      iex> Sippet.Message.StatusLine.new(400)
+      %Sippet.Message.StatusLine{reason_phrase: "Bad Request", status_code: 400,
+       version: {2, 0}}
+
   """
-  @spec build(status_code) :: t | no_return
-  def build(status_code) when is_integer(status_code),
-    do: build(status_code, default_reason!(status_code))
+  @spec new(status_code) :: t | no_return
+  def new(status_code) when is_integer(status_code),
+    do: new(status_code, default_reason!(status_code))
 
   @doc """
-  Builds a Status-Line struct.
+  Creates a Status-Line struct using a given reason phrase.
 
-  In this function, the `reason_phrase` can be anything the application wants
-  to add, and it will not throw any exception.
+  In this function, the `reason_phrase` can be anything the application wants.
+
+  The function will throw an exception if the `status_code` is not in the valid
+  range `100..699`.
+
+  The version will assume the default value `{2, 0}`.
+
+  ## Examples
+
+      iex> Sippet.Message.StatusLine.new(499, "Foobar")
+      %Sippet.Message.StatusLine{reason_phrase: "Foobar", status_code: 499,
+       version: {2, 0}}
+
   """
-  @spec build(status_code, reason_phrase :: binary) :: t
-  def build(status_code, reason_phrase)
+  @spec new(status_code, reason_phrase :: binary) :: t
+  def new(status_code, reason_phrase)
       when is_integer(status_code) and is_binary(reason_phrase) do
     %__MODULE__{
       status_code: do_raise_if_invalid(status_code),
@@ -145,6 +168,13 @@ defmodule Sippet.Message.StatusLine do
 
   @doc """
   Returns an integer representing the status code class in the range `[1, 6]`.
+
+  ## Examples
+
+      iex> alias Sippet.Message.StatusLine
+      iex> StatusLine.new(202) |> StatusLine.status_code_class()
+      2
+
   """
   @spec status_code_class(t) :: 1..6
   def status_code_class(%__MODULE__{status_code: status_code}) do
@@ -157,6 +187,14 @@ defmodule Sippet.Message.StatusLine do
 
   If the `status_code` does not have a corresponding default reason phrase,
   returns `nil`.
+
+  ## Examples
+
+      iex> Sippet.Message.StatusLine.default_reason(202)
+      "Accepted"
+      iex> Sippet.Message.StatusLine.default_reason(499)
+      nil
+
   """
   @spec default_reason(status_code) :: binary | nil
   def default_reason(status_code) do
@@ -174,6 +212,14 @@ defmodule Sippet.Message.StatusLine do
 
   If the `status_code` does not have a corresponding default reason phrase,
   throws an exception.
+
+  ## Examples
+
+      iex> Sippet.Message.StatusLine.default_reason!(202)
+      "Accepted"
+      iex> Sippet.Message.StatusLine.default_reason!(499)
+      ** (ArgumentError) status code 499 does not have a default reason phrase
+
   """
   @spec default_reason!(status_code) :: binary | no_return
   def default_reason!(status_code) do
@@ -191,6 +237,13 @@ defmodule Sippet.Message.StatusLine do
   Status-Line.
 
   It does not includes an ending line CRLF.
+
+  ## Examples
+
+    iex> alias Sippet.StatusLine
+    iex> StatusLine.new(202) |> StatusLine.to_string
+    "SIP/2.0 202 Accepted"
+
   """
   @spec to_string(t) :: binary
   defdelegate to_string(value), to: String.Chars.Sippet.Message.StatusLine
@@ -200,6 +253,13 @@ defmodule Sippet.Message.StatusLine do
   Status-Line.
 
   It does not includes an ending line CRLF.
+
+  ## Examples
+
+    iex> alias Sippet.StatusLine
+    iex> StatusLine.new(202) |> StatusLine.to_iodata
+    ["SIP/", "2", ".", "0", " ", "202", " ", "Accepted"]
+
   """
   @spec to_iodata(t) :: iodata
   def to_iodata(%Sippet.Message.StatusLine{version: {major, minor},
