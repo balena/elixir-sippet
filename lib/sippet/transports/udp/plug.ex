@@ -1,4 +1,24 @@
 defmodule Sippet.Transports.UDP.Plug do
+  @moduledoc """
+  A `Sippet.Transports.Plug` implementing a UDP transport.
+
+  The UDP transport consists basically in a listening process, this `Plug`
+  implementation itself, and a pool of senders, defined in
+  `Sippet.Transports.UDP.Sender`, managed by `poolboy`.
+
+  The `start_link/0` function starts them, along a root supervisor that
+  monitors them all in case of failures.
+
+  This `Plug` process creates an UDP socket and keeps listening for datagrams
+  in active mode. Its job is to forward the datagrams to the processing pool
+  defined in `Sippet.Transports.Queue`. The sender processes pool keeps waiting
+  for SIP messages (as defined by `Sippet.Message`), transforms them into
+  iodata and dispatch them to the same UDP socket created by this `Plug`.
+
+  Both pools will block if all worker processes are busy, which may happen only
+  in high load surges, as both are pure processing pools.
+  """
+
   use GenServer
   use Sippet.Transports.Plug
 
@@ -41,20 +61,31 @@ defmodule Sippet.Transports.UDP.Plug do
     Supervisor.start_link(children, [strategy: :one_for_all])
   end
 
+  @doc """
+  Send a message to the UDP senders' pool.
+  """
   def send_message(message, host, port, key) do
     conn = Pool.check_out()
     GenServer.cast(conn, {:send_message, message, host, port, key})
   end
 
+  @doc """
+  This connection is not reliable.
+  """
   def reliable?(), do: false
 
+  @doc """
+  This blocking function gets called only during the senders' initialization.
+  """
   def get_socket(),
     do: GenServer.call(__MODULE__, :get_socket, :infinity)
 
+  @doc false
   def init([port, opts]) do
     open_socket(port, opts)
   end
 
+  @doc false
   defp open_socket(port, opts) do
     sock_opts =
       [as: :binary, mode: :active] ++
@@ -79,6 +110,7 @@ defmodule Sippet.Transports.UDP.Plug do
     end
   end
 
+  @doc false
   def handle_info({:udp, _socket, ip, from_port, packet}, state) do
     Queue.incoming_datagram(packet, {:udp, ip, from_port})
     {:noreply, state}
@@ -87,12 +119,14 @@ defmodule Sippet.Transports.UDP.Plug do
   def handle_info(request, state),
     do: super(request, state)
 
+  @doc false
   def handle_call(:get_socket, _from, {socket, _address, _port} = state),
     do: {:reply, socket, state}
 
   def handle_call(request, from, state),
     do: super(request, from, state)
 
+  @doc false
   def terminate(reason, {socket, address, port}) do
     Logger.info("#{inspect self()} stopped plug " <>
                 "#{:inet.ntoa(address)}:#{port}/udp, " <>

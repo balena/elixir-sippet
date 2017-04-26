@@ -1,4 +1,12 @@
 defmodule Sippet.Transports.UDP.Sender do
+  @moduledoc """
+  A worker process responsible for transforming the SIP message in iodata and
+  dispatching through the UDP socket.
+
+  This process is managed by `poolboy` and it is started by
+  `Sippet.Transports.UDP.Plug.start_link/0`.
+  """
+
   alias Sippet.Message, as: Message
   alias Sippet.Transports.UDP.Plug, as: Plug
   alias Sippet.Transports.UDP.Pool, as: Pool
@@ -6,8 +14,12 @@ defmodule Sippet.Transports.UDP.Sender do
 
   require Logger
 
+  @doc """
+  Starts the worker process.
+  """
   def start_link(_), do: GenServer.start_link(__MODULE__, nil)
 
+  @doc false
   def init(_) do
     socket = Plug.get_socket()
     Logger.debug(fn -> "#{inspect self()} udp sender ready" end)
@@ -43,6 +55,7 @@ defmodule Sippet.Transports.UDP.Sender do
     {:noreply, socket}
   end
 
+  @doc false
   def terminate(reason, _socket) do
     Logger.warn(fn -> "#{inspect self()} stopped udp sender, " <>
                       "reason #{inspect reason}" end)

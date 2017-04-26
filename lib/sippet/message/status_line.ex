@@ -1,9 +1,39 @@
 defmodule Sippet.Message.StatusLine do
+  @moduledoc """
+  A SIP Status-Line struct, composed by the SIP-Version, Status-Code and the
+  Reason-Phrase.
+
+  The `start_line` of responses are represented by this struct. The RFC 3261
+  represents the Status-Line as:
+
+      Status-Line  =  SIP-Version SP Status-Code SP Reason-Phrase CRLF
+
+  The above `SIP-Version` is represented by a `{major, minor}` tuple, which
+  assumes the value `{2, 0}` in standard implementations.
+
+  The `Status-Code` is a 3-digit integer in the interval 100-699 indicating the
+  outcome of an attempt to understand and satisfy a request.
+
+  The `Reason-Phrase` is a binary representing a short textual description of
+  the `Status-Code`.
+
+  The `Status-Code` is intended for use by automata, whereas the
+  `Reason-Phrase` is intended for the human user.
+  """
+
+  @type status_code :: 100..699
+
   defstruct [
     status_code: nil,
     reason_phrase: nil,
     version: nil
   ]
+
+  @type t :: %__MODULE__{
+    status_code: 100..699,
+    reason_phrase: binary,
+    version: {integer, integer}
+  }
 
   @default_status_codes %{
     100 => "Trying",
@@ -79,11 +109,25 @@ defmodule Sippet.Message.StatusLine do
     606 => "Not Acceptable"
   }
 
+  @doc """
+  Builds a Status-Line struct.
+
+  The `reason_phrase` is obtained from default values. If the `status_code` is
+  not standard, an exception is raised.
+  """
+  @spec build(status_code) :: t | no_return
   def build(status_code) when is_integer(status_code),
     do: build(status_code, default_reason!(status_code))
 
+  @doc """
+  Builds a Status-Line struct.
+
+  In this function, the `reason_phrase` can be anything the application wants
+  to add, and it will not throw any exception.
+  """
+  @spec build(status_code, reason_phrase :: binary) :: t
   def build(status_code, reason_phrase)
-    when is_integer(status_code) and is_binary(reason_phrase) do
+      when is_integer(status_code) and is_binary(reason_phrase) do
     %__MODULE__{
       status_code: do_raise_if_invalid(status_code),
       reason_phrase: reason_phrase,
@@ -99,10 +143,22 @@ defmodule Sippet.Message.StatusLine do
     end
   end
 
+  @doc """
+  Returns an integer representing the status code class in the range `[1, 6]`.
+  """
+  @spec status_code_class(t) :: 1..6
   def status_code_class(%__MODULE__{status_code: status_code}) do
     div(status_code, 100)
   end
 
+  @doc """
+  Returns a binary representing the default reason phrase for the given
+  `status_code`.
+
+  If the `status_code` does not have a corresponding default reason phrase,
+  returns `nil`.
+  """
+  @spec default_reason(status_code) :: binary | nil
   def default_reason(status_code) do
     defaults = @default_status_codes
     if defaults |> Map.has_key?(status_code) do
@@ -112,6 +168,14 @@ defmodule Sippet.Message.StatusLine do
     end
   end
 
+  @doc """
+  Returns a binary representing the default reason phrase for the given
+  `status_code`.
+
+  If the `status_code` does not have a corresponding default reason phrase,
+  throws an exception.
+  """
+  @spec default_reason!(status_code) :: binary | no_return
   def default_reason!(status_code) do
     case status_code |> do_raise_if_invalid() |> default_reason() do
       nil ->
@@ -122,8 +186,22 @@ defmodule Sippet.Message.StatusLine do
     end
   end
 
+  @doc """
+  Returns a binary which corresponds to the text representation of the given
+  Status-Line.
+
+  It does not includes an ending line CRLF.
+  """
+  @spec to_string(t) :: binary
   defdelegate to_string(value), to: String.Chars.Sippet.Message.StatusLine
 
+  @doc """
+  Returns an iodata which corresponds to the text representation of the given
+  Status-Line.
+
+  It does not includes an ending line CRLF.
+  """
+  @spec to_iodata(t) :: iodata
   def to_iodata(%Sippet.Message.StatusLine{version: {major, minor},
       status_code: status_code, reason_phrase: reason_phrase}) do
     ["SIP/", Integer.to_string(major), ".", Integer.to_string(minor),
