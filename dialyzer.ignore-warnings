@@ -1,1 +1,0 @@
-The pattern {'error', _@6} can never match the type {'ok',{_,{byte(),byte(),byte(),byte()} | {char(),char(),char(),char(),char(),char(),char(),char()},_}}
