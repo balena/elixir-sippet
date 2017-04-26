@@ -15,8 +15,7 @@ defmodule Sippet.Mixfile do
      package: package(),
 
      name: "Sippet",
-     docs: [source_ref: "v#{@version}",
-            logo: "logo.png"],
+     docs: [logo: "logo.png"],
 
      source_url: "https://github.com/balena/elixir-sippet",
      description: description(),
