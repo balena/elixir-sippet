@@ -28,10 +28,16 @@ defmodule Sippet.Message.RequestLine do
     version: nil
   ]
 
+  @type method :: Sippet.Message.method
+
+  @type uri :: URI.t
+
+  @type version :: {integer, integer}
+
   @type t :: %__MODULE__{
-    method: Sippet.Message.method,
-    request_uri: URI.t,
-    version: {integer, integer}
+    method: method,
+    request_uri: uri,
+    version: version
   }
 
   @doc """
@@ -39,6 +45,7 @@ defmodule Sippet.Message.RequestLine do
 
   The version will assume the default value `{2, 0}`.
   """
+  @spec new(method, uri | binary) :: t
   def new(method, %URI{} = request_uri)
       when is_atom(method) or is_binary(method) do
     %__MODULE__{

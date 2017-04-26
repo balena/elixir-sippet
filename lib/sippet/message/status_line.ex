@@ -21,18 +21,20 @@ defmodule Sippet.Message.StatusLine do
   `Reason-Phrase` is intended for the human user.
   """
 
-  @type status_code :: 100..699
-
   defstruct [
     status_code: nil,
     reason_phrase: nil,
     version: nil
   ]
 
+  @type status_code :: 100..699
+
+  @type version :: {integer, integer}
+
   @type t :: %__MODULE__{
-    status_code: 100..699,
+    status_code: status_code,
     reason_phrase: binary,
-    version: {integer, integer}
+    version: version
   }
 
   @default_status_codes %{
