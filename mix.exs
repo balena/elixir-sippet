@@ -26,8 +26,7 @@ defmodule Sippet.Mixfile do
        "coveralls.detail": :test,
        "coveralls.post": :test,
        "coveralls.html": :test
-     ],
-     dialyzer: [ignore_warnings: "dialyzer.ignore-warnings"]]
+     ]]
   end
 
   defp aliases do
