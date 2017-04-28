@@ -6,6 +6,9 @@ defmodule Sippet.Transports.UDP.Pool do
   order to keep the system responsive.
   """
 
+  @doc """
+  Returns a `poolboy` child specification for a parent supervisor.
+  """
   @spec spec() :: Supervisor.Spec.spec
   def spec() do
     alias Sippet.Transports.UDP.Sender, as: Sender

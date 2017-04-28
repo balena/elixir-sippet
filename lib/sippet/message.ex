@@ -148,12 +148,6 @@ defmodule Sippet.Message do
     start_line: StatusLine.t
   }
 
-  defmacrop is_method(data) do
-    quote do
-      is_atom(unquote(data)) or is_binary(unquote(data))
-    end
-  end
-
   @external_resource protocols_path =
     Path.join([__DIR__, "..", "..", "c_src", "protocol_list.h"])
 
@@ -244,29 +238,83 @@ defmodule Sippet.Message do
   def to_method(string), do: string_to_method(string |> String.upcase())
 
   @doc """
-  Build a SIP request.
+  Returns a SIP request created from its basic elements.
+
+  If the `method` is a binary and is a known method, it will be converted to
+  a lowercase atom; otherwise, it will be stored as an uppercase string. If
+  `method` is an atom, it will be just kept.
+
+  If the `request_uri` is a binary, it will be parsed as a `Sippet.URI` struct.
+  Otherwise, if it's already a `Sippet.URI`, it will be stored unmodified.
+
+  The newly created struct has an empty header map, and the body is `nil`.
   """
   @spec build_request(method, uri | binary) :: request
-  def build_request(method, request_uri) when is_method(method),
+  def build_request(method, request_uri)
+
+  def build_request(method, request_uri) when is_binary(method) do
+    method =
+      if String.upcase(method) in known_methods() do
+        method |> String.downcase() |> String.to_atom()
+      else
+        method |> String.upcase()
+      end
+
+    do_build_request(method, request_uri)
+  end
+
+  def build_request(method, request_uri) when is_atom(method),
+    do: do_build_request(method, request_uri)
+
+  def do_build_request(method, request_uri),
     do: %__MODULE__{start_line: RequestLine.new(method, request_uri)}
 
   @doc """
-  Build a SIP response.
+  Returns a SIP response created from its basic elements.
+
+  The `status` parameter can be a `Sippet.Message.StatusLine` struct or an
+  integer in the range `100..699` representing the SIP response status code.
+  In the latter case, a default reason phrase will be obtained from a default
+  set; if there's none, then an exception will be raised.
   """
-  @spec build_response(integer | StatusLine.t) :: response
+  @spec build_response(100..699 | StatusLine.t) :: response | no_return
+  def build_response(status)
+
   def build_response(%StatusLine{} = status_line),
     do: %__MODULE__{start_line: status_line}
 
   def build_response(status_code) when is_integer(status_code),
     do: build_response(StatusLine.new(status_code))
 
-  @spec build_response(integer | request,
-                       integer | String.t | StatusLine.t) :: response
+  @doc """
+  Returns a SIP response with a custom reason phrase.
+
+  The `status_code` should be an integer in the range `100..699` representing
+  the SIP status code, and `reason_phrase` a binary representing the reason
+  phrase text.
+  """
+  @spec build_response(100..699, String.t) :: response
   def build_response(status_code, reason_phrase)
     when is_integer(status_code) and is_binary(reason_phrase),
     do: build_response(StatusLine.new(status_code, reason_phrase))
 
-  def build_response(%__MODULE__{start_line: %RequestLine{}} = request,
+  @doc """
+  Returns a response created from a request, using a given status code.
+
+  The `request` should be a valid SIP request, or an exception will be thrown.
+
+  The `status` parameter can be a `Sippet.Message.StatusLine` struct or an
+  integer in the range `100..699` representing the SIP response status code.
+  In the latter case, a default reason phrase will be obtained from a default
+  set; if there's none, then an exception will be raised.
+  """
+  @spec from_request(request, integer | StatusLine.t) :: response | no_return
+  def from_request(request, status)
+
+  def from_request(request, status_code) when is_integer(status_code),
+    do: from_request(request, StatusLine.new(status_code))
+
+  def from_request(%__MODULE__{start_line: %RequestLine{}} = request,
       %StatusLine{} = status_line) do
     response =
       status_line
@@ -294,13 +342,24 @@ defmodule Sippet.Message do
     end
   end
 
-  def build_response(request, status_code) when is_integer(status_code),
-    do: build_response(request, StatusLine.new(status_code))
+  @doc """
+  Returns a response created from a request, using a given status code and a
+  custom reason phrase.
 
-  @spec build_response(request, integer, String.t) :: response
-  def build_response(request, status_code, reason_phrase)
+  The `request` should be a valid SIP request, or an exception will be thrown.
+
+  The `status_code` parameter should be an integer in the range `100..699`
+  representing the SIP response status code. A default reason phrase will be
+  obtained from a default set; if there's none, then an exception will be
+  raised.
+
+  The `reason_phrase` can be any textual representation of the reason phrase
+  the application needs to generate, in binary.
+  """
+  @spec from_request(request, integer, String.t) :: response
+  def from_request(request, status_code, reason_phrase)
     when is_integer(status_code) and is_binary(reason_phrase),
-    do: build_response(request, StatusLine.new(status_code, reason_phrase))
+    do: from_request(request, StatusLine.new(status_code, reason_phrase))
 
   @doc """
   Creates a local tag (48-bit random string, 8 characters long).
