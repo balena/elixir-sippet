@@ -97,7 +97,7 @@ defmodule Sippet.Transactions.Client.NonInvite.Test do
       assert called Sippet.Core.receive_error(:timeout, transaction)
 
       # in the transition to the proceeding state, the timers aren't stopped
-      last_response = Message.build_response(request, 100)
+      last_response = Message.to_response(request, 100)
 
       {:next_state, :proceeding, data} =
           NonInvite.trying(:cast, {:incoming_response, last_response}, data)

@@ -72,7 +72,7 @@ defmodule Sippet.Transactions.Server.Invite.Test do
       :keep_state_and_data =
           Invite.proceeding(:cast, {:incoming_request, request}, data)
 
-      response = request |> Message.build_response(100)
+      response = request |> Message.to_response(100)
       assert not called Sippet.Transports.send_response(response, transaction)
 
       # ensure that the 100 Trying is created and sent automatically

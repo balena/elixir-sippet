@@ -308,13 +308,13 @@ defmodule Sippet.Message do
   In the latter case, a default reason phrase will be obtained from a default
   set; if there's none, then an exception will be raised.
   """
-  @spec from_request(request, integer | StatusLine.t) :: response | no_return
-  def from_request(request, status)
+  @spec to_response(request, integer | StatusLine.t) :: response | no_return
+  def to_response(request, status)
 
-  def from_request(request, status_code) when is_integer(status_code),
-    do: from_request(request, StatusLine.new(status_code))
+  def to_response(request, status_code) when is_integer(status_code),
+    do: to_response(request, StatusLine.new(status_code))
 
-  def from_request(%__MODULE__{start_line: %RequestLine{}} = request,
+  def to_response(%__MODULE__{start_line: %RequestLine{}} = request,
       %StatusLine{} = status_line) do
     response =
       status_line
@@ -356,10 +356,10 @@ defmodule Sippet.Message do
   The `reason_phrase` can be any textual representation of the reason phrase
   the application needs to generate, in binary.
   """
-  @spec from_request(request, integer, String.t) :: response
-  def from_request(request, status_code, reason_phrase)
+  @spec to_response(request, integer, String.t) :: response
+  def to_response(request, status_code, reason_phrase)
     when is_integer(status_code) and is_binary(reason_phrase),
-    do: from_request(request, StatusLine.new(status_code, reason_phrase))
+    do: to_response(request, StatusLine.new(status_code, reason_phrase))
 
   @doc """
   Creates a local tag (48-bit random string, 8 characters long).

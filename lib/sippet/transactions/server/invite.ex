@@ -36,7 +36,7 @@ defmodule Sippet.Transactions.Server.Invite do
 
   def proceeding(:state_timeout, :still_trying,
       %State{request: request} = data) do
-    response = request |> Message.from_request(100)
+    response = request |> Message.to_response(100)
     data = send_response(response, data)
     {:keep_state, data, [{:state_timeout, @max_idle, :idle}]}
   end

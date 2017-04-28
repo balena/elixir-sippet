@@ -103,15 +103,15 @@ defmodule Sippet.Transactions.Client.Invite.Test do
     # different status codes
     with_mock Sippet.Core,
         [receive_response: fn _, _ -> :ok end] do
-      response = Message.build_response(request, 100)
+      response = Message.to_response(request, 100)
       {:next_state, :proceeding, _data} =
         Invite.calling(:cast, {:incoming_response, response}, state)
       
-      response = Message.build_response(request, 200)
+      response = Message.to_response(request, 200)
       {:stop, :normal, _data} =
         Invite.calling(:cast, {:incoming_response, response}, state)
       
-      response = Message.build_response(request, 400)
+      response = Message.to_response(request, 400)
       {:next_state, :completed, _data} =
         Invite.calling(:cast, {:incoming_response, response}, state)
     end
@@ -125,15 +125,15 @@ defmodule Sippet.Transactions.Client.Invite.Test do
 
       :keep_state_and_data = Invite.proceeding(:enter, :calling, state)
 
-      response = Message.build_response(request, 180)
+      response = Message.to_response(request, 180)
       {:keep_state, _data} =
         Invite.proceeding(:cast, {:incoming_response, response}, state)
       
-      response = Message.build_response(request, 200)
+      response = Message.to_response(request, 200)
       {:stop, :normal, _data} =
         Invite.proceeding(:cast, {:incoming_response, response}, state)
       
-      response = Message.build_response(request, 400)
+      response = Message.to_response(request, 400)
       {:next_state, :completed, _data} =
         Invite.proceeding(:cast, {:incoming_response, response}, state)
     end
@@ -152,7 +152,7 @@ defmodule Sippet.Transactions.Client.Invite.Test do
     with_mock Sippet.Transports,
         [send_message: fn _, _ -> :ok end,
          reliable?: fn _ -> false end] do
-      last_response = Message.build_response(request, 400)
+      last_response = Message.to_response(request, 400)
       %{extras: extras} = state
       extras = extras |> Map.put(:last_response, last_response)
 
@@ -176,7 +176,7 @@ defmodule Sippet.Transactions.Client.Invite.Test do
     with_mock Sippet.Transports,
         [send_message: fn _, _ -> :ok end,
          reliable?: fn _ -> true end] do
-      last_response = Message.build_response(request, 400)
+      last_response = Message.to_response(request, 400)
       %{extras: extras} = state
       extras = extras |> Map.put(:last_response, last_response)
 
