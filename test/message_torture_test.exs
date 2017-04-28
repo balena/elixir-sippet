@@ -126,9 +126,10 @@ defmodule Sippet.Message.TortureTest do
           URI.parse!("sip:1_unusual.URI~(to-be!sure)&isn't+it$/crazy?,/;;*@example.com"),
           %{}}
 
+    # Note that the parser will transform parameters into lowercase strings
     assert request.headers.from ==
       {"token1~` token2'+_ token3*%!.-", URI.parse!("sip:mundane@example.com"),
-          %{"fromParam''~+*_!.-%" => "Ñ\u{20AC}Ð°Ð±Ð¾Ñ\u{2012}Ð°Ñ×ÑÐ¸Ð¹",
+          %{"fromparam''~+*_!.-%" => "Ñ\u{20AC}Ð°Ð±Ð¾Ñ\u{2012}Ð°Ñ×ÑÐ¸Ð¹",
             "tag" => "_token~1'+`*%!-."}}
 
     assert request.headers.call_id == "intmeth.word%ZK-!.*_+'@word`~)(><:\/\"][?}{"
