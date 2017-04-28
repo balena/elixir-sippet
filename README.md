@@ -73,7 +73,7 @@ def deps do
 end
 ```
 
-  2. Ensure `sippet` is started before your application:
+  2. Ensure `sippet` is started before your application:
 
 ```elixir
 def application do
@@ -103,7 +103,7 @@ config :sippet, Sippet.Transports,
 
 ```elixir
 # Configures the sippet core
-config :sippet, core_module: MyCore
+config :sippet, Sippet.Core, MyCore
 ```
 
 After the above steps, you should see a similar output when you `iex -S mix`
