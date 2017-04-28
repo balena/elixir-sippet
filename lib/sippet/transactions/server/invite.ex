@@ -14,6 +14,13 @@ defmodule Sippet.Transactions.Server.Invite do
   @timer_h 64 * @timer_g
   @timer_i 5000  # timer I is 5s
 
+  def init(%State{key: key} = data) do
+    # add an alias for incoming ACK requests for status codes != 200
+    %{key | method: :ack}
+    |> Sippet.Transactions.Registry.register_alias()
+    super(data)
+  end
+
   defp retry({past_wait, passed_time},
       %State{extras: %{last_response: last_response}} = data) do
     send_response(last_response, data)

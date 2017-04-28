@@ -63,6 +63,9 @@ defmodule Sippet.Transactions.Server do
                                "#{inspect event_content}, #{inspect data}" end)
         {:stop, :shutdown, data}
       end
+
+      defoverridable [init: 1, send_response: 2, receive_request: 2,
+                      shutdown: 2, timeout: 1, unhandled_event: 3]
     end
   end
 end

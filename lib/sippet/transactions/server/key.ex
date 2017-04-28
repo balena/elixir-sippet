@@ -32,7 +32,7 @@ defmodule Sippet.Transactions.Server.Key do
   def new(branch, method, sentby) do
     %__MODULE__{
       branch: branch,
-      method: if(method == :ack, do: :invite, else: method),
+      method: method,
       sentby: sentby
     }
   end

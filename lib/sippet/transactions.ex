@@ -6,7 +6,6 @@ defmodule Sippet.Transactions do
   """
 
   import Supervisor.Spec
-  import Sippet.Transactions.Registry
 
   alias Sippet.Message, as: Message
   alias Sippet.Message.RequestLine, as: RequestLine
@@ -36,7 +35,7 @@ defmodule Sippet.Transactions do
   """
   def start_link() do
     children = [
-      registry_spec(),
+      supervisor(Sippet.Transactions.Registry, []),
       supervisor(Sippet.Transactions.Supervisor, [])
     ]
 
@@ -76,12 +75,8 @@ defmodule Sippet.Transactions do
       %Message{start_line: %RequestLine{}} = incoming_request) do
     transaction = Transactions.Server.Key.new(incoming_request)
 
-    case lookup(transaction) do
-      [{_sup, pid}] ->
-        # Redirect the request to the existing transaction. These are tipically
-        # retransmissions or ACKs for 200 OK responses.
-        Transactions.Server.receive_request(pid, incoming_request)
-      [] ->
+    case Sippet.Transactions.Registry.lookup(transaction) do
+      nil ->
         if incoming_request.start_line.method == :ack do
           # Redirect to the core directly. ACKs sent out of transactions
           # pertain to the core.
@@ -96,6 +91,10 @@ defmodule Sippet.Transactions do
             _errors -> {:error, :already_started}
           end
         end
+      pid ->
+        # Redirect the request to the existing transaction. These are tipically
+        # retransmissions or ACKs for 200 OK responses.
+        Transactions.Server.receive_request(pid, incoming_request)
     end
   end
 
@@ -103,16 +102,16 @@ defmodule Sippet.Transactions do
       %Message{start_line: %StatusLine{}} = incoming_response) do
     transaction = Transactions.Client.Key.new(incoming_response)
 
-    case lookup(transaction) do
-      [{_sup, pid}] ->
-        # Redirect the response to the existing client transaction. If needed,
-        # the client transaction will redirect to the core from there.
-        Transactions.Client.receive_response(pid, incoming_response)
-      [] ->
+    case Sippet.Transactions.Registry.lookup(transaction) do
+      nil ->
         # Redirect the response to core. These are tipically retransmissions of
         # 200 OK for sent INVITE requests, and they have to be handled directly
         # by the core in order to catch the correct media handling.
         Core.receive_response(incoming_response, nil)
+      pid ->
+        # Redirect the response to the existing client transaction. If needed,
+        # the client transaction will redirect to the core from there.
+        Transactions.Client.receive_response(pid, incoming_response)
     end
   end
 
@@ -179,12 +178,12 @@ defmodule Sippet.Transactions do
   @spec send_response(response, server_key) :: :ok | {:error, reason}
   def send_response(%Message{start_line: %StatusLine{}} = outgoing_response,
                     %Transactions.Server.Key{} = server_key) do
-    case lookup(server_key) do
-      [{_sup, pid}] ->
+    case Sippet.Transactions.Registry.lookup(server_key) do
+      nil ->
+        {:error, :no_transaction}
+      pid ->
         # Send the response through the existing server transaction.
         Transactions.Server.send_response(pid, outgoing_response)
-      [] ->
-        {:error, :no_transaction}
     end
   end
 
@@ -197,16 +196,8 @@ defmodule Sippet.Transactions do
   """
   @spec receive_error(client_key | server_key, reason) :: :ok
   def receive_error(key, reason) do
-    case lookup(key) do
-      [{_sup, pid}] ->
-        # Send the response through the existing server key.
-        case key do
-          %Transactions.Client.Key{} ->
-            Transactions.Client.receive_error(pid, reason)
-          %Transactions.Server.Key{} ->
-            Transactions.Server.receive_error(pid, reason)
-        end
-      [] ->
+    case Sippet.Transactions.Registry.lookup(key) do
+      nil ->
         case key do
           %Transactions.Client.Key{} ->
             Logger.warn fn ->
@@ -218,6 +209,14 @@ defmodule Sippet.Transactions do
             end
         end
         {:error, :no_key}
+      pid ->
+        # Send the response through the existing server key.
+        case key do
+          %Transactions.Client.Key{} ->
+            Transactions.Client.receive_error(pid, reason)
+          %Transactions.Server.Key{} ->
+            Transactions.Server.receive_error(pid, reason)
+        end
     end
   end
 end
