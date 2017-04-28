@@ -50,9 +50,15 @@ ERL_NIF_TERM MakeString(ErlNifEnv* env, StringPiece s) {
   ErlNifBinary bin;
   if (!enif_alloc_binary(s.size(), &bin))
     return enif_make_atom(env, "no_memory");
-  for (size_t i = 0; i < s.size(); i++)
-    bin.data[i] = s[i];
+  memcpy(bin.data, s.data(), s.size());
   return enif_make_binary(env, &bin);
+}
+
+ERL_NIF_TERM MakeLowerCaseString(ErlNifEnv* env, StringPiece s) {
+  std::string lowercase(s.as_string());
+  for (auto& c : lowercase)
+    c = ToLowerASCII(c);
+  return MakeString(env, lowercase);
 }
 
 ERL_NIF_TERM MakeLowerCaseExistingAtomOrString(ErlNifEnv* env, StringPiece name) {
@@ -256,8 +262,8 @@ ERL_NIF_TERM ParseTypeSubtype(ErlNifEnv* env, Tokenizer* tok) {
     return enif_make_atom(env, "invalid_token");
   }
 
-  return enif_make_tuple2(env, MakeString(env, type),
-      MakeString(env, subtype));
+  return enif_make_tuple2(env, MakeLowerCaseString(env, type),
+      MakeLowerCaseString(env, subtype));
 }
 
 ERL_NIF_TERM ParseParameters(ErlNifEnv* env, Tokenizer* tok) {
@@ -271,7 +277,7 @@ ERL_NIF_TERM ParseParameters(ErlNifEnv* env, Tokenizer* tok) {
 
   GenericParametersIterator it(tok->current(), tok->end());
   while (it.GetNext()) {
-    enif_make_map_put(env, result, MakeString(env, it.name()),
+    enif_make_map_put(env, result, MakeLowerCaseString(env, it.name()),
         MakeString(env, it.value()), &result);
   }
   return result;
