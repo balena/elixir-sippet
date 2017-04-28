@@ -59,7 +59,20 @@ defmodule Sippet.Proxy.Test do
   test "forward request" do
     with_mock Sippet.Transports,
         [send_message: fn _, _ -> :ok end] do
-      ack = Message.build_request(:ack, "sip:alice@biloxi.com")
+      branch1 = "z9hG4bKasdfgh"
+
+      # the ACK branch is calculated using RIPEMD-160 HMAC.
+      branch2 =
+        Sippet.Message.magic_cookie() <>
+          (:crypto.hmac(:ripemd160, "sippet", branch1)
+           |> Base.url_encode64(padding: false))
+
+      ack =
+        Message.build_request(:ack, "sip:alice@biloxi.com")
+        |> Message.put_header(:via, [
+          {{2, 0}, :udp, {"biloxi.com", 5060}, %{"branch" => branch2}},
+          {{2, 0}, :udp, {"10.10.1.1", 5060}, %{"branch" => branch1}},
+        ])
       :ok = Proxy.forward_request(ack)
 
       assert called Sippet.Transports.send_message(ack, nil)

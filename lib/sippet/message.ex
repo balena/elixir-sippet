@@ -315,10 +315,17 @@ defmodule Sippet.Message do
   end
 
   @doc """
+  Returns the RFC 3261 compliance magic cookie, inserted in via-branch
+  parameters.
+  """
+  @spec magic_cookie() :: binary
+  def magic_cookie(), do: "z9hG4bK"
+
+  @doc """
   Creates an unique local branch (72-bit random string, 7+12 characters long).
   """
   @spec create_branch() :: binary
-  def create_branch(), do: "z9hG4bK" <> do_random_string(72)
+  def create_branch(), do: magic_cookie() <> do_random_string(72)
 
   @doc """
   Creates an unique Call-ID (120-bit random string, 20 characters long).

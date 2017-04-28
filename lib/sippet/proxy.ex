@@ -77,10 +77,10 @@ defmodule Sippet.Proxy do
   def add_via(%Message{start_line: %RequestLine{}} = request,
       protocol, host, port, branch) do
     branch =
-      if branch |> String.starts_with?("z9hG4bK") do
+      if branch |> String.starts_with?(Sippet.Message.magic_cookie) do
         branch
       else
-        "z9hG4bK" <> branch
+        Sippet.Message.magic_cookie <> branch
       end
 
     params = %{"branch" => branch}
@@ -102,6 +102,7 @@ defmodule Sippet.Proxy do
     if request.start_line.method == :ack do
       request
       |> do_add_max_forwards()
+      |> do_add_hash_branch()
       |> Transports.send_message(nil)
     else
       request
@@ -121,6 +122,33 @@ defmodule Sippet.Proxy do
     else
       %{message | headers: message.headers |> Map.put(:max_forwards, 70)}
     end
+  end
+
+  defp do_add_hash_branch(message) do
+    # When the request is forwarded statelessly, like in the case of ACKs, the
+    # branch has to be the same in the case of retransmissions. This way, a
+    # RIPEMD-160 HMAC is used to compute a hash derived from the topmost Via
+    # header field of the received request.
+
+    # XXX(balena): this stack discards RFC 3261 non compliant messages, so the
+    # other hash method which uses different parameters of the message is not
+    # implemented here.
+
+    [via1, via2 | rest] = message.headers.via
+    {_, _, _, %{"branch" => branch}} = via2
+    hash =
+      :crypto.hmac(:ripemd160, "sippet", branch)
+      |> Base.url_encode64(padding: false)
+
+    branch = Sippet.Message.magic_cookie <> hash
+    {version, protocol, sentby, parameters} = via1
+    via1 = {version, protocol, sentby, %{parameters | "branch" => branch}}
+
+    headers =
+      message.headers
+      |> Map.put(:via, [via1, via2 | rest])
+
+    %{message | headers: headers}
   end
 
   @doc """
