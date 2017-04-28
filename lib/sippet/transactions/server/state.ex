@@ -1,7 +1,5 @@
 defmodule Sippet.Transactions.Server.State do
-  @moduledoc """
-  Defines the state data used in all server transaction types.
-  """
+  @moduledoc false
 
   alias Sippet.Message, as: Message
   alias Sippet.Message.RequestLine, as: RequestLine

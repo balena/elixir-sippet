@@ -1,4 +1,6 @@
 defmodule Sippet.Transactions.Server.NonInvite do
+  @moduledoc false
+
   use Sippet.Transactions.Server, initial_state: :trying
 
   alias Sippet.Message.StatusLine, as: StatusLine

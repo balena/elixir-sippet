@@ -1,4 +1,5 @@
 defmodule Sippet.Transports.Pool do
+  @moduledoc false
 
   @spec spec() :: Supervisor.Spec.spec
   def spec() do

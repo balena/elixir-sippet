@@ -1,4 +1,6 @@
 defmodule Sippet.Transactions.Client.Invite do
+  @moduledoc false
+
   use Sippet.Transactions.Client, initial_state: :calling
 
   alias Sippet.Message, as: Message

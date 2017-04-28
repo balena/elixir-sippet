@@ -1,4 +1,6 @@
 defmodule Sippet.Transactions.Supervisor do
+  @moduledoc false
+
   use Supervisor
 
   import Sippet.Transactions.Registry

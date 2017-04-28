@@ -1,4 +1,6 @@
 defmodule Sippet.Transports.Worker do
+  @moduledoc false
+
   use GenServer
 
   alias Sippet.Message, as: Message

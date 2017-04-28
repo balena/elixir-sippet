@@ -1,4 +1,6 @@
 defmodule Sippet.Transactions.Server do
+  @moduledoc false
+
   alias Sippet.Message, as: Message
   alias Sippet.Message.RequestLine, as: RequestLine
   alias Sippet.Message.StatusLine, as: StatusLine

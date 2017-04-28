@@ -1,4 +1,6 @@
 defmodule Sippet.Transactions.Server.Invite do
+  @moduledoc false
+
   use Sippet.Transactions.Server, initial_state: :proceeding
 
   alias Sippet.Message, as: Message

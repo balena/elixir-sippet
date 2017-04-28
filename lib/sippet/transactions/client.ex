@@ -1,4 +1,6 @@
 defmodule Sippet.Transactions.Client do
+  @moduledoc false
+
   alias Sippet.Message, as: Message
   alias Sippet.Message.StatusLine, as: StatusLine
   alias Sippet.Transactions.Client.State, as: State

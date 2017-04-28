@@ -1,4 +1,6 @@
 defmodule Sippet.Transactions.Registry do
+  @moduledoc false
+
   import Supervisor.Spec
 
   def registry_spec() do

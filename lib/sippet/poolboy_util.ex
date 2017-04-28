@@ -1,4 +1,6 @@
 defmodule Sippet.PoolboyUtil do
+  @moduledoc false
+
   @spec child_spec(module, module, Keyword.t) :: Supervisor.Spec.spec
   def child_spec(module, worker, defaults) do
     env_config = Application.get_env(:sippet, module)
