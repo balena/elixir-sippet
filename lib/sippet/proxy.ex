@@ -70,7 +70,7 @@ defmodule Sippet.Proxy do
 
   A proxy must insert a Via header field value before the existing request Via
   header field values. If the `branch` parameter does not start with the magic
-  cookie `"z9hG4bK"`, it will be added.
+  cookie `"z9hG4bK"`, one will be added.
   """
   @spec add_via(Message.request, Message.protocol, host :: String.t,
                 dport :: integer, branch :: String.t) :: Message.request
@@ -101,17 +101,19 @@ defmodule Sippet.Proxy do
   def forward_request(%Message{start_line: %RequestLine{}} = request) do
     if request.start_line.method == :ack do
       request
-      |> do_add_max_forwards()
+      |> do_handle_max_forwards()
       |> do_add_hash_branch()
+      |> do_maybe_handle_route()
       |> Transports.send_message(nil)
     else
       request
-      |> do_add_max_forwards()
+      |> do_handle_max_forwards()
+      |> do_maybe_handle_route()
       |> Transactions.send_request()
     end
   end
 
-  defp do_add_max_forwards(message) do
+  defp do_handle_max_forwards(message) do
     if message.headers |> Map.has_key?(:max_forwards) do
       max_fws = message.headers.max_forwards
       if max_fws <= 0 do
@@ -121,6 +123,28 @@ defmodule Sippet.Proxy do
       end
     else
       %{message | headers: message.headers |> Map.put(:max_forwards, 70)}
+    end
+  end
+
+  defp do_maybe_handle_route(%Message{start_line: %RequestLine{}} = request) do
+    if request.headers |> Map.has_key?(:route) do
+      {_, target_uri, _} = hd(request.headers.route)
+      case URI.decode_parameters(target_uri.parameters) do
+        %{"lr" => _} ->
+          request  # no change
+        _no_lr ->
+          # strict-routing requirements
+          request_uri = request.start_line.request_uri
+          request =
+            request
+            |> Message.put_header_back(:route, {"", request_uri, %{}})
+            |> Message.delete_header_front(:route)
+
+          %{request | start_line:
+            %{request.start_line | request_uri: target_uri}}
+      end
+    else
+      request
     end
   end
 
@@ -169,7 +193,7 @@ defmodule Sippet.Proxy do
   @doc """
   Forwards a response.
 
-  The topmost Via header of the response is removed before forwarding.
+  You should check and remove the topmost Via before calling this function.
 
   The response will find its way back to an existing server transaction, if one
   exists, or will be sent directly to the network transport otherwise.
@@ -177,20 +201,7 @@ defmodule Sippet.Proxy do
   @spec forward_response(Message.response) :: on_response_sent
   def forward_response(%Message{start_line: %StatusLine{}} = response) do
     response
-    |> remove_topmost_via()
     |> fallback_to_transport(&Transactions.send_response/1)
-  end
-
-  defp remove_topmost_via(message) do
-    message =
-      message |> Message.update_header(:via, [],
-          fn [_ | t] -> t end)
-
-    if message.headers.via == [] do
-      raise ArgumentError, "Via cannot be empty, wrong message forward"
-    end
-
-    message
   end
 
   defp fallback_to_transport(message, fun) do
@@ -212,7 +223,6 @@ defmodule Sippet.Proxy do
   def forward_response(%Message{start_line: %StatusLine{}} = response,
                        %Transactions.Server.Key{} = server_key) do
     response
-    |> remove_topmost_via()
     |> fallback_to_transport(&Transactions.send_response(&1, server_key))
   end
 end
