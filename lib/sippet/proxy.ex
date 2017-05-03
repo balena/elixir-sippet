@@ -213,10 +213,9 @@ defmodule Sippet.Proxy do
       |> do_handle_max_forwards()
       |> do_maybe_handle_route()
 
-    case request |> Transports.send_message(nil) do
-      :ok -> {:ok, request}
-      other -> other
-    end
+    request |> Transports.send_message(nil)
+
+    {:ok, request}
   end
 
   @doc """
