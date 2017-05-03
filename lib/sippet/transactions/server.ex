@@ -6,20 +6,17 @@ defmodule Sippet.Transactions.Server do
   alias Sippet.Message.StatusLine, as: StatusLine
   alias Sippet.Transactions.Server.State, as: State
 
-  @doc false
-  @spec receive_request(GenServer.server, Message.request) :: :ok
   def receive_request(server, %Message{start_line: %RequestLine{}} = request),
     do: GenStateMachine.cast(server, {:incoming_request, request})
 
-  @doc false
-  @spec send_response(GenServer.server, Message.response) :: :ok
   def send_response(server, %Message{start_line: %StatusLine{}} = response),
     do: GenStateMachine.cast(server, {:outgoing_response, response})
 
-  @doc false
-  @spec receive_error(GenServer.server, reason :: term) :: :ok
   def receive_error(server, reason),
     do: GenStateMachine.cast(server, {:error, reason})
+
+  def terminate(server),
+    do: GenStateMachine.cast(server, :terminate)
 
   defmacro __using__(opts) do
     quote location: :keep do
@@ -56,11 +53,16 @@ defmodule Sippet.Transactions.Server do
 
       defdelegate reliable?(request), to: Sippet.Transports
 
+      def unhandled_event(:cast, :terminate, %State{key: key} = data) do
+        Logger.info(fn -> "server transaction #{key} terminated" end)
+        {:stop, :normal, data}
+      end
+
       def unhandled_event(event_type, event_content,
           %State{key: key} = data) do
-            Logger.error(fn -> "server transaction #{key} got " <>
-                               "unhandled_event/3: #{inspect event_type}, " <>
-                               "#{inspect event_content}, #{inspect data}" end)
+        Logger.error(fn -> "server transaction #{key} got " <>
+                           "unhandled_event/3: #{inspect event_type}, " <>
+                           "#{inspect event_content}, #{inspect data}" end)
         {:stop, :shutdown, data}
       end
 

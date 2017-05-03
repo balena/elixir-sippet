@@ -5,15 +5,14 @@ defmodule Sippet.Transactions.Client do
   alias Sippet.Message.StatusLine, as: StatusLine
   alias Sippet.Transactions.Client.State, as: State
 
-  @doc false
-  @spec receive_response(GenServer.server, Message.response) :: :ok
   def receive_response(server, %Message{start_line: %StatusLine{}} = response),
     do: GenStateMachine.cast(server, {:incoming_response, response})
 
-  @doc false
-  @spec receive_error(GenServer.server, reason :: term) :: :ok
   def receive_error(server, reason),
     do: GenStateMachine.cast(server, {:error, reason})
+
+  def terminate(server),
+    do: GenStateMachine.cast(server, :terminate)
 
   defmacro __using__(opts) do
     quote location: :keep do
@@ -45,6 +44,11 @@ defmodule Sippet.Transactions.Client do
         do: shutdown(:timeout, data)
 
       defdelegate reliable?(request), to: Sippet.Transports
+
+      def unhandled_event(:cast, :terminate, %State{key: key} = data) do
+        Logger.info(fn -> "client transaction #{key} terminated" end)
+        {:stop, :normal, data}
+      end
 
       def unhandled_event(event_type, event_content,
           %State{key: key} = data) do

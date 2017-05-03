@@ -193,6 +193,8 @@ defmodule Sippet.Transactions do
   The client and server identifiers are passed to the transport by the
   transactions. If the transport faces an error, it has to inform the
   transaction using this function.
+
+  If a transaction with such a key does not exist, it will be silently ignored.
   """
   @spec receive_error(client_key | server_key, reason) :: :ok
   def receive_error(key, reason) do
@@ -208,7 +210,7 @@ defmodule Sippet.Transactions do
               "server key #{key} not found"
             end
         end
-        {:error, :no_key}
+        :ok
       pid ->
         # Send the response through the existing server key.
         case key do
@@ -216,6 +218,32 @@ defmodule Sippet.Transactions do
             Transactions.Client.receive_error(pid, reason)
           %Transactions.Server.Key{} ->
             Transactions.Server.receive_error(pid, reason)
+        end
+    end
+  end
+
+  @doc """
+  Terminates a client or server transaction forcefully.
+
+  This function is not generally executed by entities; there is a single case
+  where it is fundamental, which is when a client transaction is in proceeding
+  state for a long time, and the transaction has to be finished forcibly, or it
+  will never finish by itself.
+
+  If a transaction with such a key does not exist, it will be silently ignored.
+  """
+  @spec terminate(client_key | server_key) :: :ok
+  def terminate(key) do
+    case Sippet.Transactions.Registry.lookup(key) do
+      nil ->
+        :ok
+      pid ->
+        # Send the response through the existing server key.
+        case key do
+          %Transactions.Client.Key{} ->
+            Transactions.Client.terminate(pid)
+          %Transactions.Server.Key{} ->
+            Transactions.Server.terminate(pid)
         end
     end
   end
