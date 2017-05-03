@@ -56,28 +56,53 @@ defmodule Sippet.Proxy.Test do
     assert branch == "z9hG4bKFooBar"
   end
 
+  test "derive branch" do
+    branch = "z9hG4bKasdfgh"
+
+    # the derived branch is calculated using RIPEMD-160 HMAC.
+    derived_branch =
+      Sippet.Message.magic_cookie() <>
+        (:crypto.hmac(:ripemd160, "sippet", branch)
+         |> Base.url_encode64(padding: false))
+
+    ack =
+      Message.build_request(:ack, "sip:alice@biloxi.com")
+      |> Message.put_header(:via, [
+        {{2, 0}, :udp, {"10.10.1.1", 5060}, %{"branch" => branch}}
+      ])
+
+    assert derived_branch == Proxy.derive_branch(ack)
+  end
+
+  test "derive branch, RFC 2543" do
+    branch = "asdfgh"
+
+    input =
+      ["sip:alice@biloxi.com", "udp", "10.10.1.1", "5060",
+       "foo@bar", "qwerty", "zxcvb", "100", ["branch", branch]]
+
+    # the derived branch is calculated using RIPEMD-160 HMAC.
+    derived_branch =
+      Sippet.Message.magic_cookie() <>
+        (:crypto.hmac(:ripemd160, "sippet", input)
+         |> Base.url_encode64(padding: false))
+
+    ack =
+      Message.build_request(:ack, "sip:alice@biloxi.com")
+      |> Message.put_header(:via, [
+        {{2, 0}, :udp, {"10.10.1.1", 5060}, %{"branch" => branch}}
+      ])
+      |> Message.put_header(:cseq, {100, :ack})
+      |> Message.put_header(:call_id, "foo@bar")
+      |> Message.put_header(:from, {"", URI.parse!("sip:bob@biloxi.com"),
+                                    %{"tag" => "qwerty"}})
+      |> Message.put_header(:to, {"", URI.parse!("sip:alice@biloxi.com"),
+                                  %{"tag" => "zxcvb"}})
+
+    assert derived_branch == Proxy.derive_branch(ack)
+  end
+
   test "forward request" do
-    with_mock Sippet.Transports,
-        [send_message: fn _, _ -> :ok end] do
-      branch1 = "z9hG4bKasdfgh"
-
-      # the ACK branch is calculated using RIPEMD-160 HMAC.
-      branch2 =
-        Sippet.Message.magic_cookie() <>
-          (:crypto.hmac(:ripemd160, "sippet", branch1)
-           |> Base.url_encode64(padding: false))
-
-      ack =
-        Message.build_request(:ack, "sip:alice@biloxi.com")
-        |> Message.put_header(:via, [
-          {{2, 0}, :udp, {"biloxi.com", 5060}, %{"branch" => branch2}},
-          {{2, 0}, :udp, {"10.10.1.1", 5060}, %{"branch" => branch1}},
-        ])
-      {:ok, _} = Proxy.stateless_forward_request(ack)
-
-      assert called Sippet.Transports.send_message(ack, nil)
-    end
-
     # the header Max-Forwards should be added if it does not exist before
     # forwarding the request, otherwise the value should be subtracted.
     with_mock Sippet.Transactions,

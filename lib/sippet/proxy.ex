@@ -129,12 +129,12 @@ defmodule Sippet.Proxy do
               ""
           end
 
-        via_iodata =
-          for {k, v} <- Map.to_list(params), do: [k, v]
-          Enum.reduce([], fn x, acc -> [x | acc] end)
+        via_params =
+          Map.to_list(params)
+          |> Enum.reduce([], fn {k, v}, acc -> [k, v | acc] end)
 
         [request_uri, to_string(protocol), address, to_string(port),
-         call_id, from_tag, to_tag, to_string(sequence), via_iodata]
+         call_id, from_tag, to_tag, to_string(sequence), via_params]
       end
 
     hash =
