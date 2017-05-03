@@ -73,7 +73,7 @@ defmodule Sippet.Proxy.Test do
           {{2, 0}, :udp, {"biloxi.com", 5060}, %{"branch" => branch2}},
           {{2, 0}, :udp, {"10.10.1.1", 5060}, %{"branch" => branch1}},
         ])
-      :ok = Proxy.forward_request(ack)
+      {:ok, _} = Proxy.stateless_forward_request(ack)
 
       assert called Sippet.Transports.send_message(ack, nil)
     end

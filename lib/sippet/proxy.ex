@@ -10,9 +10,17 @@ defmodule Sippet.Proxy do
   alias Sippet.Transactions, as: Transactions
   alias Sippet.Transports, as: Transports
 
+  @type client_key :: Transactions.Client.Key.t
+
+  @type request :: Message.request
+
   @type on_request_sent ::
-      :ok |
-      {:ok, client_key :: Transactions.Client.Key.t} |
+      {:ok, client_key, request} |
+      {:error, reason :: term} |
+      no_return
+
+  @type on_request_sent_stateless ::
+      {:ok, request} |
       {:error, reason :: term} |
       no_return
 
@@ -90,8 +98,55 @@ defmodule Sippet.Proxy do
   end
 
   @doc """
+  Returns a binary representing a textual branch identifier obtained from the
+  topmost Via header of the request.
+
+  This derived branch has the property to be the same case the topmost Via
+  header of the `request` is also the same, as in the case of retransmissions.
+
+  This operation is usually performed for stateless proxying, like in the case
+  of ACK requests, and contains the magic cookie. In order to correctly derive
+  the branch, the input `request` must not have been modified after reception.
+  """
+  @spec derive_branch(request) :: binary
+  def derive_branch(%Message{start_line: %RequestLine{}} = request) do
+    [{_, _, _, %{"branch" => branch}} | _] = request.headers.via
+
+    input =
+      if branch |> String.starts_with?(Message.magic_cookie) do
+        branch
+      else
+        request_uri = URI.to_string(request.start_line.request_uri)
+        [{_, protocol, {address, port}, params} | _] = request.headers.via
+        {_, _, %{"tag" => from_tag}} = request.headers.from
+        call_id = request.headers.call_id
+        {sequence, _method} = request.headers.cseq
+        to_tag =
+          case request.headers.to do
+            {_, _, %{"tag" => to_tag}} ->
+              to_tag
+            _other ->
+              ""
+          end
+
+        via_iodata =
+          for {k, v} <- Map.to_list(params), do: [k, v]
+          Enum.reduce([], fn x, acc -> [x | acc] end)
+
+        [request_uri, to_string(protocol), address, to_string(port),
+         call_id, from_tag, to_tag, to_string(sequence), via_iodata]
+      end
+
+    hash =
+      :crypto.hmac(:ripemd160, "sippet", input)
+      |> Base.url_encode64(padding: false)
+
+    Message.magic_cookie <> hash
+  end
+
+  @doc """
   Forwards the request.
- 
+
   If the method is `:ack`, the request will be sent directly to the network transport.
   Otherwise, a new client transaction will be created.
 
@@ -99,17 +154,14 @@ defmodule Sippet.Proxy do
   """
   @spec forward_request(Message.request) :: on_request_sent
   def forward_request(%Message{start_line: %RequestLine{}} = request) do
-    if request.start_line.method == :ack do
-      request
-      |> do_handle_max_forwards()
-      |> do_add_hash_branch()
-      |> do_maybe_handle_route()
-      |> Transports.send_message(nil)
-    else
+    request =
       request
       |> do_handle_max_forwards()
       |> do_maybe_handle_route()
-      |> Transactions.send_request()
+
+    case request |> Transactions.send_request() do
+      {:ok, client_key} -> {:ok, client_key, request}
+      other -> other
     end
   end
 
@@ -148,31 +200,23 @@ defmodule Sippet.Proxy do
     end
   end
 
-  defp do_add_hash_branch(message) do
-    # When the request is forwarded statelessly, like in the case of ACKs, the
-    # branch has to be the same in the case of retransmissions. This way, a
-    # RIPEMD-160 HMAC is used to compute a hash derived from the topmost Via
-    # header field of the received request.
+  @doc """
+  Forwards the request statelessly.
 
-    # XXX(balena): this stack discards RFC 3261 non compliant messages, so the
-    # other hash method which uses different parameters of the message is not
-    # implemented here.
+  The request will be sent directly to the network transport.
+  """
+  @spec stateless_forward_request(request) :: on_request_sent_stateless
+  def stateless_forward_request(
+      %Message{start_line: %RequestLine{}} = request) do
+    request =
+      request
+      |> do_handle_max_forwards()
+      |> do_maybe_handle_route()
 
-    [via1, via2 | rest] = message.headers.via
-    {_, _, _, %{"branch" => branch}} = via2
-    hash =
-      :crypto.hmac(:ripemd160, "sippet", branch)
-      |> Base.url_encode64(padding: false)
-
-    branch = Sippet.Message.magic_cookie <> hash
-    {version, protocol, sentby, parameters} = via1
-    via1 = {version, protocol, sentby, %{parameters | "branch" => branch}}
-
-    headers =
-      message.headers
-      |> Map.put(:via, [via1, via2 | rest])
-
-    %{message | headers: headers}
+    case request |> Transports.send_message(nil) do
+      :ok -> {:ok, request}
+      other -> other
+    end
   end
 
   @doc """
