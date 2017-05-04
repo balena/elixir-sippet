@@ -13,7 +13,7 @@ An Elixir library designed to write Session Initiation Protocol middleware.
 
 # Introduction
 
-SIP is a very flexible protocol that has great depth. It was designed to be a
+[SIP](https://tools.ietf.org/html/rfc3261) is a very flexible protocol that has great depth. It was designed to be a
 general-purpose way to set up real-time multimedia sessions between groups of
 participants. It is a text-based protocol modeled on the request/response model
 used in HTTP. This makes it easy to debug because the messages are relatively
