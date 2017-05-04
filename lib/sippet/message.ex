@@ -248,6 +248,21 @@ defmodule Sippet.Message do
   Otherwise, if it's already a `Sippet.URI`, it will be stored unmodified.
 
   The newly created struct has an empty header map, and the body is `nil`.
+
+  ## Examples:
+
+      iex> req1 = Sippet.Message.build_request(:invite, "sip:foo@bar.com")
+      %Sippet.Message{body: nil, headers: %{},
+       start_line: %Sippet.Message.RequestLine{method: :invite,
+        request_uri: %Sippet.URI{authority: "foo@bar.com", headers: nil,
+         host: "bar.com", parameters: nil, port: 5060, scheme: "sip",
+         userinfo: "foo"}, version: {2, 0}}, target: nil}
+      iex> req2 = Sippet.Message.build_request("INVITE", "sip:foo@bar.com")
+      iex> request_uri = Sippet.URI.parse!("sip:foo@bar.com")
+      iex> req3 = Sippet.Message.build_request("INVITE", request_uri)
+      iex> req1 == req2 and req2 == req3
+      true
+
   """
   @spec build_request(method, uri | binary) :: request
   def build_request(method, request_uri)
@@ -276,6 +291,18 @@ defmodule Sippet.Message do
   integer in the range `100..699` representing the SIP response status code.
   In the latter case, a default reason phrase will be obtained from a default
   set; if there's none, then an exception will be raised.
+
+  ## Examples:
+
+      iex> resp1 = Sippet.Message.build_response 200
+      %Sippet.Message{body: nil, headers: %{},
+       start_line: %Sippet.Message.StatusLine{reason_phrase: "OK", status_code: 200,
+        version: {2, 0}}, target: nil}
+      iex> status_line = Sippet.Message.StatusLine.new(200)
+      iex> resp2 = status_line |> Sippet.Message.build_response
+      iex> resp1 == resp2
+      true
+
   """
   @spec build_response(100..699 | StatusLine.t) :: response | no_return
   def build_response(status)
@@ -292,13 +319,19 @@ defmodule Sippet.Message do
   The `status_code` should be an integer in the range `100..699` representing
   the SIP status code, and `reason_phrase` a binary representing the reason
   phrase text.
+
+      iex> Sippet.Message.build_response 400, "Bad Lorem Ipsum"
+      %Sippet.Message{body: nil, headers: %{},
+       start_line: %Sippet.Message.StatusLine{reason_phrase: "Bad Lorem Ipsum",
+        status_code: 400, version: {2, 0}}, target: nil}
+
   """
   @spec build_response(100..699, String.t) :: response
   def build_response(status_code, reason_phrase)
     when is_integer(status_code) and is_binary(reason_phrase),
     do: build_response(StatusLine.new(status_code, reason_phrase))
 
-  @doc """
+  @doc ~S'''
   Returns a response created from a request, using a given status code.
 
   The `request` should be a valid SIP request, or an exception will be thrown.
@@ -307,7 +340,34 @@ defmodule Sippet.Message do
   integer in the range `100..699` representing the SIP response status code.
   In the latter case, a default reason phrase will be obtained from a default
   set; if there's none, then an exception will be raised.
-  """
+
+  ## Example:
+
+      request =
+        """
+        REGISTER sips:ss2.biloxi.example.com SIP/2.0
+        Via: SIP/2.0/TLS client.biloxi.example.com:5061;branch=z9hG4bKnashds7
+        Max-Forwards: 70
+        From: Bob <sips:bob@biloxi.example.com>;tag=a73kszlfl
+        To: Bob <sips:bob@biloxi.example.com>
+        Call-ID: 1j9FpLxk3uxtm8tn@biloxi.example.com
+        CSeq: 1 REGISTER
+        Contact: <sips:bob@client.biloxi.example.com>
+        Content-Length: 0
+        """ |> Sippet.Message.parse!()
+      request |> Sippet.Message.to_response(200) |> IO.puts
+      SIP/2.0 200 OK
+      Via: SIP/2.0/TLS client.biloxi.example.com:5061;branch=z9hG4bKnashds7
+      To: "Bob" <sips:bob@biloxi.example.com>;tag=K2fizKkV
+      From: "Bob" <sips:bob@biloxi.example.com>;tag=a73kszlfl
+      CSeq: 1 REGISTER
+      Content-Length: 0
+      Call-ID: 1j9FpLxk3uxtm8tn@biloxi.example.com
+
+
+      :ok
+
+  '''
   @spec to_response(request, integer | StatusLine.t) :: response | no_return
   def to_response(request, status)
 
@@ -342,7 +402,7 @@ defmodule Sippet.Message do
     end
   end
 
-  @doc """
+  @doc ~S'''
   Returns a response created from a request, using a given status code and a
   custom reason phrase.
 
@@ -355,7 +415,34 @@ defmodule Sippet.Message do
 
   The `reason_phrase` can be any textual representation of the reason phrase
   the application needs to generate, in binary.
-  """
+
+  ## Example:
+
+      request =
+        """
+        REGISTER sips:ss2.biloxi.example.com SIP/2.0
+        Via: SIP/2.0/TLS client.biloxi.example.com:5061;branch=z9hG4bKnashds7
+        Max-Forwards: 70
+        From: Bob <sips:bob@biloxi.example.com>;tag=a73kszlfl
+        To: Bob <sips:bob@biloxi.example.com>
+        Call-ID: 1j9FpLxk3uxtm8tn@biloxi.example.com
+        CSeq: 1 REGISTER
+        Contact: <sips:bob@client.biloxi.example.com>
+        Content-Length: 0
+        """ |> Sippet.Message.parse!()
+      request |> Sippet.Message.to_response(400, "Bad Lorem Ipsum") |> IO.puts
+      SIP/2.0 400 Bad Lorem Ipsum
+      Via: SIP/2.0/TLS client.biloxi.example.com:5061;branch=z9hG4bKnashds7
+      To: "Bob" <sips:bob@biloxi.example.com>;tag=K2fizKkV
+      From: "Bob" <sips:bob@biloxi.example.com>;tag=a73kszlfl
+      CSeq: 1 REGISTER
+      Content-Length: 0
+      Call-ID: 1j9FpLxk3uxtm8tn@biloxi.example.com
+
+
+      :ok
+
+  '''
   @spec to_response(request, integer, String.t) :: response
   def to_response(request, status_code, reason_phrase)
     when is_integer(status_code) and is_binary(reason_phrase),
@@ -363,6 +450,12 @@ defmodule Sippet.Message do
 
   @doc """
   Creates a local tag (48-bit random string, 8 characters long).
+
+  ## Example:
+
+      Sippet.Message.create_tag
+      "lnTMo9Zn"
+
   """
   @spec create_tag() :: binary
   def create_tag(), do: do_random_string(48)
@@ -376,18 +469,36 @@ defmodule Sippet.Message do
   @doc """
   Returns the RFC 3261 compliance magic cookie, inserted in via-branch
   parameters.
+
+  ## Example:
+
+      iex> Sippet.Message.magic_cookie
+      "z9hG4bK"
+
   """
   @spec magic_cookie() :: binary
   def magic_cookie(), do: "z9hG4bK"
 
   @doc """
   Creates an unique local branch (72-bit random string, 7+12 characters long).
+
+  ## Example:
+
+      Sippet.Message.create_branch
+      "z9hG4bKuQpiub9h7fBb"
+
   """
   @spec create_branch() :: binary
   def create_branch(), do: magic_cookie() <> do_random_string(72)
 
   @doc """
   Creates an unique Call-ID (120-bit random string, 20 characters long).
+
+  ## Example
+
+      Sippet.create_call_id
+      "NlV4TfQwkmPlNJkyHPpF"
+
   """
   @spec create_call_id() :: binary
   def create_call_id(), do: do_random_string(120)
@@ -410,17 +521,15 @@ defmodule Sippet.Message do
   Returns whether a given `header` exists in the given `message`.
   """
   @spec has_header?(t, header) :: boolean
-  def has_header?(message, header) do
-    Map.has_key?(message.headers, header)
-  end
+  def has_header?(message, header),
+    do: Map.has_key?(message.headers, header)
 
   @doc """
   Puts the `value` under `header` on the `message`.
   """
   @spec put_header(t, header, value) :: t
-  def put_header(message, header, value) do
-    %{message | headers: Map.put(message.headers, header, value)}
-  end
+  def put_header(message, header, value),
+    do: %{message | headers: Map.put(message.headers, header, value)}
 
   @doc """
   Puts the `value` under `header` on the `message` unless the `header` already
