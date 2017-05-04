@@ -266,7 +266,7 @@ defmodule Sippet.Message do
   def build_request(method, request_uri) when is_atom(method),
     do: do_build_request(method, request_uri)
 
-  def do_build_request(method, request_uri),
+  defp do_build_request(method, request_uri),
     do: %__MODULE__{start_line: RequestLine.new(method, request_uri)}
 
   @doc """
