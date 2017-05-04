@@ -1110,7 +1110,7 @@ defmodule Sippet.Message do
     end
   end
 
-  defp do_header_values([], values), do: values
+  defp do_header_values([], values), do: values |> Enum.reverse()
   defp do_header_values([head|tail], values),
     do: do_header_values(tail, do_join(do_header_value(head), values, ", "))
 
@@ -1211,7 +1211,7 @@ defmodule Sippet.Message do
     do: [name, ": ", do_one_per_line_value(value), "\n"]
 
   defp do_one_per_line(name, values) when is_list(values),
-    do: do_one_per_line(name, values, [])
+    do: do_one_per_line(name, values |> Enum.reverse(), [])
 
   defp do_one_per_line(_, [], result), do: result
   defp do_one_per_line(name, [head|tail], result) do
