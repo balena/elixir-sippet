@@ -456,7 +456,7 @@ defmodule Sippet.Message do
   If the parameter `value` is `nil`, then the empty list will be prefixed to
   the `header`.
   """
-  @spec put_header_front(t, header, value) :: t
+  @spec put_header_front(t, header, multiple_value) :: t
   def put_header_front(message, header, value) do
     existing = get_header(message, header, [])
 
@@ -475,7 +475,7 @@ defmodule Sippet.Message do
   If the parameter `value` is `nil`, then the empty list will be appended to
   the `header`.
   """
-  @spec put_header_back(t, header, value) :: t
+  @spec put_header_back(t, header, multiple_value) :: t
   def put_header_back(message, header, value) do
     existing = get_header(message, header, [])
 
@@ -549,7 +549,7 @@ defmodule Sippet.Message do
   If the `header` does not exist, returns `:error`. If the `header` exists but
   it is an empty list, returns `{:ok, nil}`.
   """
-  @spec fetch_header_front(t, header) :: {:ok, value} | :error
+  @spec fetch_header_front(t, header) :: {:ok, multiple_value} | :error
   def fetch_header_front(message, header) do
     case fetch_header(message, header) do
       {:ok, values} ->
@@ -569,7 +569,7 @@ defmodule Sippet.Message do
   If the `header` does not exist, returns `:error`. If the `header` exists but
   it is an empty list, returns `{:ok, nil}`.
   """
-  @spec fetch_header_back(t, header) :: {:ok, value} | :error
+  @spec fetch_header_back(t, header) :: {:ok, multiple_value} | :error
   def fetch_header_back(message, header) do
     case fetch_header(message, header) do
       {:ok, values} ->
@@ -604,7 +604,7 @@ defmodule Sippet.Message do
   may be `nil` case the values list is empty. If `message` doesn't contain the
   `header`, a `KeyError` exception is raised.
   """
-  @spec fetch_header_front!(t, header) :: value | no_return
+  @spec fetch_header_front!(t, header) :: multiple_value | no_return
   def fetch_header_front!(message, header) do
     values = fetch_header!(message, header)
     if Enum.empty?(values) do
@@ -622,7 +622,7 @@ defmodule Sippet.Message do
   may be `nil` case the values list is empty. If `message` doesn't contain the
   `header`, a `KeyError` exception is raised.
   """
-  @spec fetch_header_back!(t, header) :: value | no_return
+  @spec fetch_header_back!(t, header) :: multiple_value | no_return
   def fetch_header_back!(message, header) do
     values = fetch_header!(message, header)
     if Enum.empty?(values) do
@@ -650,8 +650,8 @@ defmodule Sippet.Message do
   If `header` is present in `message`, then the first value is returned.
   Otherwise, `default` is returned (which is `nil` unless specified otherwise).
   """
-  @spec get_header_front(t, header) :: value | nil
-  @spec get_header_front(t, header, any) :: value | any
+  @spec get_header_front(t, header) :: multiple_value | nil
+  @spec get_header_front(t, header, any) :: multiple_value | any
   def get_header_front(message, header, default \\ nil) do
     case get_header(message, header, nil) do
       nil -> default
@@ -665,8 +665,8 @@ defmodule Sippet.Message do
   If `header` is present in `message`, then the last value is returned.
   Otherwise, `default` is returned (which is `nil` unless specified otherwise).
   """
-  @spec get_header_back(t, header) :: value | nil
-  @spec get_header_back(t, header, any) :: value | any
+  @spec get_header_back(t, header) :: multiple_value | nil
+  @spec get_header_back(t, header, any) :: multiple_value | any
   def get_header_back(message, header, default \\ nil) do
     case get_header(message, header, nil) do
       nil -> default
@@ -695,7 +695,8 @@ defmodule Sippet.Message do
   of `header` front.  If `header` is not present in `message`, or it is an empty
   list, `initial` is inserted as the single value of `header`.
   """
-  @spec update_header_front(t, header, value | nil, (value -> value)) :: t
+  @spec update_header_front(t, header, value | nil,
+                            (multiple_value -> multiple_value)) :: t
   def update_header_front(message, header, initial \\ nil, fun)
       when is_function(fun, 1) do
     update_header(message, header, List.wrap(initial),
@@ -710,7 +711,8 @@ defmodule Sippet.Message do
   `header` back.  If `header` is not present in `message`, or it is an empty
   list, `initial` is inserted as the single value of `header`.
   """
-  @spec update_header_back(t, header, value | nil, (value -> value)) :: t
+  @spec update_header_back(t, header, value | nil,
+                           (multiple_value -> multiple_value)) :: t
   def update_header_back(message, header, initial \\ nil, fun)
       when is_function(fun, 1) do
     update_header(message, header, List.wrap(initial),
@@ -747,8 +749,8 @@ defmodule Sippet.Message do
   returned. When the `header` results in an empty list, `message` gets updated
   by removing the header.
   """
-  @spec pop_header_front(t, header) :: {value | nil, t}
-  @spec pop_header_front(t, header, any) :: {value | any, t}
+  @spec pop_header_front(t, header) :: {multiple_value | nil, t}
+  @spec pop_header_front(t, header, any) :: {multiple_value | any, t}
   def pop_header_front(message, header, default \\ nil) do
     {values, new_headers} = Map.pop(message.headers, header, [])
     case values do
@@ -771,8 +773,8 @@ defmodule Sippet.Message do
   returned. When the `header` results in an empty list, `message` gets updated
   by removing the header.
   """
-  @spec pop_header_back(t, header) :: {value | nil, t}
-  @spec pop_header_back(t, header, any) :: {value | any, t}
+  @spec pop_header_back(t, header) :: {multiple_value | nil, t}
+  @spec pop_header_back(t, header, any) :: {multiple_value | any, t}
   def pop_header_back(message, header, default \\ nil) do
     {values, new_headers} = Map.pop(message.headers, header, [])
     case Enum.reverse(values) do
@@ -821,8 +823,8 @@ defmodule Sippet.Message do
   with the updated values under `header`.
   """
   @spec get_and_update_header_front(t, header,
-            (value -> {get, value} | :pop)) ::
-                {get, t} when get: value
+            (multiple_value -> {get, multiple_value} | :pop)) ::
+                {get, t} when get: multiple_value
   def get_and_update_header_front(message, header, fun)
       when is_function(fun, 1) do
     {get, new_headers} = Map.get_and_update(message.headers, header,
@@ -868,8 +870,8 @@ defmodule Sippet.Message do
   with the updated values under `header`.
   """
   @spec get_and_update_header_back(t, header,
-            (value -> {get, value} | :pop)) ::
-                {get, t} when get: value
+            (multiple_value -> {get, multiple_value} | :pop)) ::
+                {get, t} when get: multiple_value
   def get_and_update_header_back(message, header, fun)
       when is_function(fun, 1) do
     {get, new_headers} = Map.get_and_update(message.headers, header,
