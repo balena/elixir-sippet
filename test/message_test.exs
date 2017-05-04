@@ -1,5 +1,6 @@
 defmodule Sippet.Message.Test do
   use ExUnit.Case, async: true
+  doctest Sippet.Message
 
   alias Sippet.Message, as: Message
 
