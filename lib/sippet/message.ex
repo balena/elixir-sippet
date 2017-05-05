@@ -505,6 +505,13 @@ defmodule Sippet.Message do
 
   @doc """
   Shortcut to check if the message is a request.
+
+  ## Examples:
+
+      iex> req = Sippet.Message.build_request :invite, "sip:foo@bar.com"
+      iex> req |> Sippet.Message.request?
+      true
+
   """
   @spec request?(t) :: boolean
   def request?(%__MODULE__{start_line: %RequestLine{}} = _), do: true
@@ -512,6 +519,13 @@ defmodule Sippet.Message do
 
   @doc """
   Shortcut to check if the message is a response.
+
+  ## Examples:
+
+      iex> resp = Sippet.Message.build_response 200
+      iex> resp |> Sippet.Message.response?
+      true
+
   """
   @spec response?(t) :: boolean
   def response?(%__MODULE__{start_line: %StatusLine{}} = _), do: true
@@ -519,6 +533,14 @@ defmodule Sippet.Message do
 
   @doc """
   Returns whether a given `header` exists in the given `message`.
+
+  ## Examples:
+
+      iex> request = Sippet.Message.build_request :invite, "sip:foo@bar.com"
+      iex> request = Sippet.Message.put_header request, :cseq, {1, :invite}
+      iex> request |> Sippet.Message.has_header?(:cseq)
+      true
+
   """
   @spec has_header?(t, header) :: boolean
   def has_header?(message, header),
@@ -526,6 +548,19 @@ defmodule Sippet.Message do
 
   @doc """
   Puts the `value` under `header` on the `message`.
+
+  If the header already exists, it will be overridden.
+
+  ## Examples:
+
+      iex> request = Sippet.Message.build_request :invite, "sip:foo@bar.com"
+      iex> request |> Sippet.Message.put_header(:cseq, {1, :invite})
+      %Sippet.Message{body: nil, headers: %{cseq: {1, :invite}},
+       start_line: %Sippet.Message.RequestLine{method: :invite,
+        request_uri: %Sippet.URI{authority: "foo@bar.com", headers: nil,
+         host: "bar.com", parameters: nil, port: 5060, scheme: "sip",
+         userinfo: "foo"}, version: {2, 0}}, target: nil}
+
   """
   @spec put_header(t, header, value) :: t
   def put_header(message, header, value),
@@ -534,6 +569,18 @@ defmodule Sippet.Message do
   @doc """
   Puts the `value` under `header` on the `message` unless the `header` already
   exists.
+
+  ## Examples:
+
+      iex> request = Sippet.Message.build_request :invite, "sip:foo@bar.com"
+      iex> request = Sippet.Message.put_new_header request, :max_forwards, 70
+      iex> request |> Sippet.Message.put_new_header(:max_forwards, 1)
+      %Sippet.Message{body: nil, headers: %{max_forwards: 70},
+       start_line: %Sippet.Message.RequestLine{method: :invite,
+        request_uri: %Sippet.URI{authority: "foo@bar.com", headers: nil,
+         host: "bar.com", parameters: nil, port: 5060, scheme: "sip",
+         userinfo: "foo"}, version: {2, 0}}, target: nil}
+
   """
   @spec put_new_header(t, header, value) :: t
   def put_new_header(message, header, value) do
@@ -550,6 +597,20 @@ defmodule Sippet.Message do
   This function is useful in case you want to compute the value to put under
   `header` only if `header` is not already present (e.g., the value is
   expensive to calculate or generally difficult to setup and teardown again).
+
+  ## Examples:
+
+      iex> request = Sippet.Message.build_request :invite, "sip:foo@bar.com"
+      iex> request = Sippet.Message.put_new_lazy_header(request, :max_forwards,
+      ...>   fn -> 70 end)
+      iex> request |> Sippet.Message.put_new_lazy_header(:max_forwards,
+      ...>   fn -> 1 end)
+      %Sippet.Message{body: nil, headers: %{max_forwards: 70},
+       start_line: %Sippet.Message.RequestLine{method: :invite,
+        request_uri: %Sippet.URI{authority: "foo@bar.com", headers: nil,
+         host: "bar.com", parameters: nil, port: 5060, scheme: "sip",
+         userinfo: "foo"}, version: {2, 0}}, target: nil}
+
   """
   @spec put_new_lazy_header(t, header, (() -> value)) :: t
   def put_new_lazy_header(message, header, fun) when is_function(fun, 0) do
@@ -564,6 +625,20 @@ defmodule Sippet.Message do
 
   If the parameter `value` is `nil`, then the empty list will be prefixed to
   the `header`.
+
+  ## Examples:
+
+      iex> request = Sippet.Message.build_request :invite, "sip:foo@bar.com"
+      iex> request = Sippet.Message.put_header_front(request, :content_language,
+      ...>   "de-DE")
+      iex> request |> Sippet.Message.put_header_front(:content_language,
+      ...>   "en-US")
+      %Sippet.Message{body: nil, headers: %{content_language: ["en-US", "de-DE"]},
+       start_line: %Sippet.Message.RequestLine{method: :invite,
+        request_uri: %Sippet.URI{authority: "foo@bar.com", headers: nil,
+         host: "bar.com", parameters: nil, port: 5060, scheme: "sip",
+         userinfo: "foo"}, version: {2, 0}}, target: nil}
+
   """
   @spec put_header_front(t, header, multiple_value) :: t
   def put_header_front(message, header, value) do
@@ -583,6 +658,20 @@ defmodule Sippet.Message do
 
   If the parameter `value` is `nil`, then the empty list will be appended to
   the `header`.
+
+  ## Examples:
+
+      iex> request = Sippet.Message.build_request :invite, "sip:foo@bar.com"
+      iex> request = Sippet.Message.put_header_back(request, :content_language,
+      ...>   "en-US")
+      iex> request |> Sippet.Message.put_header_back(:content_language,
+      ...>   "de-DE")
+      %Sippet.Message{body: nil, headers: %{content_language: ["en-US", "de-DE"]},
+       start_line: %Sippet.Message.RequestLine{method: :invite,
+        request_uri: %Sippet.URI{authority: "foo@bar.com", headers: nil,
+         host: "bar.com", parameters: nil, port: 5060, scheme: "sip",
+         userinfo: "foo"}, version: {2, 0}}, target: nil}
+
   """
   @spec put_header_back(t, header, multiple_value) :: t
   def put_header_back(message, header, value) do
@@ -599,6 +688,20 @@ defmodule Sippet.Message do
 
   @doc """
   Deletes all `header` values in `message`.
+
+  ## Examples:
+
+      iex> request =
+      ...>   Sippet.Message.build_request(:invite, "sip:foo@bar.com")
+      ...>   |> Sippet.Message.put_header(:content_language, ["en-US", "de-DE"])
+      ...>   |> Sippet.Message.put_header(:max_forwards, 70)
+      iex> request |> Sippet.Message.delete_header(:content_language)
+      %Sippet.Message{body: nil, headers: %{max_forwards: 70},
+       start_line: %Sippet.Message.RequestLine{method: :invite,
+        request_uri: %Sippet.URI{authority: "foo@bar.com", headers: nil,
+         host: "bar.com", parameters: nil, port: 5060, scheme: "sip",
+         userinfo: "foo"}, version: {2, 0}}, target: nil}
+
   """
   @spec delete_header(t, header) :: t
   def delete_header(message, header) do
@@ -607,6 +710,21 @@ defmodule Sippet.Message do
 
   @doc """
   Deletes the first value of `header` in `message`.
+
+  ## Examples:
+
+      iex> request =
+      ...>   Sippet.Message.build_request(:invite, "sip:foo@bar.com")
+      ...>   |> Sippet.Message.put_header(:content_language, ["en-US", "de-DE"])
+      ...>   |> Sippet.Message.put_header(:max_forwards, 70)
+      iex> request |> Sippet.Message.delete_header_front(:content_language)
+      %Sippet.Message{body: nil,
+       headers: %{content_language: ["de-DE"], max_forwards: 70},
+       start_line: %Sippet.Message.RequestLine{method: :invite,
+        request_uri: %Sippet.URI{authority: "foo@bar.com", headers: nil,
+         host: "bar.com", parameters: nil, port: 5060, scheme: "sip",
+         userinfo: "foo"}, version: {2, 0}}, target: nil}
+
   """
   @spec delete_header_front(t, header) :: t
   def delete_header_front(message, header) do
@@ -619,6 +737,21 @@ defmodule Sippet.Message do
 
   @doc """
   Deletes the last value of `header` in `message`.
+
+  ## Examples:
+
+      iex> request =
+      ...>   Sippet.Message.build_request(:invite, "sip:foo@bar.com")
+      ...>   |> Sippet.Message.put_header(:content_language, ["en-US", "de-DE"])
+      ...>   |> Sippet.Message.put_header(:max_forwards, 70)
+      iex> request |> Sippet.Message.delete_header_back(:content_language)
+      %Sippet.Message{body: nil,
+       headers: %{content_language: ["en-US"], max_forwards: 70},
+       start_line: %Sippet.Message.RequestLine{method: :invite,
+        request_uri: %Sippet.URI{authority: "foo@bar.com", headers: nil,
+         host: "bar.com", parameters: nil, port: 5060, scheme: "sip",
+         userinfo: "foo"}, version: {2, 0}}, target: nil}
+
   """
   @spec delete_header_back(t, header) :: t
   def delete_header_back(message, header) do
@@ -636,37 +769,74 @@ defmodule Sippet.Message do
 
   @doc """
   Drops all given `headers` from `message`.
+
+  ## Examples:
+
+      iex> request =
+      ...>   Sippet.Message.build_request(:invite, "sip:foo@bar.com")
+      ...>   |> Sippet.Message.put_header(:content_language, ["en-US", "de-DE"])
+      ...>   |> Sippet.Message.put_header(:max_forwards, 70)
+      iex> request |> Sippet.Message.drop_headers([:content_language, :max_forwards])
+      %Sippet.Message{body: nil, headers: %{},
+       start_line: %Sippet.Message.RequestLine{method: :invite,
+        request_uri: %Sippet.URI{authority: "foo@bar.com", headers: nil,
+         host: "bar.com", parameters: nil, port: 5060, scheme: "sip",
+         userinfo: "foo"}, version: {2, 0}}, target: nil}
+
   """
   @spec drop_headers(t, [header]) :: t
-  def drop_headers(message, headers) do
-    %{message | headers: Map.drop(message.headers, headers)}
-  end
+  def drop_headers(message, headers),
+    do: %{message | headers: Map.drop(message.headers, headers)}
 
   @doc """
   Fetches all values for a specific `header` and returns it in a tuple.
 
   If the `header` does not exist, returns `:error`.
+
+  ## Examples:
+
+      iex> request =
+      ...>   Sippet.Message.build_request(:invite, "sip:foo@bar.com")
+      ...>   |> Sippet.Message.put_header(:content_language, ["en-US", "de-DE"])
+      ...>   |> Sippet.Message.put_header(:max_forwards, 70)
+      iex> request |> Sippet.Message.fetch_header(:content_language)
+      {:ok, ["en-US", "de-DE"]}
+      iex> request |> Sippet.Message.fetch_header(:cseq)
+      :error
+
   """
   @spec fetch_header(t, header) :: {:ok, value} | :error
-  def fetch_header(message, header) do
-    Map.fetch(message.headers, header)
-  end
+  def fetch_header(message, header),
+    do: Map.fetch(message.headers, header)
 
   @doc """
   Fetches the first value of a specific `header` and returns it in a tuple.
 
-  If the `header` does not exist, returns `:error`. If the `header` exists but
-  it is an empty list, returns `{:ok, nil}`.
+  If the `header` does not exist, or the value is not a list, returns `:error`.
+  If the `header` exists but it is an empty list, returns `{:ok, nil}`.
+
+  ## Examples:
+
+      iex> request =
+      ...>   Sippet.Message.build_request(:invite, "sip:foo@bar.com")
+      ...>   |> Sippet.Message.put_header(:content_language, ["en-US", "de-DE"])
+      ...>   |> Sippet.Message.put_header(:max_forwards, 70)
+      iex> request |> Sippet.Message.fetch_header_front(:content_language)
+      {:ok, "en-US"}
+      iex> request |> Sippet.Message.fetch_header_front(:max_forwards)
+      :error
+      iex> request |> Sippet.Message.fetch_header_front(:cseq)
+      :error
+
   """
-  @spec fetch_header_front(t, header) :: {:ok, multiple_value} | :error
+  @spec fetch_header_front(t, header) ::
+            {:ok, multiple_value} | :error
   def fetch_header_front(message, header) do
     case fetch_header(message, header) do
-      {:ok, values} ->
-        if Enum.empty?(values) do
-          {:ok, nil}
-        else
-          {:ok, List.first(values)}
-        end
+      {:ok, []} ->
+        {:ok, nil}
+      {:ok, [first|_]} ->
+        {:ok, first}
       _otherwise ->
         :error
     end
@@ -675,18 +845,32 @@ defmodule Sippet.Message do
   @doc """
   Fetches the last value of a specific `header` and returns it in a tuple.
 
-  If the `header` does not exist, returns `:error`. If the `header` exists but
-  it is an empty list, returns `{:ok, nil}`.
+  If the `header` does not exist, or the value is not a list, returns `:error`.
+  If the `header` exists but it is an empty list, returns `{:ok, nil}`.
+
+  ## Examples:
+
+      iex> request =
+      ...>   Sippet.Message.build_request(:invite, "sip:foo@bar.com")
+      ...>   |> Sippet.Message.put_header(:content_language, ["en-US", "de-DE"])
+      ...>   |> Sippet.Message.put_header(:max_forwards, 70)
+      iex> request |> Sippet.Message.fetch_header_back(:content_language)
+      {:ok, "de-DE"}
+      iex> request |> Sippet.Message.fetch_header_back(:max_forwards)
+      :error
+      iex> request |> Sippet.Message.fetch_header_back(:cseq)
+      :error
+
   """
   @spec fetch_header_back(t, header) :: {:ok, multiple_value} | :error
   def fetch_header_back(message, header) do
     case fetch_header(message, header) do
-      {:ok, values} ->
-        if Enum.empty?(values) do
-          {:ok, nil}
-        else
-          {:ok, List.last(values)}
-        end
+      {:ok, []} ->
+        {:ok, nil}
+      {:ok, [value]} ->
+        {:ok, value}
+      {:ok, [_|rest]} ->
+        {:ok, List.last(rest)}
       _otherwise ->
         :error
     end
@@ -701,9 +885,8 @@ defmodule Sippet.Message do
   exception is raised.
   """
   @spec fetch_header!(t, header) :: value | no_return
-  def fetch_header!(message, header) do
-    Map.fetch!(message.headers, header)
-  end
+  def fetch_header!(message, header),
+    do: Map.fetch!(message.headers, header)
 
   @doc """
   Fetches the first value of a specific `header` in the given `message`, erroring
