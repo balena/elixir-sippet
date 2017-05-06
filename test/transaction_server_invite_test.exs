@@ -76,7 +76,7 @@ defmodule Sippet.Transactions.Server.Invite.Test do
       assert not called Sippet.Transports.send_response(response, transaction)
 
       # ensure that the 100 Trying is created and sent automatically
-      {:keep_state, data, _actions} =
+      {:keep_state, data} =
           Invite.proceeding(:state_timeout, :still_trying, data)
 
       assert data.extras |> Map.has_key?(:last_response)

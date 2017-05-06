@@ -9,7 +9,6 @@ defmodule Sippet.Transactions.Server.Invite do
 
   @t2 4000
   @before_trying 200
-  @max_idle @t2 - @before_trying
   @timer_g 500
   @timer_h 64 * @timer_g
   @timer_i 5000  # timer I is 5s
@@ -38,11 +37,8 @@ defmodule Sippet.Transactions.Server.Invite do
       %State{request: request} = data) do
     response = request |> Message.to_response(100)
     data = send_response(response, data)
-    {:keep_state, data, [{:state_timeout, @max_idle, :idle}]}
+    {:keep_state, data}
   end
-
-  def proceeding(:state_timeout, :idle, data),
-    do: shutdown(:idle, data)
 
   def proceeding(:cast, {:incoming_request, _request},
       %State{extras: %{last_response: last_response}} = data) do
