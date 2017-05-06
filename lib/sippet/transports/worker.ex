@@ -21,10 +21,12 @@ defmodule Sippet.Transports.Worker do
       {:ok, message} ->
         receive_message(message, from)
       {:error, reason} ->
-        {address, port, protocol} = from
-        Logger.error(fn -> "couldn't parse incoming packet from " <>
-                           "#{:inet.ntoa(address)}:#{port}/#{protocol}: " <>
-                           "#{inspect reason}" end)
+        Logger.error(fn ->
+          {protocol, address, port} = from
+          "couldn't parse incoming packet from " <>
+          "#{ip_to_string(address)}:#{port}/#{protocol}: " <>
+          "#{inspect reason}"
+        end)
     end
 
     Pool.check_in(self())
@@ -57,10 +59,13 @@ defmodule Sippet.Transports.Worker do
     end
   end
 
+  defp ip_to_string(ip) when is_binary(ip), do: ip
+  defp ip_to_string(ip) when is_tuple(ip), do: :inet.ntoa(ip) |> to_string()
+
   defp receive_message(message, {_protocol, ip, from_port} = from) do
     message = 
       if message |> Message.request?() do
-        host = to_string(:inet.ntoa(ip))
+        host = ip |> ip_to_string()
       
         message
         |> Message.update_header_back(:via, nil,
@@ -93,8 +98,8 @@ defmodule Sippet.Transports.Worker do
       :ok ->
         message |> Transactions.receive_message()
       {:error, reason} ->
-      Logger.warn(fn -> "discarded #{message_kind message}, " <>
-                        "#{inspect reason}" end)
+        Logger.warn(fn -> "discarded #{message_kind message}, " <>
+                          "#{inspect reason}" end)
     end
   end
 

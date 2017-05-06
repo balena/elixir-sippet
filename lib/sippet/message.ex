@@ -1204,8 +1204,8 @@ defmodule Sippet.Message do
           message ->
             {:ok, message}
         end
-      other ->
-        other
+      reason ->
+        {:error, reason}
     end
   end
 
@@ -1545,7 +1545,7 @@ defmodule Sippet.Message do
       &has_valid_start_line_version/1,
       &has_required_headers/1,
       &has_valid_body/1,
-      &has_tag_on(:from, &1)
+      &has_tag_on(&1, :from)
     ]
 
     validators =
@@ -1557,7 +1557,7 @@ defmodule Sippet.Message do
         if message.start_line.status_code > 100 do
           # If the status code is > 100, it has to have a to-tag
           validators ++ [
-            &has_tag_on(:to, &1)
+            &has_tag_on(&1, :to)
           ]
         else
           validators
@@ -1649,7 +1649,7 @@ defmodule Sippet.Message do
     case validate(message) do
       :ok ->
         validators = [
-          &has_valid_via(from, &1)
+          &has_valid_via(&1, from)
         ]
         do_validate(validators, message)
       other ->

@@ -22,7 +22,6 @@ defmodule Sippet.Parser do
 
   The `Sippet.Message` module translates the result into an Elixir-like struct.
   """
-  def parse(message) when is_binary(message) do
-    :erlang.nif_error(:not_loaded)
-  end
+  def parse(message) when is_binary(message),
+    do: :erlang.nif_error(:not_loaded)
 end

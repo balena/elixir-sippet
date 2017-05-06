@@ -11,8 +11,8 @@ defmodule Sippet.Transports.Queue do
 
   @type from :: {
     protocol :: atom | binary,
-    host :: String.t,
-    dport :: integer
+    host :: :inet.ip_address | binary,
+    dport :: :inet.port_number
   }
 
   @doc """
