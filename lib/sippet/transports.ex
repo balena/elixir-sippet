@@ -98,7 +98,13 @@ defmodule Sippet.Transports do
     host = uri.host
     port = uri.port
 
-    params = URI.decode_parameters(uri.parameters)
+    params =
+      if uri.parameters == nil do
+        %{}
+      else
+        URI.decode_parameters(uri.parameters)
+      end
+
     protocol =
       if params |> Map.has_key?("transport") do
         Sippet.Message.to_protocol(params["transport"])
