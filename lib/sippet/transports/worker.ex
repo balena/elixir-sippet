@@ -45,7 +45,7 @@ defmodule Sippet.Transports.Worker do
   defp parse_message(packet) do
     case String.split(packet, ~r{\r?\n\r?\n}, parts: 2) do
       [header, body] ->
-        parse_message(header <> "\n\n", body)
+        parse_message(header, body)
       [header] ->
         parse_message(header, "")
     end

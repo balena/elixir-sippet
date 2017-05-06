@@ -41,15 +41,13 @@ defmodule Sippet.Transports.Worker.Test do
   end
 
   @test_body \
-    """
-    v=0
-    o=alice 2890844526 2890844526 IN IP4 foo.bar.com
-    s=-
-    c=IN IP4 192.0.2.101
-    t=0 0
-    m=audio 49172 RTP/AVP 0
-    a=rtpmap:0 PCMU/8000
-    """
+    ~s{v=0\r\n} <>
+    ~s{o=alice 2890844526 2890844526 IN IP4 foo.bar.com\r\n} <>
+    ~s{s=-\r\n} <>
+    ~s{c=IN IP4 192.0.2.101\r\n} <>
+    ~s{t=0 0\r\n} <>
+    ~s{m=audio 49172 RTP/AVP 0\r\n} <>
+    ~s{a=rtpmap:0 PCMU/8000\r\n}
 
   test "incoming datagram, with body" do
     with_mocks [
@@ -76,7 +74,7 @@ defmodule Sippet.Transports.Worker.Test do
         CSeq: 1 INVITE
         Contact: <sip:alice@client.atlanta.example.com;transport=tcp>
         Content-Type: application/sdp
-        Content-Length: #{String.length(@test_body)}
+        Content-Length: 136
 
         """ <> @test_body
 

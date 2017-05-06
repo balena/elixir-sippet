@@ -1601,7 +1601,7 @@ defmodule Sippet.Message do
     case message.headers do
       %{content_length: content_length} ->
         if message.body != nil and
-           String.length(message.body) == content_length do
+           byte_size(message.body) == content_length do
           :ok
         else
           {:error, "Content-Length and message body size do not match"}
