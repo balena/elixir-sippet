@@ -43,8 +43,7 @@ defmodule Sippet.Transports.Worker do
   def handle_cast(msg, state), do: super(msg, state)
 
   defp parse_message(packet) do
-    message = String.replace(packet, "\r\n", "\n")
-    case String.split(message, "\n\n", parts: 2) do
+    case String.split(packet, ~r{\r?\n\r?\n}, parts: 2) do
       [header, body] ->
         parse_message(header <> "\n\n", body)
       [header] ->
