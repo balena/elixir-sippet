@@ -184,10 +184,13 @@ defmodule Sippet.Message do
 
       iex> Sippet.Message.to_protocol("UDP")
       :udp
+
       iex> Sippet.Message.to_protocol("uDp")
       :udp
+
       iex> Sippet.Message.to_protocol("aaa")
       "AAA"
+
   """
   @spec to_protocol(String.t) :: protocol
   def to_protocol(string), do: string_to_protocol(string |> String.upcase())
@@ -229,10 +232,13 @@ defmodule Sippet.Message do
 
       iex> Sippet.Message.to_method("INVITE")
       :invite
+
       iex> Sippet.Message.to_method("InViTe")
       :invite
+
       iex> Sippet.Message.to_method("aaa")
       "AAA"
+
   """
   @spec to_method(String.t) :: method
   def to_method(string), do: string_to_method(string |> String.upcase())
@@ -536,8 +542,9 @@ defmodule Sippet.Message do
 
   ## Examples:
 
-      iex> request = Sippet.Message.build_request :invite, "sip:foo@bar.com"
-      iex> request = Sippet.Message.put_header request, :cseq, {1, :invite}
+      iex> request =
+      ...>   Sippet.Message.build_request(:invite, "sip:foo@bar.com")
+      ...>   |> Sippet.Message.put_header(:cseq, {1, :invite})
       iex> request |> Sippet.Message.has_header?(:cseq)
       true
 
@@ -553,7 +560,7 @@ defmodule Sippet.Message do
 
   ## Examples:
 
-      iex> request = Sippet.Message.build_request :invite, "sip:foo@bar.com"
+      iex> request = Sippet.Message.build_request(:invite, "sip:foo@bar.com")
       iex> request |> Sippet.Message.put_header(:cseq, {1, :invite})
       %Sippet.Message{body: nil, headers: %{cseq: {1, :invite}},
        start_line: %Sippet.Message.RequestLine{method: :invite,
@@ -572,9 +579,9 @@ defmodule Sippet.Message do
 
   ## Examples:
 
-      iex> request = Sippet.Message.build_request :invite, "sip:foo@bar.com"
-      iex> request = Sippet.Message.put_new_header request, :max_forwards, 70
-      iex> request |> Sippet.Message.put_new_header(:max_forwards, 1)
+      iex> Sippet.Message.build_request(:invite, "sip:foo@bar.com")
+      ...> |> Sippet.Message.put_new_header(:max_forwards, 70)
+      ...> |> Sippet.Message.put_new_header(:max_forwards, 1)
       %Sippet.Message{body: nil, headers: %{max_forwards: 70},
        start_line: %Sippet.Message.RequestLine{method: :invite,
         request_uri: %Sippet.URI{authority: "foo@bar.com", headers: nil,
@@ -600,11 +607,9 @@ defmodule Sippet.Message do
 
   ## Examples:
 
-      iex> request = Sippet.Message.build_request :invite, "sip:foo@bar.com"
-      iex> request = Sippet.Message.put_new_lazy_header(request, :max_forwards,
-      ...>   fn -> 70 end)
-      iex> request |> Sippet.Message.put_new_lazy_header(:max_forwards,
-      ...>   fn -> 1 end)
+      iex> Sippet.Message.build_request(:invite, "sip:foo@bar.com")
+      ...> |> Sippet.Message.put_new_lazy_header(:max_forwards, fn -> 70 end)
+      ...> |> Sippet.Message.put_new_lazy_header(:max_forwards, fn -> 1 end)
       %Sippet.Message{body: nil, headers: %{max_forwards: 70},
        start_line: %Sippet.Message.RequestLine{method: :invite,
         request_uri: %Sippet.URI{authority: "foo@bar.com", headers: nil,
@@ -628,11 +633,9 @@ defmodule Sippet.Message do
 
   ## Examples:
 
-      iex> request = Sippet.Message.build_request :invite, "sip:foo@bar.com"
-      iex> request = Sippet.Message.put_header_front(request, :content_language,
-      ...>   "de-DE")
-      iex> request |> Sippet.Message.put_header_front(:content_language,
-      ...>   "en-US")
+      iex> Sippet.Message.build_request(:invite, "sip:foo@bar.com")
+      ...> |> Sippet.Message.put_header_front(:content_language, "de-DE")
+      ...> |> Sippet.Message.put_header_front(:content_language, "en-US")
       %Sippet.Message{body: nil, headers: %{content_language: ["en-US", "de-DE"]},
        start_line: %Sippet.Message.RequestLine{method: :invite,
         request_uri: %Sippet.URI{authority: "foo@bar.com", headers: nil,
@@ -661,11 +664,9 @@ defmodule Sippet.Message do
 
   ## Examples:
 
-      iex> request = Sippet.Message.build_request :invite, "sip:foo@bar.com"
-      iex> request = Sippet.Message.put_header_back(request, :content_language,
-      ...>   "en-US")
-      iex> request |> Sippet.Message.put_header_back(:content_language,
-      ...>   "de-DE")
+      iex> Sippet.Message.build_request(:invite, "sip:foo@bar.com")
+      ...> |> Sippet.Message.put_header_back(:content_language, "en-US")
+      ...> |> Sippet.Message.put_header_back(:content_language, "de-DE")
       %Sippet.Message{body: nil, headers: %{content_language: ["en-US", "de-DE"]},
        start_line: %Sippet.Message.RequestLine{method: :invite,
         request_uri: %Sippet.URI{authority: "foo@bar.com", headers: nil,
