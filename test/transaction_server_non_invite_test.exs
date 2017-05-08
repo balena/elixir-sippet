@@ -52,7 +52,7 @@ defmodule Sippet.Transactions.Server.NonInvite.Test do
            receive_error: fn _, _ -> :ok end]}]) do
 
       # the core will have up to 4 seconds to answer the incoming request
-      {:keep_state_and_data} =
+      :keep_state_and_data =
           NonInvite.trying(:enter, :none, data)
 
       assert called Sippet.Core.receive_request(request, transaction)

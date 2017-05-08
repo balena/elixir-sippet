@@ -10,7 +10,7 @@ defmodule Sippet.Transactions.Server.NonInvite do
 
   def trying(:enter, _old_state, %State{request: request} = data) do
     receive_request(request, data)
-    {:keep_state_and_data}
+    :keep_state_and_data
   end
 
   def trying(:cast, {:incoming_request, _request}, _data),
