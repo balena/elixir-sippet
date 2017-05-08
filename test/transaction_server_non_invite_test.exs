@@ -52,19 +52,14 @@ defmodule Sippet.Transactions.Server.NonInvite.Test do
            receive_error: fn _, _ -> :ok end]}]) do
 
       # the core will have up to 4 seconds to answer the incoming request
-      {:keep_state_and_data, actions} =
+      {:keep_state_and_data} =
           NonInvite.trying(:enter, :none, data)
 
       assert called Sippet.Core.receive_request(request, transaction)
-      assert action_timeout actions, 4000
     end
 
     # error conditions are timeout and network errors
     with_mock Sippet.Core, [receive_error: fn _, _ -> :ok end] do
-      {:stop, :shutdown, _data} =
-          NonInvite.trying(:state_timeout, nil, data)
-      assert called Sippet.Core.receive_error(:idle, transaction)
-
       {:stop, :shutdown, _data} =
           NonInvite.trying(:cast, {:error, :uh_oh}, data)
       assert called Sippet.Core.receive_error(:uh_oh, transaction)
