@@ -61,11 +61,16 @@ defmodule Sippet.Transactions.Server.Key do
 
     new(branch, method, sentby)
   end
-end
 
-defimpl String.Chars, for: Sippet.Transactions.Server.Key do
-  def to_string(%Sippet.Transactions.Server.Key{} = key) do
-    {host, port} = key.sentby
-    "#{key.branch}/#{key.method}/#{host}:#{port}"
+  ## Helpers
+
+  defimpl String.Chars do
+    def to_string(%{branch: branch, method: method, sentby: {host, port}}),
+      do: "#{branch}:#{method}:#{host}:#{port}"
+  end
+
+  defimpl Inspect do
+    def inspect(%{branch: branch, method: method, sentby: {host, port}}, _),
+      do: "~K[#{branch}|#{inspect method}|#{host}:#{port}]"
   end
 end

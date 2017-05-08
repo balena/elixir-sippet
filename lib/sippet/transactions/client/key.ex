@@ -53,9 +53,16 @@ defmodule Sippet.Transactions.Client.Key do
 
     new(branch, method)
   end
-end
 
-defimpl String.Chars, for: Sippet.Transactions.Client.Key do
-  def to_string(%Sippet.Transactions.Client.Key{} = key),
-    do: "#{key.branch}/#{key.method}"
+  ## Helpers
+
+  defimpl String.Chars do
+    def to_string(%{branch: branch, method: method}),
+      do: "#{branch}:#{method}"
+  end
+
+  defimpl Inspect do
+    def inspect(%{branch: branch, method: method}, _),
+      do: "~K[#{branch}|#{inspect method}]"
+  end
 end

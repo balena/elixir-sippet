@@ -247,4 +247,45 @@ defmodule Sippet.Transactions do
         end
     end
   end
+
+  @doc """
+  Handles the sigil `~K`.
+
+  It returns a client or server transaction key depending on the number of
+  parameters passed.
+
+  ## Examples
+
+      iex> import Sippet.Transactions, only: [sigil_K: 2]
+
+      iex> Sippet.Transactions.Client.Key.new("z9hG4bK230f2.1", :invite)
+      ~K[z9hG4bK230f2.1|:invite]
+
+      iex> ~K[z9hG4bK230f2.1|INVITE]
+      ~K[z9hG4bK230f2.1|:invite]
+
+      iex> Sippet.Transactions.Server.Key.new("z9hG4bK74b21", :invite, {"client.biloxi.example.com", 5060})
+      ~K[z9hG4bK74b21|:invite|client.biloxi.example.com:5060]
+
+      iex> ~K[z9hG4bK74b21|INVITE|client.biloxi.example.com:5060]
+      ~K[z9hG4bK74b21|:invite|client.biloxi.example.com:5060]
+
+  """
+  def sigil_K(string, _) do
+    case String.split(string, "|") do
+      [branch, method] ->
+        Transactions.Client.Key.new(branch, sigil_to_method(method))
+      [branch, method, sentby] ->
+        [host, port] = String.split(sentby, ":")
+        Transactions.Server.Key.new(branch, sigil_to_method(method),
+                                    {host, String.to_integer(port)})
+    end
+  end
+
+  defp sigil_to_method(method) do
+    case method do
+      ":" <> rest -> Message.to_method(rest)
+      other -> Message.to_method(other)
+    end
+  end
 end
