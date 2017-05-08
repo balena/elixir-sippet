@@ -1453,7 +1453,7 @@ defmodule Sippet.Message do
     ["SIP/", Integer.to_string(major), ".", Integer.to_string(minor),
       "/", upcase_atom_or_string(protocol),
       " ", host,
-      if(port != -1, do: [":", Integer.to_string(port)], else: ""),
+      if(port > 0, do: [":", Integer.to_string(port)], else: ""),
       do_parameters(parameters)]
   end
 
