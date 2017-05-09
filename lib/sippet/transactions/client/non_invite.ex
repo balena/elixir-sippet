@@ -62,10 +62,10 @@ defmodule Sippet.Transactions.Client.NonInvite do
     {:keep_state, start_timers(data)}
   end
 
-  def trying(:info, {:timeout, _timer, :deadline}, data),
+  def trying(:info, :deadline, data),
     do: timeout(data)
 
-  def trying(:info, {:timeout, _timer, last_delay}, data),
+  def trying(:info, last_delay, data) when is_integer(last_delay),
     do: retry(min(last_delay * 2, @t2), data)
 
   def trying(:cast, {:incoming_response, response}, data) do
@@ -85,10 +85,10 @@ defmodule Sippet.Transactions.Client.NonInvite do
   def proceeding(:enter, _old_state, _data),
     do: :keep_state_and_data
 
-  def proceeding(:info, {:timeout, _timer, :deadline}, data),
+  def proceeding(:info, :deadline, data),
     do: timeout(data)
 
-  def proceeding(:info, {:timeout, _timer, _last_delay}, data),
+  def proceeding(:info, last_delay, data) when is_integer(last_delay),
     do: retry(@t2, data)
 
   def proceeding(:cast, {:incoming_response, response}, data) do
