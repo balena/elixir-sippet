@@ -82,7 +82,7 @@ defmodule Sippet.Transactions.Client.Invite do
     case StatusLine.status_code_class(response.start_line) do
       1 -> {:next_state, :proceeding, data}
       2 -> {:stop, :normal, data}
-      _ -> {:next_state, :completed, data}
+      _ -> {:next_state, :completed, Map.put(data, :last_response, response)}
     end
   end
 
@@ -100,7 +100,7 @@ defmodule Sippet.Transactions.Client.Invite do
     case StatusLine.status_code_class(response.start_line) do
       1 -> {:keep_state, data}
       2 -> {:stop, :normal, data}
-      _ -> {:next_state, :completed, data}
+      _ -> {:next_state, :completed, Map.put(data, :last_response, response)}
     end
   end
 
