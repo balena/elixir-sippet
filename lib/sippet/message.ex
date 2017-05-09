@@ -1337,8 +1337,8 @@ defmodule Sippet.Message do
         %{message | headers: Map.put(message.headers, :content_length, len)}
       end
 
-    [start_line, "\n",
-      do_headers(message.headers), "\n",
+    [start_line, "\r\n",
+      do_headers(message.headers), "\r\n",
       if(message.body == nil, do: "", else: message.body)]
   end
 
@@ -1399,7 +1399,7 @@ defmodule Sippet.Message do
       end
 
     if multiple do
-      [name, ": ", do_header_values(value, []), "\n"]
+      [name, ": ", do_header_values(value, []), "\r\n"]
     else
       do_one_per_line(name, value)
     end
@@ -1503,7 +1503,7 @@ defmodule Sippet.Message do
   end
 
   defp do_one_per_line(name, %{} = value),
-    do: [name, ": ", do_one_per_line_value(value), "\n"]
+    do: [name, ": ", do_one_per_line_value(value), "\r\n"]
 
   defp do_one_per_line(name, values) when is_list(values),
     do: do_one_per_line(name, values |> Enum.reverse(), [])
@@ -1511,7 +1511,7 @@ defmodule Sippet.Message do
   defp do_one_per_line(_, [], result), do: result
   defp do_one_per_line(name, [head|tail], result) do
     do_one_per_line(name, tail,
-      [name, ": ", do_one_per_line_value(head), "\n" | result])
+      [name, ": ", do_one_per_line_value(head), "\r\n" | result])
   end
 
   defp do_one_per_line_value(%{} = parameters),
