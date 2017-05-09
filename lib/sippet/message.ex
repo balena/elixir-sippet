@@ -1555,14 +1555,7 @@ defmodule Sippet.Message do
           &has_matching_cseq/1
         ]
       else
-        if message.start_line.status_code > 100 do
-          # If the status code is > 100, it has to have a to-tag
-          validators ++ [
-            &has_tag_on(&1, :to)
-          ]
-        else
-          validators
-        end
+        validators
       end
 
     do_validate(validators, message)
