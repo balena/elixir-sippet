@@ -246,4 +246,23 @@ defmodule Sippet.Message.Test do
 
   end
 
+  test "via header" do
+    req =
+      """
+      INVITE sip:5531999921578@85.90.232.52 SIP/2.0
+      Via: SIP/2.0/UDP 192.168.65.17:5566;branch=z9hG4bKMD3xTURX0heu
+      Via: SIP/2.0/STOMP D6wU5SvE.invalid;rport=5672;received=192.168.65.30;branch=z9hG4bKRtAc6V4VeIuR
+      """ |> Message.parse!()
+
+    message =
+      """
+      INVITE sip:5531999921578@85.90.232.52 SIP/2.0
+      Via: SIP/2.0/UDP 192.168.65.17:5566;branch=z9hG4bKMD3xTURX0heu, SIP/2.0/STOMP D6wU5SvE.invalid;rport=5672;received=192.168.65.30;branch=z9hG4bKRtAc6V4VeIuR
+      Content-Length: 0
+
+      """
+
+    assert message == req |> to_string
+  end
+
 end
