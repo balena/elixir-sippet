@@ -81,6 +81,7 @@ defmodule Sippet.Transports do
 
         port =
           case params do
+            %{"rport" => ""} -> port
             %{"rport" => rport} -> Integer.parse(rport)
             _otherwise -> port
           end
