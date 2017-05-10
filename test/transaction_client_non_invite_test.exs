@@ -84,7 +84,7 @@ defmodule Sippet.Transactions.Client.NonInvite.Test do
       # the retry timer should send the request again and double the retry
       # timer
       {:keep_state, data} =
-          NonInvite.trying(:info, {:timeout, 500, 500}, data)
+          NonInvite.trying(:info, 500, data)
 
       assert data_timeout data, :retry_timer, 1000
       assert called Sippet.Transports.send_message(request, transaction)
@@ -92,7 +92,7 @@ defmodule Sippet.Transactions.Client.NonInvite.Test do
       # the deadline timer should terminate the process and send timeout
       # to core
       {:stop, :shutdown, _data} =
-          NonInvite.trying(:info, {:timeout, 64 * 500, :deadline}, data)
+          NonInvite.trying(:info, :deadline, data)
 
       assert called Sippet.Core.receive_error(:timeout, transaction)
 
