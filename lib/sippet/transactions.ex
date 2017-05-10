@@ -203,11 +203,11 @@ defmodule Sippet.Transactions do
         case key do
           %Transactions.Client.Key{} ->
             Logger.warn fn ->
-              "client key #{key} not found"
+              "client key #{inspect key} not found"
             end
           %Transactions.Server.Key{} ->
             Logger.warn fn ->
-              "server key #{key} not found"
+              "server key #{inspect key} not found"
             end
         end
         :ok

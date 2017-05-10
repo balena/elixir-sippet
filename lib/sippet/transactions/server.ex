@@ -27,7 +27,10 @@ defmodule Sippet.Transactions.Server do
       require Logger
 
       def init(%State{key: key} = data) do
-        Logger.info(fn -> "server transaction #{key} started" end)
+        Logger.info fn ->
+          "server transaction #{inspect key} started"
+        end
+
         initial_state = unquote(opts)[:initial_state]
         {:ok, initial_state, data}
       end
@@ -43,7 +46,10 @@ defmodule Sippet.Transactions.Server do
         do: Sippet.Core.receive_request(request, key)
 
       def shutdown(reason, %State{key: key} = data) do
-        Logger.warn(fn -> "server transaction #{key} shutdown: #{reason}" end)
+        Logger.warn fn ->
+          "server transaction #{inspect key} shutdown: #{reason}"
+        end
+
         Sippet.Core.receive_error(reason, key)
         {:stop, :shutdown, data}
       end
@@ -54,15 +60,21 @@ defmodule Sippet.Transactions.Server do
       defdelegate reliable?(request), to: Sippet.Transports
 
       def unhandled_event(:cast, :terminate, %State{key: key} = data) do
-        Logger.info(fn -> "server transaction #{key} terminated" end)
+        Logger.info fn ->
+          "server transaction #{inspect key} terminated"
+        end
+
         {:stop, :normal, data}
       end
 
       def unhandled_event(event_type, event_content,
           %State{key: key} = data) do
-        Logger.error(fn -> "server transaction #{key} got " <>
-                           "unhandled_event/3: #{inspect event_type}, " <>
-                           "#{inspect event_content}, #{inspect data}" end)
+        Logger.error fn ->
+          "server transaction #{inspect key} got " <>
+          "unhandled_event/3: #{inspect event_type}, " <>
+          "#{inspect event_content}, #{inspect data}"
+        end
+
         {:stop, :shutdown, data}
       end
 
