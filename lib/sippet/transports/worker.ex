@@ -17,16 +17,18 @@ defmodule Sippet.Transports.Worker do
   end
 
   def handle_cast({:incoming_datagram, packet, from}, _) do
-    case parse_message(packet) do
-      {:ok, message} ->
-        receive_message(message, from)
-      {:error, reason} ->
-        Logger.error(fn ->
-          {protocol, address, port} = from
-          "couldn't parse incoming packet from " <>
-          "#{ip_to_string(address)}:#{port}/#{protocol}: " <>
-          "#{inspect reason}"
-        end)
+    if not is_empty(packet) do
+      case parse_message(packet) do
+        {:ok, message} ->
+          receive_message(message, from)
+        {:error, reason} ->
+          Logger.error fn ->
+            {protocol, address, port} = from
+            "couldn't parse incoming packet from " <>
+            "#{ip_to_string(address)}:#{port}/#{protocol}: " <>
+            "#{inspect reason}"
+          end
+      end
     end
 
     Pool.check_in(self())
@@ -41,6 +43,11 @@ defmodule Sippet.Transports.Worker do
   end
 
   def handle_cast(msg, state), do: super(msg, state)
+
+  defp is_empty(""), do: true
+  defp is_empty("\n" <> rest), do: is_empty(rest)
+  defp is_empty("\r\n" <> rest), do: is_empty(rest)
+  defp is_empty(_), do: false
 
   defp parse_message(packet) do
     case String.split(packet, ~r{\r?\n\r?\n}, parts: 2) do
