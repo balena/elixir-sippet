@@ -49,7 +49,7 @@ defmodule Sippet.Transactions.Client.Invite do
           ack
       end
 
-    if request |> Map.has_key?(:route) do
+    if request |> Message.has_header?(:route) do
       ack |> Message.put_header(:route, request.headers.route)
     else
       ack

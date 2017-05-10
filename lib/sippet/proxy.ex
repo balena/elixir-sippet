@@ -166,20 +166,20 @@ defmodule Sippet.Proxy do
   end
 
   defp do_handle_max_forwards(message) do
-    if message.headers |> Map.has_key?(:max_forwards) do
+    if message |> Message.has_header?(:max_forwards) do
       max_fws = message.headers.max_forwards
       if max_fws <= 0 do
         raise ArgumentError, "invalid :max_forwards => #{inspect max_fws}"
       else
-        %{message | headers: %{message.headers | max_forwards: max_fws - 1}}
+        message |> Message.put_header(:max_forwards, max_fws - 1)
       end
     else
-      %{message | headers: message.headers |> Map.put(:max_forwards, 70)}
+      message |> Message.put_header(:max_forwards, 70)
     end
   end
 
   defp do_maybe_handle_route(%Message{start_line: %RequestLine{}} = request) do
-    if request.headers |> Map.has_key?(:route) do
+    if request |> Message.has_header?(:route) do
       {_, target_uri, _} = hd(request.headers.route)
       case URI.decode_parameters(target_uri.parameters) do
         %{"lr" => _} ->
