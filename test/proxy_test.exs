@@ -106,13 +106,16 @@ defmodule Sippet.Proxy.Test do
     # the header Max-Forwards should be added if it does not exist before
     # forwarding the request, otherwise the value should be subtracted.
     with_mock Sippet.Transactions,
-        [send_request: fn _ -> :ok end] do
+        [send_request: fn _ -> {:ok, "abcd"} end] do
       request = :invite |> Message.build_request("sip:alice@biloxi.com")
 
-      :ok = Proxy.forward_request(request)
+      {:ok, "abcd", modified_request} = Proxy.forward_request(request)
 
-      assert called Sippet.Transactions.send_request(
-        request |> Message.put_header(:max_forwards, 70))
+      assert modified_request ==
+        request
+        |> Message.put_header(:max_forwards, 70)
+
+      assert called Sippet.Transactions.send_request(:_)
     end
 
     with_mock Sippet.Transactions,

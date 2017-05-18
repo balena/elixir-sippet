@@ -145,10 +145,10 @@ defmodule Sippet.Proxy do
   end
 
   @doc """
-  Forwards the request.
+  Forwards the request statefully.
 
-  If the method is `:ack`, the request will be sent directly to the network transport.
-  Otherwise, a new client transaction will be created.
+  The request is sent using a client transaction. If it cannot be sent using
+  one, it will raise an exception.
 
   This function will honor the start line `request_uri`.
   """
@@ -179,25 +179,49 @@ defmodule Sippet.Proxy do
   end
 
   defp do_maybe_handle_route(%Message{start_line: %RequestLine{}} = request) do
-    if request |> Message.has_header?(:route) do
-      {_, target_uri, _} = hd(request.headers.route)
-      case URI.decode_parameters(target_uri.parameters) do
-        %{"lr" => _} ->
-          request  # no change
-        _no_lr ->
-          # strict-routing requirements
-          request_uri = request.start_line.request_uri
-          request =
-            request
-            |> Message.put_header_back(:route, {"", request_uri, %{}})
-            |> Message.delete_header_front(:route)
-
-          %{request | start_line:
-            %{request.start_line | request_uri: target_uri}}
+    {is_strict, target_uri} =
+      if request |> Message.has_header?(:route) do
+        {_, target_uri, _} = hd(request.headers.route)
+        if target_uri.parameters == nil do
+          {false, nil}
+        else
+          case URI.decode_parameters(target_uri.parameters) do
+            %{"lr" => _} -> {false, nil}
+            _no_lr -> {true, target_uri}
+          end
+        end
+      else
+        {false, nil}
       end
+
+    if is_strict do
+      # strict-routing requirements
+      request_uri = request.start_line.request_uri
+      request =
+        request
+        |> Message.put_header_back(:route, {"", request_uri, %{}})
+        |> Message.delete_header_front(:route)
+      
+      %{request | start_line:
+        %{request.start_line | request_uri: target_uri}}
     else
-      request
+      request  # no change
     end
+  end
+
+  @doc """
+  Forwards the request to a given `request_uri`.
+
+  If the method is `:ack`, the request will be sent directly to the network transport.
+  Otherwise, a new client transaction will be created.
+
+  This function will override the start line `request_uri` with the supplied one.
+  """
+  @spec forward_request(Message.request, URI.t) :: on_request_sent
+  def forward_request(%Message{start_line: %RequestLine{}} = request,
+      %URI{} = request_uri) do
+    %{request | start_line: %{request.start_line | request_uri: request_uri}}
+    |> forward_request()
   end
 
   @doc """
@@ -216,21 +240,6 @@ defmodule Sippet.Proxy do
     request |> Transports.send_message(nil)
 
     {:ok, request}
-  end
-
-  @doc """
-  Forwards the request to a given `request_uri`.
-
-  If the method is `:ack`, the request will be sent directly to the network transport.
-  Otherwise, a new client transaction will be created.
-
-  This function will override the start line `request_uri` with the supplied one.
-  """
-  @spec forward_request(Message.request, URI.t) :: on_request_sent
-  def forward_request(%Message{start_line: %RequestLine{}} = request,
-      %URI{} = request_uri) do
-    %{request | start_line: %{request.start_line | request_uri: request_uri}}
-    |> forward_request()
   end
 
   @doc """
