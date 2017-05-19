@@ -64,9 +64,8 @@ defmodule Sippet.URI do
       ** (ArgumentError) encode_parameters/1 values cannot be lists, got: [:a, :list]
   """
   @spec encode_parameters(term) :: binary
-  def encode_parameters(enumerable) do
-    wrap("encode_parameters/1", ";", ";", enumerable, &encode_paramchar/1)
-  end
+  def encode_parameters(enumerable),
+    do: wrap("encode_parameters/1", ";", ";", enumerable, &encode_paramchar/1)
 
   defp wrap(function_name, first_character, separator, enumerable, encode) do
     first_character <> Enum.map_join(enumerable, separator,
@@ -106,10 +105,15 @@ defmodule Sippet.URI do
 
       iex> Sippet.URI.decode_parameters(";foo=1;bar=2")
       %{"bar" => "2", "foo" => "1"}
+
   """
   @spec decode_parameters(binary) :: map
   def decode_parameters(parameters, map \\ %{}) do
-    unwrap("decode_parameters/1", ";", ";", parameters, map)
+    if parameters == nil do
+      map
+    else
+      unwrap("decode_parameters/1", ";", ";", parameters, map)
+    end
   end
 
   defp unwrap(function_name, first_character, separator, string, map) do
@@ -137,10 +141,7 @@ defmodule Sippet.URI do
     end
   end
 
-  defp decode_next_pair("", _separator) do
-    nil
-  end
-
+  defp decode_next_pair("", _separator), do: nil
   defp decode_next_pair(string, separator) do
     {undecoded_next_pair, rest} =
       case :binary.split(string, separator) do
@@ -167,6 +168,7 @@ defmodule Sippet.URI do
 
       iex> Sippet.URI.parameters_decoder(";foo=1;bar=2") |> Enum.to_list()
       [{"foo", "1"}, {"bar", "2"}]
+
   """
   @spec parameters_decoder(binary) :: Enumerable.t
   def parameters_decoder(parameters) when is_binary(parameters) do
@@ -193,11 +195,11 @@ defmodule Sippet.URI do
       "?key=value%20with%20spaces"
       iex> Sippet.URI.encode_headers %{key: [:a, :list]}
       ** (ArgumentError) encode_headers/1 values cannot be lists, got: [:a, :list]
+
   """
   @spec encode_headers(term) :: binary
-  def encode_headers(enumerable) do
-    wrap("encode_headers/1", "?", "&", enumerable, &encode_hnvchar/1)
-  end
+  def encode_headers(enumerable),
+    do: wrap("encode_headers/1", "?", "&", enumerable, &encode_hnvchar/1)
 
   @doc """
   Decodes a "headers" string into a map.
@@ -216,7 +218,11 @@ defmodule Sippet.URI do
   """
   @spec decode_headers(binary) :: map
   def decode_headers(headers, map \\ %{}) do
-    unwrap("decode_headers/1", "?", "&", headers, map)
+    if headers == nil do
+      map
+    else
+      unwrap("decode_headers/1", "?", "&", headers, map)
+    end
   end
 
   @doc """
@@ -238,9 +244,12 @@ defmodule Sippet.URI do
 
   @doc """
   Encodes a string as "paramchar".
+  
   ## Example
+  
       iex> Sippet.URI.encode_paramchar("put: it+й")
-      "put:%20it%2B%D0%B9"
+      "put:%20it+%D0%B9"
+  
   """
   @spec encode_paramchar(binary) :: binary
   def encode_paramchar(string) when is_binary(string) do
@@ -255,9 +264,12 @@ defmodule Sippet.URI do
 
   @doc """
   Encodes a string as "hname" / "hvalue".
+
   ## Example
+
       iex> Sippet.URI.encode_hnvchar("put: it+й")
-      "put:%20it%2B%D0%B9"
+      "put:%20it+%D0%B9"
+
   """
   @spec encode_hnvchar(binary) :: binary
   def encode_hnvchar(string) when is_binary(string) do
@@ -280,9 +292,7 @@ defmodule Sippet.URI do
       "<all in/"
   """
   @spec percent_unescape(binary) :: binary
-  def percent_unescape(string) do
-    URI.decode(string)
-  end
+  def percent_unescape(string), do: URI.decode(string)
 
   @doc """
   Checks if the character is an "unreserved" character in a SIP-URI.
@@ -291,6 +301,7 @@ defmodule Sippet.URI do
 
       iex> Sippet.URI.char_unreserved?(?~)
       true
+
   """
   @spec char_unreserved?(char) :: boolean
   def char_unreserved?(char) when char in 0..0x10FFFF do
@@ -310,11 +321,11 @@ defmodule Sippet.URI do
 
       iex> Sippet.URI.char_param_unreserved?(?~)
       false
+
   """
   @spec char_param_unreserved?(char) :: boolean
-  def char_param_unreserved?(char) when char in 0..0x10FFFF do
-    char in '[]/:&+$'
-  end
+  def char_param_unreserved?(char) when char in 0..0x10FFFF,
+    do: char in '[]/:&+$'
 
   @doc """
   Checks if the character is an "hnv-unreserved" character in a SIP-URI.
@@ -325,9 +336,8 @@ defmodule Sippet.URI do
       true
   """
   @spec char_hnv_unreserved?(char) :: boolean
-  def char_hnv_unreserved?(char) when char in 0..0x10FFFF do
-    char in '[]/?:+$'
-  end
+  def char_hnv_unreserved?(char) when char in 0..0x10FFFF,
+    do: char in '[]/?:+$'
 
   @doc """
   Parses a well-formed SIP-URI reference into its components.
@@ -422,13 +432,131 @@ defmodule Sippet.URI do
 
   ## Examples
 
-      iex> Sippet.URI.to_string(Sippet.URI.parse("sip:foo@bar.com"))
+      iex> Sippet.URI.to_string(Sippet.URI.parse!("sip:foo@bar.com"))
       "sip:foo@bar.com"
       iex> Sippet.URI.to_string(%URI{scheme: "foo", host: "bar.baz"})
       "foo:bar.baz"
+
   """
   @spec to_string(t) :: binary
   defdelegate to_string(uri), to: String.Chars.Sippet.URI
+
+  @doc """
+  Checks whether two SIP-URIs are equivalent.
+
+  This function follows the RFC 3261 rules specified in section 19.1.4.
+
+  ## Examples
+
+      iex> a = Sippet.URI.parse!("sip:%61lice@atlanta.com;transport=TCP")
+      iex> b = Sippet.URI.parse!("sip:alice@atlanta.com;transport=tcp")
+      iex> Sippet.URI.equivalent(a, b)
+      true
+
+  """
+  @spec equivalent(t, t) :: boolean
+  def equivalent(a, b) do
+    quite_similar(a, b) and
+    authority_hostport(a.authority) == authority_hostport(b.authority)
+  end
+
+  defp quite_similar(a, b, default_parameters \\ %{}) do
+    String.downcase(a.scheme) == String.downcase(b.scheme) and
+      ((a.userinfo == nil and b.userinfo == nil) or
+       (a.userinfo != nil and b.userinfo != nil and
+        percent_unescape(a.userinfo) == percent_unescape(b.userinfo)) or
+        false) and
+    String.downcase(a.host) == String.downcase(b.host) and
+    a.port == b.port and
+    equivalent_parameters(decode_parameters(a.parameters),
+                          decode_parameters(b.parameters),
+                          default_parameters) and
+    equivalent_headers(decode_headers(a.headers),
+                       decode_headers(b.headers))
+  end
+
+  defp authority_hostport(authority) do
+    hostport =
+      case String.split(authority, "@", parts: 2) do
+        [_userinfo, hostport] -> hostport
+        [hostport] -> hostport
+      end
+
+    String.downcase(hostport)
+  end
+
+  defp downcase_keys(map) when is_map(map) do
+    for {k, v} <- Map.to_list(map) do {String.downcase(k), v} end
+    |> Map.new()
+  end
+
+  defp map_zip(a, b, defaults \\ %{}) when is_map(a) and is_map(b) do
+    a = downcase_keys(a)
+    b = downcase_keys(b)
+    for {k, v1} <- Map.to_list(a) do
+      {k, {v1, Map.get(b, k, Map.get(defaults, k, nil))}}
+    end ++ for {k, v2} <- Map.to_list(b), not Map.has_key?(a, k) do
+      {k, {Map.get(defaults, k, nil), v2}}
+    end
+  end
+
+  defp equivalent_parameters(a, b, defaults)
+      when is_map(a) and is_map(b) do
+    map_zip(a, b, defaults) |> Enum.reduce_while(true,
+      fn {k, {v1, v2}}, _ ->
+        cond do
+          v1 == nil and v2 == nil ->
+            {:cont, true}
+          v1 == nil or v2 == nil ->
+            if k in ["user", "ttl", "method", "maddr", "transport"] do
+              {:halt, false} 
+            else
+              {:cont, true}
+            end
+          String.downcase(v1) == String.downcase(v2) ->
+            {:cont, true}
+          true ->
+            {:halt, false}
+        end
+      end)
+  end
+
+  defp equivalent_headers(a, b) when is_map(a) and is_map(b) do
+    map_zip(a, b) |> Enum.reduce_while(true,
+      fn {_, {v1, v2}}, _ ->
+        cond do
+          v1 == nil and v2 == nil ->
+            {:cont, true}
+          v1 == nil or v2 == nil ->
+            {:halt, false} 
+          String.downcase(v1) == String.downcase(v2) ->
+            {:cont, true}
+          true ->
+            {:halt, false}
+        end
+      end)
+  end
+
+  @doc """
+  Checks whether two SIP-URIs are equivalent, but using more lazy rules.
+
+  ## Examples
+
+      iex> a = Sippet.URI.parse!("sip:atlanta.com;transport=UDP")
+      iex> b = Sippet.URI.parse!("sip:atlanta.com:5060")
+      iex> Sippet.URI.lazy_equivalent(a, b)
+      true
+
+  """
+  @spec lazy_equivalent(t, t) :: boolean
+  def lazy_equivalent(a, b) do
+    quite_similar(a, b,
+      if String.downcase(a.scheme) == "sip" do
+        %{"transport" => "udp"}
+      else
+        %{"transport" => "tls"}
+      end)
+  end
 end
 
 defimpl String.Chars, for: Sippet.URI do
