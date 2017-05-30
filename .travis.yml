@@ -4,9 +4,17 @@ elixir:
   - 1.4
 otp_release:
   - 19.0
+
+addons:
+  apt:
+    packages:
+      - gcc-4.8
+      - g++-4.8
+
+install:
+  - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.8 100 --slave /usr/bin/g++ g++ /usr/bin/g++-4.8
+
 script: mix coveralls.travis
 after_script:
   - MIX_ENV=docs mix deps.get
   - MIX_ENV=docs mix inch.report
-compiler:
-  - gcc-4.8
