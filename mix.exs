@@ -65,8 +65,7 @@ defmodule Sippet.Mixfile do
     [maintainers: ["Guilherme Balena Versiani"],
      licenses: ["BSD"],
      links: %{"GitHub" => "https://github.com/balena/elixir-sippet"},
-     files: ~w"lib c_src/*.{h,cc} c_src/Makefile support/getrebar" ++
-            ~w"mix.exs README.md LICENSE Makefile rebar.config"]
+     files: ~w"lib c_src/*.{h,cc} c_src/Makefile mix.exs README.md LICENSE"]
   end
 end
 
