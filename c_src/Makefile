@@ -10,11 +10,9 @@ ERL_INTERFACE_INCLUDE_DIR ?= $(shell erl -noshell -s init stop -eval "io:format(
 ERL_INTERFACE_LIB_DIR ?= $(shell erl -noshell -s init stop -eval "io:format(\"~s\", [code:lib_dir(erl_interface, lib)]).")
 
 C_SRC_DIR = $(CURDIR)
-C_SRC_OUTPUT ?= $(CURDIR)/../priv/$(PROJECT).so
+C_SRC_OUTPUT ?= $(BASEDIR)/priv/$(PROJECT).so
 
 # System type and C compiler/flags.
-CC = clang
-CXX = clang
 
 UNAME_SYS := $(shell uname -s)
 ifeq ($(UNAME_SYS), Darwin)
@@ -22,11 +20,11 @@ ifeq ($(UNAME_SYS), Darwin)
 	CXXFLAGS += -O3 -arch x86_64 -std=c++11 -Wall
 	LDFLAGS += -arch x86_64 -flat_namespace -undefined suppress
 else ifeq ($(UNAME_SYS), FreeBSD)
-	CFLAGS = -O3 -Wall -Wmissing-prototypes
-	CXXFLAGS = -O3 -std=c++11 -Wall
+	CFLAGS ?= -O3 -Wall -Wmissing-prototypes
+	CXXFLAGS ?= -O3 -std=c++11 -Wall
 else ifeq ($(UNAME_SYS), Linux)
-	CFLAGS = -O3 -Wall -Wmissing-prototypes
-	CXXFLAGS = -O3 -std=c++11 -Wall
+	CFLAGS ?= -O3 -Wall -Wmissing-prototypes
+	CXXFLAGS ?= -O3 -std=c++11 -Wall
 endif
 
 CFLAGS += -fPIC -I $(ERTS_INCLUDE_DIR) -I $(ERL_INTERFACE_INCLUDE_DIR)
