@@ -5,16 +5,8 @@ elixir:
 otp_release:
   - 19.0
 
-addons:
-  apt:
-    sources:
-      - ubuntu-toolchain-r-test
-    packages:
-      - gcc-4.8
-      - g++-4.8
-
 before_install:
-  - if [ "$TRAVIS_OS_NAME" == "linux" ]; then sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.8 100 --slave /usr/bin/g++ g++ /usr/bin/g++-4.8; fi
+  - CC=clang CXX=clang++ make -C c_src
 
 script: mix coveralls.travis
 after_script:
