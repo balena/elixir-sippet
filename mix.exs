@@ -75,7 +75,7 @@ defmodule Mix.Tasks.Compile.Make do
   # Compiles helper in c_src
 
   def run(_) do
-    {result, error_code} = System.cmd("make", ['-C', 'c_src'], stderr_to_stdout: true)
+    {result, error_code} = System.cmd("make", ["-C", "c_src"], stderr_to_stdout: true)
 
     # XXX(balena): Because the compiler changes the priv directory, we need to
     # notify Mix to rebuild the project structure under _build, copying the new
@@ -95,7 +95,7 @@ defmodule Mix.Tasks.Clean.Make do
   # Cleans helper in c_src
 
   def run(_) do
-    {result, _error_code} = System.cmd("make", ['-C', 'c_src', 'clean'], stderr_to_stdout: true)
+    {result, _error_code} = System.cmd("make", ["-C", "c_src", "clean"], stderr_to_stdout: true)
     Mix.shell.info result
 
     :ok
