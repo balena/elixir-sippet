@@ -388,7 +388,7 @@ ERL_NIF_TERM ParseContact(ErlNifEnv* env, Tokenizer* tok) {
     } else if (IsToken(tok->current(), tok->current() + 1)) {
       display_name_start = display_name_end = tok->end();
       std::string::const_iterator address_start = tok->current();
-      address = StringPiece(address_start, tok->SkipNotIn(SIP_LWS));
+      address = StringPiece(address_start, tok->SkipNotIn(SIP_LWS ";"));
     } else {
       return enif_make_atom(env, "invalid_char_found");
     }
