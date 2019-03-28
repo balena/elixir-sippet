@@ -1,7 +1,7 @@
 defmodule Sippet.Transports.Pool do
   @moduledoc false
 
-  @spec spec() :: Supervisor.Spec.spec
+  @spec spec() :: Supervisor.Spec.spec()
   def spec() do
     alias Sippet.Transports.Worker, as: Worker
 

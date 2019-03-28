@@ -39,7 +39,7 @@ defmodule Sippet.Transports.UDP.Plug do
       |> Keyword.fetch!(:port)
 
     if port <= 0 do
-      raise ArgumentError, "invalid port #{inspect port}"
+      raise ArgumentError, "invalid port #{inspect(port)}"
     end
 
     address =
@@ -58,7 +58,7 @@ defmodule Sippet.Transports.UDP.Plug do
       Pool.spec()
     ]
 
-    Supervisor.start_link(children, [strategy: :one_for_all])
+    Supervisor.start_link(children, strategy: :one_for_all)
   end
 
   @doc """
@@ -89,22 +89,24 @@ defmodule Sippet.Transports.UDP.Plug do
   defp open_socket(port, opts) do
     sock_opts =
       [as: :binary, mode: :active] ++
-      if Keyword.has_key?(opts, :address) do
-        [local: [address: opts[:address]]]
-      else
-        []
-      end
+        if Keyword.has_key?(opts, :address) do
+          [local: [address: opts[:address]]]
+        else
+          []
+        end
 
     case Socket.UDP.open(port, sock_opts) do
       {:ok, socket} ->
         {:ok, {address, _port}} = :inet.sockname(socket)
-        Logger.info("#{inspect self()} started plug " <>
-                    "#{:inet.ntoa(address)}:#{port}/udp")
+        Logger.info("#{inspect(self())} started plug " <> "#{:inet.ntoa(address)}:#{port}/udp")
 
         {:ok, {socket, address, port}}
+
       {:error, reason} ->
-        Logger.error("#{inspect self()} port #{port}/udp " <>
-                     "#{inspect reason}, retrying in 10s...")
+        Logger.error(
+          "#{inspect(self())} port #{port}/udp " <> "#{inspect(reason)}, retrying in 10s..."
+        )
+
         Process.sleep(10_000)
         open_socket(port, opts)
     end
@@ -128,9 +130,11 @@ defmodule Sippet.Transports.UDP.Plug do
 
   @doc false
   def terminate(reason, {socket, address, port}) do
-    Logger.info("#{inspect self()} stopped plug " <>
-                "#{:inet.ntoa(address)}:#{port}/udp, " <>
-                "reason: #{inspect reason}")
+    Logger.info(
+      "#{inspect(self())} stopped plug " <>
+        "#{:inet.ntoa(address)}:#{port}/udp, " <> "reason: #{inspect(reason)}"
+    )
+
     :ok = :gen_udp.close(socket)
   end
 

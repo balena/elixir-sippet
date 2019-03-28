@@ -22,23 +22,21 @@ defmodule Sippet.Message.RequestLine do
 
   alias Sippet.URI, as: URI
 
-  defstruct [
-    method: nil,
-    request_uri: nil,
-    version: nil
-  ]
+  defstruct method: nil,
+            request_uri: nil,
+            version: nil
 
-  @type method :: Sippet.Message.method
+  @type method :: Sippet.Message.method()
 
-  @type uri :: URI.t
+  @type uri :: URI.t()
 
   @type version :: {integer, integer}
 
   @type t :: %__MODULE__{
-    method: method,
-    request_uri: uri,
-    version: version
-  }
+          method: method,
+          request_uri: uri,
+          version: version
+        }
 
   @doc """
   Creates a Request-Line struct.
@@ -76,11 +74,20 @@ defmodule Sippet.Message.RequestLine do
   It does not includes an ending line CRLF.
   """
   @spec to_iodata(t) :: iodata
-  def to_iodata(%Sippet.Message.RequestLine{version: {major, minor},
-      request_uri: uri, method: method}) do
-    [if(is_atom(method), do: String.upcase(Atom.to_string(method)), else: method),
-      " ", Sippet.URI.to_string(uri),
-      " SIP/", Integer.to_string(major), ".", Integer.to_string(minor)]
+  def to_iodata(%Sippet.Message.RequestLine{
+        version: {major, minor},
+        request_uri: uri,
+        method: method
+      }) do
+    [
+      if(is_atom(method), do: String.upcase(Atom.to_string(method)), else: method),
+      " ",
+      Sippet.URI.to_string(uri),
+      " SIP/",
+      Integer.to_string(major),
+      ".",
+      Integer.to_string(minor)
+    ]
   end
 end
 
@@ -90,6 +97,6 @@ defimpl String.Chars, for: Sippet.Message.RequestLine do
   def to_string(%RequestLine{} = request_line) do
     request_line
     |> RequestLine.to_iodata()
-    |> IO.iodata_to_binary
+    |> IO.iodata_to_binary()
   end
 end

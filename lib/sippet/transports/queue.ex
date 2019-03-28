@@ -10,10 +10,10 @@ defmodule Sippet.Transports.Queue do
   alias Sippet.Transports.Pool, as: Pool
 
   @type from :: {
-    protocol :: atom | binary,
-    host :: :inet.ip_address | binary,
-    dport :: :inet.port_number
-  }
+          protocol :: atom | binary,
+          host :: :inet.ip_address() | binary,
+          dport :: :inet.port_number()
+        }
 
   @doc """
   Dispatches an incoming datagram to be parsed by one of the pool workers.
@@ -26,7 +26,7 @@ defmodule Sippet.Transports.Queue do
   The `from` parameter is a tuple containing the protocol, the host name and
   the port of the socket that received the datagram.
   """
-  @spec incoming_datagram(String.t, from) :: :ok
+  @spec incoming_datagram(String.t(), from) :: :ok
   def incoming_datagram(datagram, from) do
     worker = Pool.check_out()
     GenServer.cast(worker, {:incoming_datagram, datagram, from})
@@ -43,7 +43,7 @@ defmodule Sippet.Transports.Queue do
   The `from` parameter is a tuple containing the protocol, the host name and
   the port of the socket that received the message.
   """
-  @spec validate_message(message :: Message.t, from) :: :ok
+  @spec validate_message(message :: Message.t(), from) :: :ok
   def validate_message(%Message{} = message, from) do
     worker = Pool.check_out()
     GenServer.cast(worker, {:validate_message, message, from})

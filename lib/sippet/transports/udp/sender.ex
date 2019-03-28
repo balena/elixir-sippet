@@ -22,7 +22,7 @@ defmodule Sippet.Transports.UDP.Sender do
   @doc false
   def init(_) do
     socket = Plug.get_socket()
-    Logger.debug(fn -> "#{inspect self()} udp sender ready" end)
+    Logger.debug(fn -> "#{inspect(self())} udp sender ready" end)
     {:ok, socket}
   end
 
@@ -30,12 +30,14 @@ defmodule Sippet.Transports.UDP.Sender do
   def handle_cast({:send_message, message, host, port, key}, socket) do
     result =
       case Socket.Address.for(host, :inet) do
-        {:ok, [address|_]} ->
+        {:ok, [address | _]} ->
           iodata = Message.to_iodata(message)
+
           case Socket.Datagram.send(socket, iodata, {address, port}) do
             :ok -> :ok
             other -> other
           end
+
         other ->
           other
       end
@@ -43,9 +45,12 @@ defmodule Sippet.Transports.UDP.Sender do
     case result do
       :ok ->
         :ok
+
       {:error, reason} ->
-        Logger.warn(fn -> "#{inspect self()} udp sender error for " <>
-                          "#{host}:#{port}: #{inspect reason}" end)
+        Logger.warn(fn ->
+          "#{inspect(self())} udp sender error for " <> "#{host}:#{port}: #{inspect(reason)}"
+        end)
+
         if key != nil do
           Transactions.receive_error(key, reason)
         end
@@ -57,7 +62,6 @@ defmodule Sippet.Transports.UDP.Sender do
 
   @doc false
   def terminate(reason, _socket) do
-    Logger.warn(fn -> "#{inspect self()} stopped udp sender, " <>
-                      "reason #{inspect reason}" end)
+    Logger.warn(fn -> "#{inspect(self())} stopped udp sender, " <> "reason #{inspect(reason)}" end)
   end
 end

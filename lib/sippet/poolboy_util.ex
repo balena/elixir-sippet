@@ -1,7 +1,7 @@
 defmodule Sippet.PoolboyUtil do
   @moduledoc false
 
-  @spec child_spec(module, module, Keyword.t) :: Supervisor.Spec.spec
+  @spec child_spec(module, module, Keyword.t()) :: Supervisor.Spec.spec()
   def child_spec(module, worker, defaults) do
     env_config = Application.get_env(:sippet, module)
 
@@ -9,10 +9,12 @@ defmodule Sippet.PoolboyUtil do
       if env_config == nil do
         defaults
       else
-        Keyword.merge(defaults,
+        Keyword.merge(
+          defaults,
           for {k, v} <- env_config, k in [:size, :max_overflow] do
             {k, v}
-          end)
+          end
+        )
       end
 
     config =

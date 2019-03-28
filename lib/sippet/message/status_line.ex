@@ -21,21 +21,19 @@ defmodule Sippet.Message.StatusLine do
   `Reason-Phrase` is intended for the human user.
   """
 
-  defstruct [
-    status_code: nil,
-    reason_phrase: nil,
-    version: nil
-  ]
+  defstruct status_code: nil,
+            reason_phrase: nil,
+            version: nil
 
   @type status_code :: 100..699
 
   @type version :: {integer, integer}
 
   @type t :: %__MODULE__{
-    status_code: status_code,
-    reason_phrase: binary,
-    version: version
-  }
+          status_code: status_code,
+          reason_phrase: binary,
+          version: version
+        }
 
   @default_status_codes %{
     100 => "Trying",
@@ -201,6 +199,7 @@ defmodule Sippet.Message.StatusLine do
   @spec default_reason(status_code) :: binary | nil
   def default_reason(status_code) do
     defaults = @default_status_codes
+
     if defaults |> Map.has_key?(status_code) do
       defaults[status_code]
     else
@@ -227,8 +226,9 @@ defmodule Sippet.Message.StatusLine do
   def default_reason!(status_code) do
     case status_code |> do_raise_if_invalid() |> default_reason() do
       nil ->
-        raise ArgumentError, "status code #{inspect status_code} " <>
-                             "does not have a default reason phrase"
+        raise ArgumentError,
+              "status code #{inspect(status_code)} " <> "does not have a default reason phrase"
+
       reason_phrase ->
         reason_phrase
     end
@@ -264,11 +264,21 @@ defmodule Sippet.Message.StatusLine do
 
   """
   @spec to_iodata(t) :: iodata
-  def to_iodata(%Sippet.Message.StatusLine{version: {major, minor},
-      status_code: status_code, reason_phrase: reason_phrase}) do
-    ["SIP/", Integer.to_string(major), ".", Integer.to_string(minor),
-      " ", Integer.to_string(status_code),
-      " ", reason_phrase]
+  def to_iodata(%Sippet.Message.StatusLine{
+        version: {major, minor},
+        status_code: status_code,
+        reason_phrase: reason_phrase
+      }) do
+    [
+      "SIP/",
+      Integer.to_string(major),
+      ".",
+      Integer.to_string(minor),
+      " ",
+      Integer.to_string(status_code),
+      " ",
+      reason_phrase
+    ]
   end
 end
 
@@ -278,6 +288,6 @@ defimpl String.Chars, for: Sippet.Message.StatusLine do
   def to_string(%StatusLine{} = status_line) do
     status_line
     |> StatusLine.to_iodata()
-    |> IO.iodata_to_binary
+    |> IO.iodata_to_binary()
   end
 end

@@ -10,13 +10,13 @@ defmodule Sippet.Transactions.Client.NonInvite.Test do
 
   defmacro action_timeout(actions, delay) do
     quote do
-      unquote(actions) |> Enum.count(
-        fn x ->
-          case x do
-            {:state_timeout, unquote(delay), _data} -> true
-            _otherwise -> false
-          end
-        end)
+      unquote(actions)
+      |> Enum.count(fn x ->
+        case x do
+          {:state_timeout, unquote(delay), _data} -> true
+          _otherwise -> false
+        end
+      end)
     end
   end
 
@@ -61,58 +61,50 @@ defmodule Sippet.Transactions.Client.NonInvite.Test do
   end
 
   test "client non-invite trying state",
-      %{request: request, transaction: transaction, state: state} do
+       %{request: request, transaction: transaction, state: state} do
     # test if the retry timer has been started for unreliable transports, and
     # if the received request is sent to the core
     with_mocks([
-        {Sippet.Transports, [],
-          [send_message: fn _, _ -> :ok end,
-           reliable?: fn _ -> false end]},
-        {Sippet.Core, [],
-          [receive_response: fn _, _ -> :ok end,
-           receive_error: fn _, _ -> :ok end]}]) do
+      {Sippet.Transports, [], [send_message: fn _, _ -> :ok end, reliable?: fn _ -> false end]},
+      {Sippet.Core, [], [receive_response: fn _, _ -> :ok end, receive_error: fn _, _ -> :ok end]}
+    ]) do
+      {:keep_state, data} = NonInvite.trying(:enter, :none, state)
 
-      {:keep_state, data} =
-          NonInvite.trying(:enter, :none, state)
+      assert data_timeout(data, :retry_timer, 500)
+      assert data_timeout(data, :deadline_timer, 64 * 500)
 
-      assert data_timeout data, :retry_timer, 500
-      assert data_timeout data, :deadline_timer, 64 * 500
-
-      assert called Sippet.Transports.reliable?(request)
-      assert called Sippet.Transports.send_message(request, transaction)
+      assert called(Sippet.Transports.reliable?(request))
+      assert called(Sippet.Transports.send_message(request, transaction))
 
       # the retry timer should send the request again and double the retry
       # timer
-      {:keep_state, data} =
-          NonInvite.trying(:info, 500, data)
+      {:keep_state, data} = NonInvite.trying(:info, 500, data)
 
-      assert data_timeout data, :retry_timer, 1000
-      assert called Sippet.Transports.send_message(request, transaction)
+      assert data_timeout(data, :retry_timer, 1000)
+      assert called(Sippet.Transports.send_message(request, transaction))
 
       # the deadline timer should terminate the process and send timeout
       # to core
-      {:stop, :shutdown, _data} =
-          NonInvite.trying(:info, :deadline, data)
+      {:stop, :shutdown, _data} = NonInvite.trying(:info, :deadline, data)
 
-      assert called Sippet.Core.receive_error(:timeout, transaction)
+      assert called(Sippet.Core.receive_error(:timeout, transaction))
 
       # in the transition to the proceeding state, the timers aren't stopped
       last_response = Message.to_response(request, 100)
 
       {:next_state, :proceeding, data} =
-          NonInvite.trying(:cast, {:incoming_response, last_response}, data)
+        NonInvite.trying(:cast, {:incoming_response, last_response}, data)
 
-      assert data_timeout data, :retry_timer
-      assert data_timeout data, :deadline_timer
+      assert data_timeout(data, :retry_timer)
+      assert data_timeout(data, :deadline_timer)
 
       # timers are cancelled only when entering the completed state
-      {:keep_state, data, actions} =
-          NonInvite.completed(:enter, :proceeding, data)
+      {:keep_state, data, actions} = NonInvite.completed(:enter, :proceeding, data)
 
-      assert not data_timeout data, :retry_timer
-      assert not data_timeout data, :deadline_timer
+      assert not data_timeout(data, :retry_timer)
+      assert not data_timeout(data, :deadline_timer)
 
-      assert action_timeout actions, 5000
+      assert action_timeout(actions, 5000)
     end
   end
 end

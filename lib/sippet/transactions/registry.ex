@@ -6,9 +6,9 @@ defmodule Sippet.Transactions.Registry do
 
   alias Sippet.Transactions, as: Transactions
 
-  @type client_key :: Transactions.Client.Key.t
+  @type client_key :: Transactions.Client.Key.t()
 
-  @type server_key :: Transactions.Server.Key.t
+  @type server_key :: Transactions.Server.Key.t()
 
   @doc """
   Starts the transactions registry.
@@ -25,7 +25,7 @@ defmodule Sippet.Transactions.Registry do
   registry for the given `key`.
   """
   @spec via_tuple(client_key | server_key) ::
-        {:via, Registry, {__MODULE__, client_key | server_key}}
+          {:via, Registry, {__MODULE__, client_key | server_key}}
   def via_tuple(key)
 
   def via_tuple(%Transactions.Client.Key{} = client_key),
@@ -66,7 +66,7 @@ defmodule Sippet.Transactions.Registry do
   process closes.
   """
   @spec register_alias(client_key | server_key) ::
-        {:ok, pid} | {:error, {:already_registered, pid}}
+          {:ok, pid} | {:error, {:already_registered, pid}}
   def register_alias(key)
 
   def register_alias(%Transactions.Client.Key{} = client_key),

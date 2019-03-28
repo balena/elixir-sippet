@@ -6,21 +6,23 @@ defmodule Sippet.URI do
   SIP-URIs, encoding parameters or header strings).
   """
 
-  defstruct [
-    scheme: nil, userinfo: nil,
-    authority: nil, parameters: nil,
-    headers: nil, host: nil, port: nil,
-  ]
+  defstruct scheme: nil,
+            userinfo: nil,
+            authority: nil,
+            parameters: nil,
+            headers: nil,
+            host: nil,
+            port: nil
 
   @type t :: %__MODULE__{
-    scheme: nil | binary,
-    userinfo: nil | binary,
-    authority: nil | binary,
-    parameters: nil | binary,
-    headers: nil | binary,
-    host: nil | binary,
-    port: nil | :inet.port_number
-  }
+          scheme: nil | binary,
+          userinfo: nil | binary,
+          authority: nil | binary,
+          parameters: nil | binary,
+          headers: nil | binary,
+          host: nil | binary,
+          port: nil | :inet.port_number()
+        }
 
   @doc """
   Returns the default port for a given SIP scheme.
@@ -68,18 +70,16 @@ defmodule Sippet.URI do
     do: wrap("encode_parameters/1", ";", ";", enumerable, &encode_paramchar/1)
 
   defp wrap(function_name, first_character, separator, enumerable, encode) do
-    first_character <> Enum.map_join(enumerable, separator,
-      &encode_pair(function_name, encode, &1))
+    first_character <>
+      Enum.map_join(enumerable, separator, &encode_pair(function_name, encode, &1))
   end
 
   defp encode_pair(function_name, _encode, {key, _}) when is_list(key) do
-    raise ArgumentError, function_name <> " keys cannot be lists, "
-                         <> "got: #{inspect key}"
+    raise ArgumentError, function_name <> " keys cannot be lists, " <> "got: #{inspect(key)}"
   end
 
   defp encode_pair(function_name, _encode, {_, value}) when is_list(value) do
-    raise ArgumentError, function_name <> " values cannot be lists, "
-                         <> "got: #{inspect value}"
+    raise ArgumentError, function_name <> " values cannot be lists, " <> "got: #{inspect(value)}"
   end
 
   defp encode_pair(_function_name, encode, {key, nil}) do
@@ -87,8 +87,7 @@ defmodule Sippet.URI do
   end
 
   defp encode_pair(_function_name, encode, {key, value}) do
-    encode.(Kernel.to_string(key)) <>
-      "=" <> encode.(Kernel.to_string(value))
+    encode.(Kernel.to_string(key)) <> "=" <> encode.(Kernel.to_string(value))
   end
 
   @doc """
@@ -123,36 +122,42 @@ defmodule Sippet.URI do
 
   defp remove_first_char(function_name, string, first_character) do
     cond do
-      string == "" -> ""
+      string == "" ->
+        ""
+
       String.starts_with?(string, first_character) ->
         String.slice(string, 1, String.length(string) - 1)
+
       :otherwise ->
         raise ArgumentError,
-            function_name <> " string has to start with '"
-            <> first_character <> "', got: #{inspect string}"
+              function_name <>
+                " string has to start with '" <> first_character <> "', got: #{inspect(string)}"
     end
   end
 
   defp decode_into_map(parameters, map, separator) do
     case decode_next_pair(parameters, separator) do
-      nil -> map
+      nil ->
+        map
+
       {{key, value}, rest} ->
         decode_into_map(rest, Map.put(map, key, value), separator)
     end
   end
 
   defp decode_next_pair("", _separator), do: nil
+
   defp decode_next_pair(string, separator) do
     {undecoded_next_pair, rest} =
       case :binary.split(string, separator) do
         [next_pair, rest] -> {next_pair, rest}
-        [next_pair]       -> {next_pair, ""}
+        [next_pair] -> {next_pair, ""}
       end
 
     next_pair =
       case :binary.split(undecoded_next_pair, "=") do
         [key, value] -> {percent_unescape(key), percent_unescape(value)}
-        [key]        -> {percent_unescape(key), nil}
+        [key] -> {percent_unescape(key), nil}
       end
 
     {next_pair, rest}
@@ -170,7 +175,7 @@ defmodule Sippet.URI do
       [{"foo", "1"}, {"bar", "2"}]
 
   """
-  @spec parameters_decoder(binary) :: Enumerable.t
+  @spec parameters_decoder(binary) :: Enumerable.t()
   def parameters_decoder(parameters) when is_binary(parameters) do
     middle = remove_first_char("parameters_decoder/1", parameters, ";")
     Stream.unfold(middle, &decode_next_pair(&1, ";"))
@@ -236,7 +241,7 @@ defmodule Sippet.URI do
       iex> Sippet.URI.headers_decoder("?foo=1&bar=2") |> Enum.to_list()
       [{"foo", "1"}, {"bar", "2"}]
   """
-  @spec headers_decoder(binary) :: Enumerable.t
+  @spec headers_decoder(binary) :: Enumerable.t()
   def headers_decoder(headers) when is_binary(headers) do
     middle = remove_first_char("headers_decoder/1", headers, "?")
     Stream.unfold(middle, &decode_next_pair(&1, "&"))
@@ -244,16 +249,16 @@ defmodule Sippet.URI do
 
   @doc """
   Encodes a string as "paramchar".
-  
+
   ## Example
-  
+
       iex> Sippet.URI.encode_paramchar("put: it+й")
       "put:%20it+%D0%B9"
-  
+
   """
   @spec encode_paramchar(binary) :: binary
   def encode_paramchar(string) when is_binary(string) do
-    URI.encode(string, fn(char) ->
+    URI.encode(string, fn char ->
       cond do
         char_param_unreserved?(char) -> true
         char_unreserved?(char) -> true
@@ -273,7 +278,7 @@ defmodule Sippet.URI do
   """
   @spec encode_hnvchar(binary) :: binary
   def encode_hnvchar(string) when is_binary(string) do
-    URI.encode(string, fn(char) ->
+    URI.encode(string, fn char ->
       cond do
         char_hnv_unreserved?(char) -> true
         char_unreserved?(char) -> true
@@ -371,21 +376,28 @@ defmodule Sippet.URI do
   def parse(string) when is_binary(string) do
     regex = ~r{^(([^:;?]+):)([^;?]+)([^?]*)(\?.*)?}
     parts = nillify(Regex.run(regex, string))
+
     case parts do
       {:error, reason} ->
         {:error, reason}
+
       _otherwise ->
         destructure [_, _, scheme, authority, parameters, headers], parts
         {userinfo, host, port} = split_authority(authority)
 
         scheme = scheme && String.downcase(scheme)
-        port   = port || (scheme && default_port(scheme))
+        port = port || (scheme && default_port(scheme))
 
-        {:ok, %Sippet.URI{
-          scheme: scheme, userinfo: userinfo,
-          authority: authority, parameters: parameters,
-          headers: headers, host: host, port: port
-        }}
+        {:ok,
+         %Sippet.URI{
+           scheme: scheme,
+           userinfo: userinfo,
+           authority: authority,
+           parameters: parameters,
+           headers: headers,
+           host: host,
+           port: port
+         }}
     end
   end
 
@@ -401,9 +413,10 @@ defmodule Sippet.URI do
     case parse(string) do
       {:ok, message} ->
         message
+
       {:error, reason} ->
-        raise ArgumentError, "cannot convert #{inspect string} to SIP-URI, " <>
-            "reason: #{inspect reason}"
+        raise ArgumentError,
+              "cannot convert #{inspect(string)} to SIP-URI, " <> "reason: #{inspect(reason)}"
     end
   end
 
@@ -421,6 +434,7 @@ defmodule Sippet.URI do
   # Regex.run returns empty strings sometimes. We want
   # to replace those with nil for consistency.
   defp nillify(nil), do: {:error, :invalid}
+
   defp nillify(list) do
     for string <- list do
       if byte_size(string) > 0, do: string
@@ -456,23 +470,24 @@ defmodule Sippet.URI do
   """
   @spec equivalent(t, t) :: boolean
   def equivalent(a, b) do
-    quite_similar(a, b) and
-    authority_hostport(a.authority) == authority_hostport(b.authority)
+    quite_similar(a, b) and authority_hostport(a.authority) == authority_hostport(b.authority)
   end
 
   defp quite_similar(a, b, default_parameters \\ %{}) do
     String.downcase(a.scheme) == String.downcase(b.scheme) and
       ((a.userinfo == nil and b.userinfo == nil) or
-       (a.userinfo != nil and b.userinfo != nil and
-        percent_unescape(a.userinfo) == percent_unescape(b.userinfo)) or
-        false) and
-    String.downcase(a.host) == String.downcase(b.host) and
-    a.port == b.port and
-    equivalent_parameters(decode_parameters(a.parameters),
-                          decode_parameters(b.parameters),
-                          default_parameters) and
-    equivalent_headers(decode_headers(a.headers),
-                       decode_headers(b.headers))
+         (a.userinfo != nil and b.userinfo != nil and
+            percent_unescape(a.userinfo) == percent_unescape(b.userinfo)) or false) and
+      String.downcase(a.host) == String.downcase(b.host) and a.port == b.port and
+      equivalent_parameters(
+        decode_parameters(a.parameters),
+        decode_parameters(b.parameters),
+        default_parameters
+      ) and
+      equivalent_headers(
+        decode_headers(a.headers),
+        decode_headers(b.headers)
+      )
   end
 
   defp authority_hostport(authority) do
@@ -486,55 +501,71 @@ defmodule Sippet.URI do
   end
 
   defp downcase_keys(map) when is_map(map) do
-    for {k, v} <- Map.to_list(map) do {String.downcase(k), v} end
+    for {k, v} <- Map.to_list(map) do
+      {String.downcase(k), v}
+    end
     |> Map.new()
   end
 
   defp map_zip(a, b, defaults \\ %{}) when is_map(a) and is_map(b) do
     a = downcase_keys(a)
     b = downcase_keys(b)
+
     for {k, v1} <- Map.to_list(a) do
       {k, {v1, Map.get(b, k, Map.get(defaults, k, nil))}}
-    end ++ for {k, v2} <- Map.to_list(b), not Map.has_key?(a, k) do
-      {k, {Map.get(defaults, k, nil), v2}}
-    end
+    end ++
+      for {k, v2} <- Map.to_list(b), not Map.has_key?(a, k) do
+        {k, {Map.get(defaults, k, nil), v2}}
+      end
   end
 
   defp equivalent_parameters(a, b, defaults)
-      when is_map(a) and is_map(b) do
-    map_zip(a, b, defaults) |> Enum.reduce_while(true,
+       when is_map(a) and is_map(b) do
+    map_zip(a, b, defaults)
+    |> Enum.reduce_while(
+      true,
       fn {k, {v1, v2}}, _ ->
         cond do
           v1 == nil and v2 == nil ->
             {:cont, true}
+
           v1 == nil or v2 == nil ->
             if k in ["user", "ttl", "method", "maddr", "transport"] do
-              {:halt, false} 
+              {:halt, false}
             else
               {:cont, true}
             end
+
           String.downcase(v1) == String.downcase(v2) ->
             {:cont, true}
+
           true ->
             {:halt, false}
         end
-      end)
+      end
+    )
   end
 
   defp equivalent_headers(a, b) when is_map(a) and is_map(b) do
-    map_zip(a, b) |> Enum.reduce_while(true,
+    map_zip(a, b)
+    |> Enum.reduce_while(
+      true,
       fn {_, {v1, v2}}, _ ->
         cond do
           v1 == nil and v2 == nil ->
             {:cont, true}
+
           v1 == nil or v2 == nil ->
-            {:halt, false} 
+            {:halt, false}
+
           String.downcase(v1) == String.downcase(v2) ->
             {:cont, true}
+
           true ->
             {:halt, false}
         end
-      end)
+      end
+    )
   end
 
   @doc """
@@ -550,23 +581,24 @@ defmodule Sippet.URI do
   """
   @spec lazy_equivalent(t, t) :: boolean
   def lazy_equivalent(a, b) do
-    quite_similar(a, b,
+    quite_similar(
+      a,
+      b,
       if String.downcase(a.scheme) == "sip" do
         %{"transport" => "udp"}
       else
         %{"transport" => "tls"}
-      end)
+      end
+    )
   end
 end
 
 defimpl String.Chars, for: Sippet.URI do
-  def to_string(%{scheme: scheme, port: port,
-                  parameters: parameters,
-                  headers: headers} = uri) do
+  def to_string(%{scheme: scheme, port: port, parameters: parameters, headers: headers} = uri) do
     uri =
       case scheme && Sippet.URI.default_port(scheme) do
         ^port -> %{uri | port: nil}
-        _     -> uri
+        _ -> uri
       end
 
     # Based on http://tools.ietf.org/html/rfc3986#section-5.3
@@ -574,8 +606,7 @@ defimpl String.Chars, for: Sippet.URI do
 
     if(scheme, do: scheme <> ":", else: "") <>
       if(authority, do: authority, else: "") <>
-      if(parameters, do: parameters, else: "") <>
-      if(headers, do: headers, else: "")
+      if(parameters, do: parameters, else: "") <> if(headers, do: headers, else: "")
   end
 
   defp extract_authority(%{host: nil, authority: authority}) do

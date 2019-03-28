@@ -27,9 +27,9 @@ defmodule Sippet.Transactions.Server do
       require Logger
 
       def init(%State{key: key} = data) do
-        Logger.info fn ->
-          "server transaction #{inspect key} started"
-        end
+        Logger.info(fn ->
+          "server transaction #{inspect(key)} started"
+        end)
 
         initial_state = unquote(opts)[:initial_state]
         {:ok, initial_state, data}
@@ -46,9 +46,9 @@ defmodule Sippet.Transactions.Server do
         do: Sippet.Core.receive_request(request, key)
 
       def shutdown(reason, %State{key: key} = data) do
-        Logger.warn fn ->
-          "server transaction #{inspect key} shutdown: #{reason}"
-        end
+        Logger.warn(fn ->
+          "server transaction #{inspect(key)} shutdown: #{reason}"
+        end)
 
         Sippet.Core.receive_error(reason, key)
         {:stop, :shutdown, data}
@@ -60,26 +60,29 @@ defmodule Sippet.Transactions.Server do
       defdelegate reliable?(request), to: Sippet.Transports
 
       def unhandled_event(:cast, :terminate, %State{key: key} = data) do
-        Logger.info fn ->
-          "server transaction #{inspect key} terminated"
-        end
+        Logger.info(fn ->
+          "server transaction #{inspect(key)} terminated"
+        end)
 
         {:stop, :normal, data}
       end
 
-      def unhandled_event(event_type, event_content,
-          %State{key: key} = data) do
-        Logger.error fn ->
-          "server transaction #{inspect key} got " <>
-          "unhandled_event/3: #{inspect event_type}, " <>
-          "#{inspect event_content}, #{inspect data}"
-        end
+      def unhandled_event(event_type, event_content, %State{key: key} = data) do
+        Logger.error(fn ->
+          "server transaction #{inspect(key)} got " <>
+            "unhandled_event/3: #{inspect(event_type)}, " <>
+            "#{inspect(event_content)}, #{inspect(data)}"
+        end)
 
         {:stop, :shutdown, data}
       end
 
-      defoverridable [init: 1, send_response: 2, receive_request: 2,
-                      shutdown: 2, timeout: 1, unhandled_event: 3]
+      defoverridable init: 1,
+                     send_response: 2,
+                     receive_request: 2,
+                     shutdown: 2,
+                     timeout: 1,
+                     unhandled_event: 3
     end
   end
 end

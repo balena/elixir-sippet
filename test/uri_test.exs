@@ -21,9 +21,11 @@ defmodule Sippet.URI.Test do
     a =
       "sip:biloxi.com;transport=tcp;method=REGISTER?to=sip:bob%40biloxi.com"
       |> URI.parse!()
+
     b =
       "sip:biloxi.com;method=REGISTER;transport=tcp?to=sip:bob%40biloxi.com"
       |> URI.parse!()
+
     assert URI.equivalent(a, b)
 
     a = URI.parse!("sip:alice@atlanta.com?subject=project%20x&priority=urgent")

@@ -7,7 +7,7 @@ defmodule Sippet.Parser do
 
   @on_load {:init, 0}
 
-  app = Mix.Project.config[:app]
+  app = Mix.Project.config()[:app]
 
   @doc """
   Initializes and loads the C++ NIF module.

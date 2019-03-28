@@ -9,7 +9,7 @@ defmodule Sippet.Transactions.Supervisor do
   alias Sippet.Message.RequestLine, as: RequestLine
   alias Sippet.Transactions, as: Transactions
 
-  @type request :: Message.request
+  @type request :: Message.request()
 
   @doc false
   def start_link() do
@@ -19,10 +19,11 @@ defmodule Sippet.Transactions.Supervisor do
   @doc """
   Starts a client transaction.
   """
-  @spec start_client(Transactions.Client.Key.t, request) ::
-    Supervisor.on_start_child
-  def start_client(%Transactions.Client.Key{} = key,
-      %Message{start_line: %RequestLine{}} = outgoing_request) do
+  @spec start_client(Transactions.Client.Key.t(), request) :: Supervisor.on_start_child()
+  def start_client(
+        %Transactions.Client.Key{} = key,
+        %Message{start_line: %RequestLine{}} = outgoing_request
+      ) do
     module =
       case key.method do
         :invite -> Transactions.Client.Invite
@@ -30,17 +31,17 @@ defmodule Sippet.Transactions.Supervisor do
       end
 
     initial_data = Transactions.Client.State.new(outgoing_request, key)
-    Supervisor.start_child(__MODULE__, [module, initial_data,
-                           [name: via_tuple(key)]])
+    Supervisor.start_child(__MODULE__, [module, initial_data, [name: via_tuple(key)]])
   end
 
   @doc """
   Starts a server transaction.
   """
-  @spec start_server(Transactions.Server.Key.t, request) ::
-    Supervisor.on_start_child
-  def start_server(%Transactions.Server.Key{} = key,
-      %Message{start_line: %RequestLine{}} = incoming_request) do
+  @spec start_server(Transactions.Server.Key.t(), request) :: Supervisor.on_start_child()
+  def start_server(
+        %Transactions.Server.Key{} = key,
+        %Message{start_line: %RequestLine{}} = incoming_request
+      ) do
     module =
       case key.method do
         :invite -> Transactions.Server.Invite
@@ -48,8 +49,7 @@ defmodule Sippet.Transactions.Supervisor do
       end
 
     initial_data = Transactions.Server.State.new(incoming_request, key)
-    Supervisor.start_child(__MODULE__, [module, initial_data,
-                           [name: via_tuple(key)]])
+    Supervisor.start_child(__MODULE__, [module, initial_data, [name: via_tuple(key)]])
   end
 
   @doc false

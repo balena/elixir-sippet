@@ -24,11 +24,11 @@ defmodule Sippet.Transports do
   @doc """
   Starts the transport process hierarchy.
   """
-  @spec start_link() :: Supervisor.on_start
+  @spec start_link() :: Supervisor.on_start()
   def start_link() do
     children = [
-      Pool.spec() |
-      plugs_specs()
+      Pool.spec()
+      | plugs_specs()
     ]
 
     options = [
@@ -46,6 +46,7 @@ defmodule Sippet.Transports do
   end
 
   defp plugs_specs([], result), do: result
+
   defp plugs_specs([{_protocol, module} | rest], result),
     do: plugs_specs(rest, [worker(module, []) | result])
 
@@ -57,7 +58,7 @@ defmodule Sippet.Transports do
 
   This function may block the caller temporarily due to resource constraints.
   """
-  @spec send_message(Message.t, GenServer.server | nil) :: :ok
+  @spec send_message(Message.t(), GenServer.server() | nil) :: :ok
   def send_message(message, transaction \\ nil) do
     {protocol, host, port} = get_destination(message)
     plug = protocol |> to_plug()
@@ -68,9 +69,9 @@ defmodule Sippet.Transports do
     target
   end
 
-  defp get_destination(%Message{start_line: %StatusLine{},
-      headers: %{via: via}} = message) do
+  defp get_destination(%Message{start_line: %StatusLine{}, headers: %{via: via}} = message) do
     {_version, protocol, {host, port}, params} = hd(via)
+
     {host, port} =
       if Message.response?(message) do
         host =
@@ -94,8 +95,7 @@ defmodule Sippet.Transports do
     {protocol, host, port}
   end
 
-  defp get_destination(%Message{start_line:
-      %RequestLine{request_uri: uri}} = request) do
+  defp get_destination(%Message{start_line: %RequestLine{request_uri: uri}} = request) do
     host = uri.host
     port = uri.port
 
@@ -110,8 +110,7 @@ defmodule Sippet.Transports do
       if params |> Map.has_key?("transport") do
         Sippet.Message.to_protocol(params["transport"])
       else
-        {_version, protocol, _sent_by, _params} =
-          hd(request.headers.via)
+        {_version, protocol, _sent_by, _params} = hd(request.headers.via)
         protocol
       end
 
@@ -128,7 +127,7 @@ defmodule Sippet.Transports do
   Verifies if the transport protocol used to send the given message is
   reliable.
   """
-  @spec reliable?(Message.t) :: boolean
+  @spec reliable?(Message.t()) :: boolean
   def reliable?(%Message{headers: %{via: via}}) do
     {_version, protocol, _host_and_port, _params} = hd(via)
     plug = protocol |> to_plug()
