@@ -12,8 +12,9 @@ defmodule Sippet.Transactions.Client.Invite.Test do
     quote do
       unquote(actions) |> Enum.count(
         fn x ->
+          interval = unquote(delay)
           case x do
-            {:state_timeout, unquote(delay), _data} -> true
+            {:state_timeout, ^interval, _data} -> true
             _otherwise -> false
           end
         end)
