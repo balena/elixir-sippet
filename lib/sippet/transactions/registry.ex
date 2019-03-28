@@ -16,8 +16,8 @@ defmodule Sippet.Transactions.Registry do
   The registry is partitioned according to the number of schedulers available.
   """
   def start_link() do
-    args = [partitions: System.schedulers_online()]
-    Registry.start_link(:unique, __MODULE__, args)
+    Registry.start_link(keys: :unique, name: __MODULE__,
+        partitions: System.schedulers_online())
   end
 
   @doc """
