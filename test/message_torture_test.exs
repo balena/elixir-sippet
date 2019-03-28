@@ -250,4 +250,19 @@ defmodule Sippet.Message.TortureTest do
     assert request.headers.call_id ==
       "longreq.onereallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallyreallylongcallid"
   end
+
+  test "from with addr-spec like format" do
+    options =
+      """
+      OPTIONS sip:john.doe@example.com SIP/2.0
+      from   : sip:jdrosen@example.com;tag = 98asjd8
+
+      """
+
+    request = options |> Message.parse!
+
+    assert elem(request.headers.from, 2) ==
+      %{"tag" => "98asjd8"}
+  end
+
 end
