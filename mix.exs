@@ -6,7 +6,7 @@ defmodule Sippet.Mixfile do
   def project do
     [app: :sippet,
      version: @version,
-     elixir: "~> 1.4",
+     elixir: "~> 1.8",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
      compilers: [:make] ++ Mix.compilers, # Add the make compiler
@@ -22,7 +22,7 @@ defmodule Sippet.Mixfile do
 
      test_coverage: [tool: ExCoveralls],
      preferred_cli_env: [
-       "coveralls": :test,
+       coveralls: :test,
        "coveralls.detail": :test,
        "coveralls.post": :test,
        "coveralls.html": :test
@@ -41,17 +41,17 @@ defmodule Sippet.Mixfile do
 
   defp deps do
     [{:gen_state_machine, "~> 2.0"},
-     {:socket, "~> 0.3.5"},
-     {:poolboy, "~> 1.5.1"},
+     {:socket, "~> 0.3.13"},
+     {:poolboy, "~> 1.5"},
 
      # Docs dependencies
-     {:ex_doc, "~> 0.14", only: :dev, runtime: false},
-     {:inch_ex, "~> 0.5", only: :docs},
+     {:ex_doc, "~> 0.19.3", only: :dev, runtime: false},
+     {:inch_ex, "~> 2.0", only: :docs},
 
      # Test dependencies
-     {:mock, "~> 0.2.0", only: :test},
-     {:excoveralls, "~> 0.6", only: :test},
-     {:credo, "~> 0.7", only: [:dev, :test]},
+     {:mock, "~> 0.3.3", only: :test},
+     {:excoveralls, "~> 0.10.6", only: :test},
+     {:credo, "~> 1.0", only: [:dev, :test]},
      {:dialyxir, "~> 0.5", only: [:dev], runtime: false}]
   end
 
