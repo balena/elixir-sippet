@@ -40,7 +40,7 @@ defmodule Sippet.Transactions.Client.Invite do
 
     ack =
       case last_response.headers.to do
-        {_, _, %{"tag": to_tag}} ->
+        {_, _, %{"tag" => to_tag}} ->
           ack |> Message.update_header(:to, nil,
                   fn {display_name, uri, params} ->
                     {display_name, uri, params |> Map.put("tag", to_tag)}
