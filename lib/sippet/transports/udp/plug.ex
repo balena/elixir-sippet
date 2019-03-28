@@ -116,15 +116,9 @@ defmodule Sippet.Transports.UDP.Plug do
     {:noreply, state}
   end
 
-  def handle_info(request, state),
-    do: super(request, state)
-
   @doc false
   def handle_call(:get_socket, _from, {socket, _address, _port} = state),
     do: {:reply, socket, state}
-
-  def handle_call(request, from, state),
-    do: super(request, from, state)
 
   @doc false
   def terminate(reason, {socket, address, port}) do
@@ -133,7 +127,4 @@ defmodule Sippet.Transports.UDP.Plug do
                 "reason: #{inspect reason}")
     :ok = :gen_udp.close(socket)
   end
-
-  def terminate(reason, state),
-    do: super(reason, state)
 end

@@ -42,8 +42,6 @@ defmodule Sippet.Transports.Worker do
     {:noreply, nil}
   end
 
-  def handle_cast(msg, state), do: super(msg, state)
-
   defp is_empty(""), do: true
   defp is_empty("\n" <> rest), do: is_empty(rest)
   defp is_empty("\r\n" <> rest), do: is_empty(rest)
