@@ -52,7 +52,7 @@ X(Min-Expires,                     0, min_expires,                   SingleInteg
 X(Organization,                    0, organization,                  TrimmedUtf8)
 //X(P-Access-Network-Info,         0, p_access_network_info,         x)
 //X(P-Answer-State,                0, p_answer_state,                x)
-//X(P-Asserted-Identity,           0, p_asserted_identity,           x)
+X(P-Asserted-Identity,           0, p_asserted_identity,           SingleContactParams)
 //X(P-Asserted-Service,            0, p_asserted_service,            x)
 //X(P-Associated-URI,              0, p_associated_uri,              x)
 //X(P-Called-Party-ID,             0, p_called_party_id,             x)
