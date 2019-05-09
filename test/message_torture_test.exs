@@ -265,4 +265,27 @@ defmodule Sippet.Message.TortureTest do
       %{"tag" => "98asjd8"}
   end
 
+    test "P-Asserted-Identity with addr-spec like format" do
+    options = """
+    OPTIONS sip:john.doe@example.com SIP/2.0
+    P-Asserted-Identity   : sip:jdrosen@example.com
+
+    """
+
+    request = options |> Message.parse!()
+
+    assert elem(request.headers.p_asserted_identity, 1).authority == "jdrosen@example.com"
+  end
+
+  test "P-Asserted-Identity with name-addr like format" do
+    options = """
+    OPTIONS sip:john.doe@example.com SIP/2.0
+    P-Asserted-Identity   : "J Rosenberg \\\\\\""       <sip:jdrosen@example.com>
+
+    """
+
+    request = options |> Message.parse!()
+
+    assert elem(request.headers.p_asserted_identity, 1).authority == "jdrosen@example.com"
+  end
 end
