@@ -1528,6 +1528,8 @@ defmodule Sippet.Message do
   defp do_parameters(%{} = parameters),
     do: do_parameters(Map.to_list(parameters), [])
   defp do_parameters([], result), do: result
+  defp do_parameters([{name, ""}|tail], result),
+    do: do_parameters(tail, [";", name | result])
   defp do_parameters([{name, value}|tail], result),
     do: do_parameters(tail, [";", name, "=", value | result])
 

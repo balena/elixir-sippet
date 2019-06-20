@@ -265,4 +265,20 @@ defmodule Sippet.Message.Test do
     assert message == req |> to_string
   end
 
+  test "encoding empty rport" do
+    req =
+      """
+      INVITE sip:foo@bar.com SIP/2.0
+      Via: SIP/2.0/UDP 205.205.74.6:5060;rport;branch=z9hG4bK-26320-1-0
+      """ |> Message.parse!()
+
+    message =
+      "INVITE sip:foo@bar.com SIP/2.0\r\n" <>
+      "Via: SIP/2.0/UDP 205.205.74.6:5060;rport;branch=z9hG4bK-26320-1-0\r\n" <>
+      "Content-Length: 0\r\n" <>
+      "\r\n"
+
+    assert message == req |> to_string
+  end
+
 end
