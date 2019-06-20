@@ -1376,6 +1376,7 @@ defmodule Sippet.Message do
         :min_expires -> {"Min-Expires", true}
         :organization -> {"Organization", true}
         :priority -> {"Priority", true}
+        :p_asserted_identity -> {"P-Asserted-Identity", true}
         :proxy_authenticate -> {"Proxy-Authenticate", false}
         :proxy_authorization -> {"Proxy-Authorization", false}
         :proxy_require -> {"Proxy-Require", true}
