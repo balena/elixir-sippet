@@ -6,7 +6,7 @@ defmodule Sippet.Message do
       request =
         Sippet.Message.build_request("INVITE", "sip:joe@example.com")
         |> Sippet.Message.put_header(:to,
-            {"", Sippet.URI.parse("sip:joe@example.com"), %{}})
+            {"", Sippet.URI.parse!("sip:joe@example.com"), %{}})
         ...
   """
 
