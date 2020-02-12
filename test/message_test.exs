@@ -281,4 +281,22 @@ defmodule Sippet.Message.Test do
     assert message == req |> to_string
   end
 
+  test "parse request with body" do
+    raw_request = """
+    INVITE sip:bob@biloxi.com SIP/2.0
+    Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bK776asdhds
+
+    v=0
+    o=- 8789325071243167256 2 IN IP4 127.0.0.1
+    """
+
+    parsed_request = Message.parse!(raw_request)
+    expected_body = """
+    v=0
+    o=- 8789325071243167256 2 IN IP4 127.0.0.1
+    """
+
+    assert parsed_request.body == expected_body
+  end
+
 end
