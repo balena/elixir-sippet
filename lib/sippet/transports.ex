@@ -3,17 +3,23 @@ defmodule Sippet.Transports do
   The `Sippet.Transports` is responsible for the actual transmission of requests
   and responses over network transports.
 
-  Network transport protocols are implemented following the
-  `Sippet.Transports.Plug` behavior, and they are configured as:
+  Network transport protocols should be registered during initialization:
 
-      config :sippet, Sippet.Transports,
-        udp: Sippet.Transports.UDP.Plug
+      def init(_) do
+        Sippet.Transports.register_transport(:udp, false)
+        ...
+      end
 
-  Whenever a message is received by a plug, the `Sippet.Transports.Queue` is
-  used to process, validate and route it through the transaction layer or core.
+  Messages are dispatched to transports by sending the following message:
+
+      send(pid, {:send_message, message, host, port, transaction})
+
+  Whenever a message is received by a transport, the `Sippet.Transports.Queue`
+  should be used to process, validate and route messages through the
+  transaction layer or core.
   """
 
-  import Supervisor.Spec
+  use Supervisor
 
   alias Sippet.Message, as: Message
   alias Sippet.Message.RequestLine, as: RequestLine
@@ -21,52 +27,60 @@ defmodule Sippet.Transports do
   alias Sippet.Transports.Pool, as: Pool
   alias Sippet.URI, as: URI
 
+  require Logger
+
+  @doc false
+  def child_spec(_) do
+    %{
+      id: __MODULE__,
+      start: {__MODULE__, :start_link, []}
+    }
+  end
+
   @doc """
-  Starts the transport process hierarchy.
+  Starts the transport registry.
   """
-  @spec start_link() :: Supervisor.on_start
-  def start_link() do
-    children = [
-      Pool.spec() |
-      plugs_specs()
-    ]
+  @spec start_link() :: {:ok, pid} | {:error, term}
+  def start_link(),
+    do: Registry.start_link(keys: :unique, name: __MODULE__)
 
-    options = [
-      strategy: :one_for_one,
-      name: __MODULE__
-    ]
+  @doc """
+  Registers a transport for a given protocol.
+  """
+  @spec register_transport(atom, boolean) :: :ok | {:error, :already_registered}
+  def register_transport(protocol, reliable)
+      when is_atom(protocol) and is_boolean(reliable) do
+    case Registry.register(__MODULE__, protocol, reliable) do
+      {:ok, _} ->
+        :ok
 
-    Supervisor.start_link(children, options)
+      {:error, {:already_registered, _}} ->
+        {:error, :already_registered}
+    end
   end
-
-  defp plugs_specs() do
-    :sippet
-    |> Application.get_env(__MODULE__, [])
-    |> plugs_specs([])
-  end
-
-  defp plugs_specs([], result), do: result
-  defp plugs_specs([{_protocol, module} | rest], result),
-    do: plugs_specs(rest, [worker(module, []) | result])
 
   @doc """
   Sends a message to the network.
 
   If specified, the `transaction` will receive the transport error if occurs.
   See `Sippet.Transactions.receive_error/2`.
-
-  This function may block the caller temporarily due to resource constraints.
   """
   @spec send_message(Message.t, GenServer.server | nil) :: :ok
   def send_message(message, transaction \\ nil) do
     {protocol, host, port} = get_destination(message)
-    plug = protocol |> to_plug()
-    apply(plug, :send_message, [message, host, port, transaction])
+    case Registry.lookup(__MODULE__, protocol) do
+      [{pid, _}] ->
+        send(pid, {:send_message, message, host, port, transaction})
+
+        :ok
+
+      _ ->
+        raise ArgumentError, message: "protocol not registered"
+    end
   end
 
-  defp get_destination(%Message{target: target}) when is_tuple(target) do
-    target
-  end
+  defp get_destination(%Message{target: target}) when is_tuple(target),
+    do: target
 
   defp get_destination(%Message{start_line: %StatusLine{},
       headers: %{via: via}} = message) do
@@ -118,12 +132,6 @@ defmodule Sippet.Transports do
     {protocol, host, port}
   end
 
-  defp to_plug(protocol) do
-    :sippet
-    |> Application.get_env(Sippet.Transports)
-    |> Keyword.fetch!(protocol)
-  end
-
   @doc """
   Verifies if the transport protocol used to send the given message is
   reliable.
@@ -131,7 +139,12 @@ defmodule Sippet.Transports do
   @spec reliable?(Message.t) :: boolean
   def reliable?(%Message{headers: %{via: via}}) do
     {_version, protocol, _host_and_port, _params} = hd(via)
-    plug = protocol |> to_plug()
-    apply(plug, :reliable?, [])
+    case Registry.lookup(__MODULE__, protocol) do
+      [{_, reliable}] ->
+        reliable
+
+      _ ->
+        raise ArgumentError, message: "protocol not registered"
+    end
   end
 end
