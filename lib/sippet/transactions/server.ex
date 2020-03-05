@@ -1,9 +1,8 @@
 defmodule Sippet.Transactions.Server do
   @moduledoc false
 
-  alias Sippet.Message, as: Message
-  alias Sippet.Message.RequestLine, as: RequestLine
-  alias Sippet.Message.StatusLine, as: StatusLine
+  alias Sippet.Message
+  alias Sippet.Message.{RequestLine, StatusLine}
   alias Sippet.Transactions.Server.State, as: State
 
   def receive_request(server, %Message{start_line: %RequestLine{}} = request),
@@ -22,7 +21,7 @@ defmodule Sippet.Transactions.Server do
     quote location: :keep do
       use GenStateMachine, callback_mode: [:state_functions, :state_enter]
 
-      alias Sippet.Transactions.Server.State, as: State
+      alias Sippet.Transactions.Server.State
 
       require Logger
 
@@ -35,29 +34,30 @@ defmodule Sippet.Transactions.Server do
         {:ok, initial_state, data}
       end
 
-      defp send_response(response, %State{key: key} = data) do
+      defp send_response(response, %State{key: key, sippet: sippet} = data) do
         extras = data.extras |> Map.put(:last_response, response)
         data = %{data | extras: extras}
-        Sippet.Transports.send_message(response, key)
+        send(sippet, {:send_transport_message, response, key})
         data
       end
 
-      defp receive_request(request, %State{key: key, core: core}),
-        do: Sippet.Core.receive_request(core, request, key)
+      defp receive_request(request, %State{key: key, sippet: sippet}),
+        do: send(sippet, {:to_core, :receive_request, [request, key]})
 
-      def shutdown(reason, %State{key: key, core: core} = data) do
+      def shutdown(reason, %State{key: key, sippet: sippet} = data) do
         Logger.warn fn ->
           "server transaction #{inspect key} shutdown: #{reason}"
         end
 
-        Sippet.Core.receive_error(core, reason, key)
+        send(sippet, {:to_core, :receive_error, [reason, key]})
+
         {:stop, :shutdown, data}
       end
 
       def timeout(data),
         do: shutdown(:timeout, data)
 
-      defdelegate reliable?(request), to: Sippet.Transports
+      defdelegate reliable?(request), to: Sippet
 
       def unhandled_event(:cast, :terminate, %State{key: key} = data) do
         Logger.info fn ->

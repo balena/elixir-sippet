@@ -58,43 +58,6 @@ defmodule Sippet.Core do
             ) ::
               any
 
-  @doc """
-  Dispatches the received request to the registered `Sippet.Core`
-  implementation.
-  """
-  @spec receive_request(module | pid, Message.request(), Transactions.Server.t() | nil) :: any
-  def receive_request(core, incoming_request, server_key) when is_pid(core),
-    do: send(core, {:receive_request, incoming_request, server_key})
-
-  def receive_request(core, incoming_request, server_key) when is_atom(core),
-    do: apply(core, :receive_request, [incoming_request, server_key])
-
-  @doc """
-  Dispatches the received response to the registered `Sippet.Core`
-  implementation.
-  """
-  @spec receive_response(module | pid, Message.response(), Transactions.Client.t() | nil) :: any
-  def receive_response(core, incoming_response, client_key) when is_pid(core),
-    do: send(core, {:receive_response, incoming_response, client_key})
-
-  def receive_response(core, incoming_response, client_key) when is_atom(core),
-    do: apply(core, :receive_response, [incoming_response, client_key])
-
-  @doc """
-  Dispatches the network transport error to the registered `Sippet.Core`
-  implementation.
-  """
-  @spec receive_error(
-          module | pid,
-          reason :: term,
-          Transactions.Client.t() | Transactions.Server.t()
-        ) :: any
-  def receive_error(core, reason, client_or_server_key) when is_pid(core),
-    do: send(core, {:receive_error, reason, client_or_server_key})
-
-  def receive_error(core, reason, client_or_server_key) when is_atom(core),
-    do: apply(core, :receive_error, [reason, client_or_server_key])
-
   defmacro __using__(_opts) do
     quote location: :keep do
       @behaviour Sippet.Core

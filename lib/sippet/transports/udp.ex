@@ -12,8 +12,7 @@ defmodule Sippet.Transports.UDP do
 
   use GenServer
 
-  alias Sippet.{Message, Transactions, Transports}
-  alias Sippet.Transports.Receiver
+  alias Sippet.Message
 
   require Logger
 
@@ -21,7 +20,7 @@ defmodule Sippet.Transports.UDP do
             address: nil,
             family: :inet,
             port: 0,
-            core: nil
+            sippet: nil
 
   @doc """
   Send a message.
@@ -43,16 +42,20 @@ defmodule Sippet.Transports.UDP do
   Starts the UDP transport.
   """
   def start_link(args) when is_list(args) do
-    if not Keyword.has_key?(args, :core) do
-      raise ArgumentError, message: "missing the core argument"
+    if not Keyword.has_key?(args, :sippet) do
+      raise ArgumentError, message: "missing the sippet argument"
     end
 
     args =
       args
       |> Enum.flat_map(fn
-        {:port, port} -> parse_port(port)
-        {:address, address} -> parse_address(address)
-        {:core, core} -> {:core, core}
+        {:port, port} ->
+          parse_port(port)
+
+        {:address, address} ->
+          parse_address(address)
+
+        {:sippet, _} = tuple -> tuple
       end)
 
     GenServer.start_link(__MODULE__, args, name: __MODULE__)
@@ -84,7 +87,7 @@ defmodule Sippet.Transports.UDP do
 
   @impl true
   def init(args) do
-    Transports.register_transport(:udp, false)
+    Sippet.register_transport(:udp, false)
 
     {:ok, nil, {:continue, args}}
   end
@@ -108,7 +111,7 @@ defmodule Sippet.Transports.UDP do
           address: address,
           family: if(:inet6 in opts, do: :inet6, else: :inet),
           port: port,
-          core: args[:core]
+          sippet: args[:sippet]
         }
 
         {:noreply, state}
@@ -126,15 +129,15 @@ defmodule Sippet.Transports.UDP do
   end
 
   @impl true
-  def handle_info({:udp, _socket, ip, from_port, packet}, %{core: core} = state) do
-    Receiver.receive_raw(packet, {:udp, ip, from_port}, core)
+  def handle_info({:udp, _socket, ip, from_port, packet}, %{sippet: sippet} = state) do
+    Sippet.handle_transport_message(sippet, packet, {:udp, ip, from_port})
 
     {:noreply, state}
   end
 
   def handle_info(
         {:send_message, message, host, port, key},
-        %{socket: socket, family: family} = state
+        %{socket: socket, family: family, sippet: sippet} = state
       ) do
     with {:ok, ip} <- resolve_name(host, family),
          iodata <- Message.to_iodata(message),
@@ -148,7 +151,7 @@ defmodule Sippet.Transports.UDP do
         end)
 
         if key != nil do
-          Transactions.receive_error(key, reason)
+          send(sippet, {:receive_transport_error, key, reason})
         end
     end
 

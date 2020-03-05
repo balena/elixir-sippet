@@ -31,25 +31,26 @@ defmodule Sippet.Transactions.Client do
         {:ok, initial_state, data}
       end
 
-      defp send_request(request, %State{key: key} = data),
-        do: Sippet.Transports.send_message(request, key)
+      defp send_request(request, %State{key: key, sippet: sippet} = data),
+        do: send(sippet, {:send_transport_message, request, key})
 
-      defp receive_response(response, %State{key: key, core: core} = data),
-        do: Sippet.Core.receive_response(core, response, key)
+      defp receive_response(response, %State{key: key, sippet: sippet} = data),
+        do: send(sippet, {:to_core, :receive_response, [response, key]})
 
-      def shutdown(reason, %State{key: key, core: core} = data) do
+      def shutdown(reason, %State{key: key, sippet: sippet} = data) do
         Logger.warn fn ->
           "client transaction #{inspect key} shutdown: #{reason}"
         end
 
-        Sippet.Core.receive_error(core, reason, key)
+        send(sippet, {:to_core, :receive_error, [reason, key]})
+
         {:stop, :shutdown, data}
       end
 
       def timeout(%State{} = data),
         do: shutdown(:timeout, data)
 
-      defdelegate reliable?(request), to: Sippet.Transports
+      defdelegate reliable?(request), to: Sippet
 
       def unhandled_event(:cast, :terminate, %State{key: key} = data) do
         Logger.info fn ->

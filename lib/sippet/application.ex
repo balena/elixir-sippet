@@ -4,7 +4,10 @@ defmodule Sippet.Application do
   use Application
 
   def start(_type, _args) do
-    Sippet.Transports.start_link()
-    Sippet.Transactions.start_link()
+    children = [
+      {Registry, [name: Sippet.Registry, keys: :unique, partitions: System.schedulers_online()]}
+    ]
+
+    Supervisor.start_link(children, strategy: :one_for_one)
   end
 end

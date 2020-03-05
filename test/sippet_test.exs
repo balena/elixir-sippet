@@ -1,15 +1,11 @@
-defmodule Sippet.Transports.Receiver.Test do
+defmodule Sippet.Test do
   use ExUnit.Case, async: false
-
-  alias Sippet.Transports.Receiver
 
   import Mock
 
   test "incoming datagram, empty body" do
-    with_mock Sippet.Transactions,
-      receive_message: fn %{body: body}, _ ->
-        assert body == ""
-      end do
+    with_mock GenServer,
+      call: fn _, {_, %{body: body}} -> assert body == "" end do
       from = {:tls, {10, 10, 1, 1}, 5060}
 
       packet = """
@@ -24,9 +20,9 @@ defmodule Sippet.Transports.Receiver.Test do
       Content-Length: 0
       """
 
-      :ok = Receiver.receive_raw(packet, from, self())
+      Sippet.handle_transport_message(self(), packet, from)
 
-      assert called(Sippet.Transactions.receive_message(:_, self()))
+      assert called(GenServer.call(self(), {:receive_transport_message, :_}))
     end
   end
 
@@ -41,8 +37,8 @@ defmodule Sippet.Transports.Receiver.Test do
   """
 
   test "incoming datagram, with body" do
-    with_mock Sippet.Transactions,
-      receive_message: fn %{body: body}, _ ->
+    with_mock GenServer,
+      call: fn _, {_, %{body: body}} ->
         assert body == @test_body
       end do
       from = {:tcp, "10.0.0.73", 12335}
@@ -62,17 +58,14 @@ defmodule Sippet.Transports.Receiver.Test do
 
         """ <> @test_body
 
-      :ok = Receiver.receive_raw(packet, from, self())
+      Sippet.handle_transport_message(self(), packet, from)
 
-      assert called(Sippet.Transactions.receive_message(:_, self()))
+      assert called(GenServer.call(self(), {:receive_transport_message, :_}))
     end
   end
 
   test "missing required headers" do
-    with_mock Sippet.Transactions,
-      receive_message: fn msg, _ ->
-        assert msg.body == @test_body
-      end do
+    with_mock GenServer, call: fn _, _ -> :ok end do
       from = {:tcp, "10.0.0.73", 12335}
 
       packet = """
@@ -85,26 +78,23 @@ defmodule Sippet.Transports.Receiver.Test do
       Content-Length: 0
       """
 
-      :ok = Receiver.receive_raw(packet, from, self())
+      Sippet.handle_transport_message(self(), packet, from)
 
-      assert not called(Sippet.Transactions.receive_message(:_, self()))
+      assert not called(GenServer.call(:_, :_))
     end
   end
 
   test "invalid message" do
-    with_mock Sippet.Transactions,
-      receive_message: fn msg, _ ->
-        assert msg.body == @test_body
-      end do
+    with_mock GenServer, call: fn _, _ -> :ok end do
       from = {:tcp, "10.0.0.73", 12335}
 
       packet = """
       REGISTER SIP/2.0
       """
 
-      :ok = Receiver.receive_raw(packet, from, self())
+      Sippet.handle_transport_message(self(), packet, from)
 
-      assert not called(Sippet.Transactions.receive_message(:_, self()))
+      assert not called(GenServer.call(:_, :_))
     end
   end
 end

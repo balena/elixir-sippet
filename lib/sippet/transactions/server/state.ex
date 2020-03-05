@@ -11,13 +11,13 @@ defmodule Sippet.Transactions.Server.State do
   @type t :: [
           request: Message.request(),
           key: key,
-          core: module | pid,
+          sippet: module | pid,
           extras: %{}
         ]
 
   defstruct request: nil,
             key: nil,
-            core: nil,
+            sippet: nil,
             extras: %{}
 
   @doc """
@@ -26,13 +26,13 @@ defmodule Sippet.Transactions.Server.State do
   def new(
         %Message{start_line: %RequestLine{}} = incoming_request,
         %Transactions.Server.Key{} = key,
-        core
+        sippet
       )
-      when is_pid(core) or is_atom(core) do
+      when is_pid(sippet) or is_atom(sippet) do
     %__MODULE__{
       request: incoming_request,
       key: key,
-      core: core
+      sippet: sippet
     }
   end
 end

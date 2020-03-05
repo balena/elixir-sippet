@@ -15,8 +15,12 @@ defmodule Sippet.Transactions.Server.Invite do
 
   def init(%State{key: key} = data) do
     # add an alias for incoming ACK requests for status codes != 200
-    %{key | method: :ack}
-    |> Sippet.Transactions.Registry.register_alias()
+    Registry.register(
+      Sippet.Registry,
+      {:transaction, %{key | method: :ack}},
+      nil
+    )
+
     super(data)
   end
 
