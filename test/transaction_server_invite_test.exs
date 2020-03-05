@@ -35,7 +35,7 @@ defmodule Sippet.Transactions.Server.Invite.Test do
       |> Message.parse!()
 
     transaction = Server.Key.new(request)
-    data = State.new(request, transaction)
+    data = State.new(request, transaction, self())
 
     {:ok, %{request: request, transaction: transaction, data: data}}
   end
@@ -53,8 +53,8 @@ defmodule Sippet.Transactions.Server.Invite.Test do
           [send_message: fn _, _ -> :ok end,
            reliable?: fn _ -> false end]},
         {Sippet.Core, [],
-          [receive_request: fn _, _ -> :ok end,
-           receive_error: fn _, _ -> :ok end]}]) do
+          [receive_request: fn _, _, _ -> :ok end,
+           receive_error: fn _, _, _ -> :ok end]}]) do
 
       # test if the retry timer has been started for unreliable transports, and
       # if the received request is sent to the core
@@ -65,7 +65,7 @@ defmodule Sippet.Transactions.Server.Invite.Test do
       # automatically
       assert action_timeout actions, 200
 
-      assert called Sippet.Core.receive_request(request, transaction)
+      assert called Sippet.Core.receive_request(self(), request, transaction)
 
       # case another request is sent before this 200ms timer, then no response
       # is sent

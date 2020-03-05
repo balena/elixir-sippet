@@ -6,25 +6,22 @@ defmodule Sippet.Transports.UDP do
   process, this implementation itself.
 
   This process creates an UDP socket and keeps listening for datagrams in
-  active mode. Its job is to forward the datagrams to the processing pool
-  defined in `Sippet.Transports.Queue`. The sender processes pool keeps waiting
-  for SIP messages (as defined by `Sippet.Message`), transforms them into
-  iodata and dispatch them to the same UDP socket created by this process.
+  active mode. Its job is to forward the datagrams to the processing receiver
+  defined in `Sippet.Transports.Receiver`.
   """
 
   use GenServer
 
-  alias Sippet.Transports
-  alias Sippet.Transports.Queue
+  alias Sippet.{Message, Transactions, Transports}
+  alias Sippet.Transports.Receiver
 
   require Logger
 
-  defstruct [
-    socket: nil,
-    address: nil,
-    family: :inet,
-    port: 0
-  ]
+  defstruct socket: nil,
+            address: nil,
+            family: :inet,
+            port: 0,
+            core: nil
 
   @doc """
   Send a message.
@@ -35,7 +32,7 @@ defmodule Sippet.Transports.UDP do
   def send_message(message, host, port, key) do
     case Process.whereis(__MODULE__) do
       nil ->
-        raise RuntimeError, message: "#{inspect __MODULE__} was not started"
+        raise RuntimeError, message: "#{inspect(__MODULE__)} was not started"
 
       pid ->
         send(pid, {:send_message, message, host, port, key})
@@ -46,11 +43,16 @@ defmodule Sippet.Transports.UDP do
   Starts the UDP transport.
   """
   def start_link(args) when is_list(args) do
+    if not Keyword.has_key?(args, :core) do
+      raise ArgumentError, message: "missing the core argument"
+    end
+
     args =
       args
       |> Enum.flat_map(fn
         {:port, port} -> parse_port(port)
         {:address, address} -> parse_address(address)
+        {:core, core} -> {:core, core}
       end)
 
     GenServer.start_link(__MODULE__, args, name: __MODULE__)
@@ -64,13 +66,13 @@ defmodule Sippet.Transports.UDP do
     do: parse_address({address, :inet})
 
   defp parse_address({family, address})
-      when family in [:inet, :inet6] and is_binary(address) do
+       when family in [:inet, :inet6] and is_binary(address) do
     case resolve_name(address, family) do
       {:ok, ip} ->
         [sock_opts: [{:ip, ip}, family]]
 
       {:error, reason} ->
-        raise ArgumentError, message: "address error #{inspect reason}"
+        raise ArgumentError, message: "address error #{inspect(reason)}"
     end
   end
 
@@ -105,7 +107,8 @@ defmodule Sippet.Transports.UDP do
           socket: socket,
           address: address,
           family: if(:inet6 in opts, do: :inet6, else: :inet),
-          port: port
+          port: port,
+          core: args[:core]
         }
 
         {:noreply, state}
@@ -123,22 +126,27 @@ defmodule Sippet.Transports.UDP do
   end
 
   @impl true
-  def handle_info({:udp, _socket, ip, from_port, packet}, state) do
-    Queue.incoming_datagram(packet, {:udp, ip, from_port})
+  def handle_info({:udp, _socket, ip, from_port, packet}, %{core: core} = state) do
+    Receiver.receive_raw(packet, {:udp, ip, from_port}, core)
 
     {:noreply, state}
   end
 
-  def handle_info({:send_message, message, host, port, key},
-      %{socket: socket, family: family} = state) do
+  def handle_info(
+        {:send_message, message, host, port, key},
+        %{socket: socket, family: family} = state
+      ) do
     with {:ok, ip} <- resolve_name(host, family),
-         iodata <- Message.to_iodata(message)
+         iodata <- Message.to_iodata(message),
          :ok <- :gen_udp.send(socket, {ip, port}, iodata) do
       :ok
     else
       {:error, reason} ->
-        Logger.warn(fn -> "#{inspect self()} udp sender error for " <>
-                          "#{host}:#{port}: #{inspect reason}" end)
+        Logger.warn(fn ->
+          "#{inspect(self())} udp transport error for " <>
+            "#{host}:#{port}: #{inspect(reason)}"
+        end)
+
         if key != nil do
           Transactions.receive_error(key, reason)
         end
@@ -147,7 +155,7 @@ defmodule Sippet.Transports.UDP do
     {:noreply, state}
   end
 
-  @impl false
+  @impl true
   def terminate(reason, {socket, address, port}) do
     Logger.info(
       "#{inspect(self())} stopped transport " <>

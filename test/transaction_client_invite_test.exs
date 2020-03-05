@@ -36,7 +36,7 @@ defmodule Sippet.Transactions.Client.Invite.Test do
       |> Message.parse!()
 
     transaction = Client.Key.new(request)
-    state = State.new(request, transaction)
+    state = State.new(request, transaction, self())
 
     {:ok, %{request: request, transaction: transaction, state: state}}
   end
@@ -92,7 +92,7 @@ defmodule Sippet.Transactions.Client.Invite.Test do
 
     # test timeout and errors
     with_mock Sippet.Core,
-        [receive_error: fn _, _ -> :ok end] do
+        [receive_error: fn _, _, _ -> :ok end] do
       {:stop, :shutdown, _data} =
         Invite.calling(:state_timeout, {6000, 64 * 600}, state)
 
@@ -103,7 +103,7 @@ defmodule Sippet.Transactions.Client.Invite.Test do
     # test state transitions that depend on the reception of responses with
     # different status codes
     with_mock Sippet.Core,
-        [receive_response: fn _, _ -> :ok end] do
+        [receive_response: fn _, _, _ -> :ok end] do
       response = Message.to_response(request, 100)
       {:next_state, :proceeding, _data} =
         Invite.calling(:cast, {:incoming_response, response}, state)
@@ -122,7 +122,7 @@ defmodule Sippet.Transactions.Client.Invite.Test do
       %{request: request, state: state} do
     # check state transitions depending on the received responses
     with_mock Sippet.Core,
-        [receive_response: fn _, _ -> :ok end] do
+        [receive_response: fn _, _, _ -> :ok end] do
 
       :keep_state_and_data = Invite.proceeding(:enter, :calling, state)
 
@@ -141,7 +141,7 @@ defmodule Sippet.Transactions.Client.Invite.Test do
 
     # this is not part of the standard, but may occur in exceptional cases
     with_mock Sippet.Core,
-        [receive_error: fn _, _ -> :ok end] do
+        [receive_error: fn _, _, _ -> :ok end] do
       {:stop, :shutdown, _data} =
         Invite.proceeding(:cast, {:error, :uh_oh}, state)
     end

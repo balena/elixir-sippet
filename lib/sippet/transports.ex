@@ -14,17 +14,14 @@ defmodule Sippet.Transports do
 
       send(pid, {:send_message, message, host, port, transaction})
 
-  Whenever a message is received by a transport, the `Sippet.Transports.Queue`
-  should be used to process, validate and route messages through the
-  transaction layer or core.
+  Whenever a message is received by a transport, the
+  `Sippet.Transports.Receiver` should be used to process, validate and route
+  messages through the transaction layer or send directly to the core.
   """
-
-  use Supervisor
 
   alias Sippet.Message, as: Message
   alias Sippet.Message.RequestLine, as: RequestLine
   alias Sippet.Message.StatusLine, as: StatusLine
-  alias Sippet.Transports.Pool, as: Pool
   alias Sippet.URI, as: URI
 
   require Logger
@@ -42,7 +39,7 @@ defmodule Sippet.Transports do
   """
   @spec start_link() :: {:ok, pid} | {:error, term}
   def start_link(),
-    do: Registry.start_link(keys: :unique, name: __MODULE__)
+    do: Registry.start_link(keys: :unique, name: __MODULE__.Registry)
 
   @doc """
   Registers a transport for a given protocol.
@@ -50,7 +47,7 @@ defmodule Sippet.Transports do
   @spec register_transport(atom, boolean) :: :ok | {:error, :already_registered}
   def register_transport(protocol, reliable)
       when is_atom(protocol) and is_boolean(reliable) do
-    case Registry.register(__MODULE__, protocol, reliable) do
+    case Registry.register(__MODULE__.Registry, protocol, reliable) do
       {:ok, _} ->
         :ok
 
@@ -68,7 +65,7 @@ defmodule Sippet.Transports do
   @spec send_message(Message.t, GenServer.server | nil) :: :ok
   def send_message(message, transaction \\ nil) do
     {protocol, host, port} = get_destination(message)
-    case Registry.lookup(__MODULE__, protocol) do
+    case Registry.lookup(__MODULE__.Registry, protocol) do
       [{pid, _}] ->
         send(pid, {:send_message, message, host, port, transaction})
 
@@ -139,7 +136,7 @@ defmodule Sippet.Transports do
   @spec reliable?(Message.t) :: boolean
   def reliable?(%Message{headers: %{via: via}}) do
     {_version, protocol, _host_and_port, _params} = hd(via)
-    case Registry.lookup(__MODULE__, protocol) do
+    case Registry.lookup(__MODULE__.Registry, protocol) do
       [{_, reliable}] ->
         reliable
 

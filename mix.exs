@@ -6,7 +6,7 @@ defmodule Sippet.Mixfile do
   def project do
     [app: :sippet,
      version: @version,
-     elixir: "~> 1.8",
+     elixir: "~> 1.9",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
      compilers: [:make] ++ Mix.compilers, # Add the make compiler
@@ -35,13 +35,11 @@ defmodule Sippet.Mixfile do
   end
 
   def application do
-    [applications: [:logger, :gen_state_machine, :poolboy],
-     mod: {Sippet.Application, []}]
+    [applications: [:logger, :gen_state_machine]]
   end
 
   defp deps do
     [{:gen_state_machine, "~> 2.0"},
-     {:poolboy, "~> 1.5"},
 
      # Docs dependencies
      {:ex_doc, "~> 0.19.3", only: :dev, runtime: false},

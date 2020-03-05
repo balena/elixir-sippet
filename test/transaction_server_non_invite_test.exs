@@ -36,7 +36,7 @@ defmodule Sippet.Transactions.Server.NonInvite.Test do
       |> Message.parse!()
 
     transaction = Server.Key.new(request)
-    data = State.new(request, transaction)
+    data = State.new(request, transaction, self())
 
     {:ok, %{request: request, transaction: transaction, data: data}}
   end
@@ -48,21 +48,21 @@ defmodule Sippet.Transactions.Server.NonInvite.Test do
           [send_message: fn _, _ -> :ok end,
            reliable?: fn _ -> false end]},
         {Sippet.Core, [],
-          [receive_request: fn _, _ -> :ok end,
-           receive_error: fn _, _ -> :ok end]}]) do
+          [receive_request: fn _, _, _ -> :ok end,
+           receive_error: fn _, _, _ -> :ok end]}]) do
 
       # the core will have up to 4 seconds to answer the incoming request
       :keep_state_and_data =
           NonInvite.trying(:enter, :none, data)
 
-      assert called Sippet.Core.receive_request(request, transaction)
+      assert called Sippet.Core.receive_request(self(), request, transaction)
     end
 
     # error conditions are timeout and network errors
-    with_mock Sippet.Core, [receive_error: fn _, _ -> :ok end] do
+    with_mock Sippet.Core, [receive_error: fn _, _, _ -> :ok end] do
       {:stop, :shutdown, _data} =
           NonInvite.trying(:cast, {:error, :uh_oh}, data)
-      assert called Sippet.Core.receive_error(:uh_oh, transaction)
+      assert called Sippet.Core.receive_error(self(), :uh_oh, transaction)
     end
 
     # while in trying state, there's no answer, so no retransmission is made

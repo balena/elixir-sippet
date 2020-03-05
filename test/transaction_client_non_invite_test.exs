@@ -50,7 +50,7 @@ defmodule Sippet.Transactions.Client.NonInvite.Test do
       |> Message.parse!()
 
     transaction = Client.Key.new(request)
-    state = State.new(request, transaction)
+    state = State.new(request, transaction, self())
 
     {:ok, %{request: request, transaction: transaction, state: state}}
   end
@@ -69,8 +69,8 @@ defmodule Sippet.Transactions.Client.NonInvite.Test do
           [send_message: fn _, _ -> :ok end,
            reliable?: fn _ -> false end]},
         {Sippet.Core, [],
-          [receive_response: fn _, _ -> :ok end,
-           receive_error: fn _, _ -> :ok end]}]) do
+          [receive_response: fn _, _, _ -> :ok end,
+           receive_error: fn _, _, _ -> :ok end]}]) do
 
       {:keep_state, data} =
           NonInvite.trying(:enter, :none, state)
@@ -94,7 +94,7 @@ defmodule Sippet.Transactions.Client.NonInvite.Test do
       {:stop, :shutdown, _data} =
           NonInvite.trying(:info, :deadline, data)
 
-      assert called Sippet.Core.receive_error(:timeout, transaction)
+      assert called Sippet.Core.receive_error(self(), :timeout, transaction)
 
       # in the transition to the proceeding state, the timers aren't stopped
       last_response = Message.to_response(request, 100)

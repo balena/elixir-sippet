@@ -10,6 +10,14 @@ defmodule Sippet.Transactions.Registry do
 
   @type server_key :: Transactions.Server.Key.t
 
+  @doc false
+  def child_spec(_) do
+    %{
+      id: __MODULE__,
+      start: {__MODULE__, :start_link, []}
+    }
+  end
+
   @doc """
   Starts the transactions registry.
 

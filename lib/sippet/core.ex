@@ -21,9 +21,11 @@ defmodule Sippet.Core do
   transport process (possibly a `poolboy` worker process), when the
   `server_key` is `nil`.
   """
-  @callback receive_request(incoming_request :: Message.request,
-                            server_key :: Transactions.Server.t | nil)
-                            :: any
+  @callback receive_request(
+              incoming_request :: Message.request(),
+              server_key :: Transactions.Server.t() | nil
+            ) ::
+              any
 
   @doc """
   Receives a response for a sent request.
@@ -36,9 +38,11 @@ defmodule Sippet.Core do
   transport process (possibly a `poolboy` worker process), when the
   `client_key` is `nil`.
   """
-  @callback receive_response(incoming_response :: Message.response,
-                             client_key :: Transactions.Client.t | nil)
-                             :: any
+  @callback receive_response(
+              incoming_response :: Message.response(),
+              client_key :: Transactions.Client.t() | nil
+            ) ::
+              any
 
   @doc """
   Receives an error from the server or client transaction.
@@ -46,51 +50,50 @@ defmodule Sippet.Core do
   The function `receive_error/2` is called from the client or server
   transaction process created when sending or receiving requests.
   """
-  @callback receive_error(reason :: term,
-                          client_or_server_key ::
-                              Transactions.Client.t |
-                              Transactions.Server.t)
-                          :: any
+  @callback receive_error(
+              reason :: term,
+              client_or_server_key ::
+                Transactions.Client.t()
+                | Transactions.Server.t()
+            ) ::
+              any
 
   @doc """
   Dispatches the received request to the registered `Sippet.Core`
   implementation.
   """
-  @spec receive_request(Message.request, Transactions.Server.t | nil) :: any
-  def receive_request(incoming_request, server_key) do
-    args = [incoming_request, server_key]
-    apply(get_module!(), :receive_request, args)
-  end
+  @spec receive_request(module | pid, Message.request(), Transactions.Server.t() | nil) :: any
+  def receive_request(core, incoming_request, server_key) when is_pid(core),
+    do: send(core, {:receive_request, incoming_request, server_key})
 
-  defp get_module!() do
-    module = Application.get_env(:sippet, __MODULE__)
-    if module == nil do
-      raise RuntimeError, message: "Sippet.Core is not registered"
-    else
-      module
-    end
-  end
+  def receive_request(core, incoming_request, server_key) when is_atom(core),
+    do: apply(core, :receive_request, [incoming_request, server_key])
 
   @doc """
   Dispatches the received response to the registered `Sippet.Core`
   implementation.
   """
-  @spec receive_response(Message.response, Transactions.Client.t | nil) :: any
-  def receive_response(incoming_response, client_key) do
-    args = [incoming_response, client_key]
-    apply(get_module!(), :receive_response, args)
-  end
+  @spec receive_response(module | pid, Message.response(), Transactions.Client.t() | nil) :: any
+  def receive_response(core, incoming_response, client_key) when is_pid(core),
+    do: send(core, {:receive_response, incoming_response, client_key})
+
+  def receive_response(core, incoming_response, client_key) when is_atom(core),
+    do: apply(core, :receive_response, [incoming_response, client_key])
 
   @doc """
   Dispatches the network transport error to the registered `Sippet.Core`
   implementation.
   """
-  @spec receive_error(reason :: term,
-                      Transactions.Client.t | Transactions.Server.t) :: any
-  def receive_error(reason, client_or_server_key) do
-    args = [reason, client_or_server_key]
-    apply(get_module!(), :receive_error, args)
-  end
+  @spec receive_error(
+          module | pid,
+          reason :: term,
+          Transactions.Client.t() | Transactions.Server.t()
+        ) :: any
+  def receive_error(core, reason, client_or_server_key) when is_pid(core),
+    do: send(core, {:receive_error, reason, client_or_server_key})
+
+  def receive_error(core, reason, client_or_server_key) when is_atom(core),
+    do: apply(core, :receive_error, [reason, client_or_server_key])
 
   defmacro __using__(_opts) do
     quote location: :keep do

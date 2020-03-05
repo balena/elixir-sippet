@@ -42,15 +42,15 @@ defmodule Sippet.Transactions.Server do
         data
       end
 
-      defp receive_request(request, %State{key: key}),
-        do: Sippet.Core.receive_request(request, key)
+      defp receive_request(request, %State{key: key, core: core}),
+        do: Sippet.Core.receive_request(core, request, key)
 
-      def shutdown(reason, %State{key: key} = data) do
+      def shutdown(reason, %State{key: key, core: core} = data) do
         Logger.warn fn ->
           "server transaction #{inspect key} shutdown: #{reason}"
         end
 
-        Sippet.Core.receive_error(reason, key)
+        Sippet.Core.receive_error(core, reason, key)
         {:stop, :shutdown, data}
       end
 

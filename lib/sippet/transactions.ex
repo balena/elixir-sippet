@@ -5,7 +5,7 @@ defmodule Sippet.Transactions do
   necessary.
   """
 
-  import Supervisor.Spec
+  import Sippet.Transactions.Registry, only: [via_tuple: 1]
 
   alias Sippet.Message, as: Message
   alias Sippet.Message.RequestLine, as: RequestLine
@@ -16,39 +16,30 @@ defmodule Sippet.Transactions do
   require Logger
 
   @typedoc "A SIP message request"
-  @type request :: Message.request
+  @type request :: Message.request()
 
   @typedoc "A SIP message response"
-  @type response :: Message.response
+  @type response :: Message.response()
 
   @typedoc "An network error that occurred while sending a message"
   @type reason :: term
 
   @typedoc "A client transaction identifier"
-  @type client_key :: Transactions.Client.Key.t
+  @type client_key :: Transactions.Client.Key.t()
 
   @typedoc "A server transaction identifier"
-  @type server_key :: Transactions.Server.Key.t
+  @type server_key :: Transactions.Server.Key.t()
 
   @doc """
   Starts the transaction process hierarchy.
   """
   def start_link() do
     children = [
-      supervisor(Sippet.Transactions.Registry, []),
-      supervisor(Sippet.Transactions.Supervisor, [])
+      Sippet.Transactions.Registry
     ]
 
-    options = [strategy: :one_for_one, name: __MODULE__]
-
-    Supervisor.start_link(children, options)
+    Supervisor.start_link(children, strategy: :one_for_one, name: __MODULE__)
   end
-
-  defdelegate start_client(transaction, outgoing_request),
-    to: Sippet.Transactions.Supervisor
-
-  defdelegate start_server(transaction, incoming_request),
-    to: Sippet.Transactions.Supervisor
 
   @doc """
   Receives a message from the transport.
@@ -70,9 +61,11 @@ defmodule Sippet.Transactions do
 
   In case of success, returns `:ok`.
   """
-  @spec receive_message(request | response) :: :ok | {:error, reason}
+  @spec receive_message(request | response, pid | module) :: :ok | {:error, reason}
   def receive_message(
-      %Message{start_line: %RequestLine{}} = incoming_request) do
+        %Message{start_line: %RequestLine{}} = incoming_request,
+        core
+      ) do
     transaction = Transactions.Server.Key.new(incoming_request)
 
     case Sippet.Transactions.Registry.lookup(transaction) do
@@ -80,17 +73,18 @@ defmodule Sippet.Transactions do
         if incoming_request.start_line.method == :ack do
           # Redirect to the core directly. ACKs sent out of transactions
           # pertain to the core.
-          Core.receive_request(incoming_request, nil)
+          Core.receive_request(core, incoming_request, nil)
         else
           # Start a new server transaction now. The transaction will redirect
           # to the core once it starts. It will return errors only if there was
           # some kind of race condition when receiving the request.
-          case start_server(transaction, incoming_request) do
+          case start_server(transaction, incoming_request, core) do
             {:ok, _} -> :ok
             {:ok, _, _} -> :ok
             _errors -> {:error, :already_started}
           end
         end
+
       pid ->
         # Redirect the request to the existing transaction. These are tipically
         # retransmissions or ACKs for 200 OK responses.
@@ -98,8 +92,7 @@ defmodule Sippet.Transactions do
     end
   end
 
-  def receive_message(
-      %Message{start_line: %StatusLine{}} = incoming_response) do
+  def receive_message(%Message{start_line: %StatusLine{}} = incoming_response, core) do
     transaction = Transactions.Client.Key.new(incoming_response)
 
     case Sippet.Transactions.Registry.lookup(transaction) do
@@ -107,7 +100,8 @@ defmodule Sippet.Transactions do
         # Redirect the response to core. These are tipically retransmissions of
         # 200 OK for sent INVITE requests, and they have to be handled directly
         # by the core in order to catch the correct media handling.
-        Core.receive_response(incoming_response, nil)
+        Core.receive_response(core, incoming_response, nil)
+
       pid ->
         # Redirect the response to the existing client transaction. If needed,
         # the client transaction will redirect to the core from there.
@@ -128,25 +122,31 @@ defmodule Sippet.Transactions do
 
   In case of success, returns `:ok`.
   """
-  @spec send_request(request) :: :ok | {:error, reason}
-  def send_request(%Message{start_line: %RequestLine{method: :ack}}) do
+  @spec send_request(request, module | pid) :: :ok | {:error, reason}
+  def send_request(%Message{start_line: %RequestLine{method: :ack}}, _core) do
     # ACKs should be sent directly to transport.
     Logger.error("ACKs are not allowed to use transactions")
+
     {:error, :not_allowed}
   end
 
-  def send_request(%Message{start_line: %RequestLine{}} = outgoing_request) do
+  def send_request(%Message{start_line: %RequestLine{}} = outgoing_request, core) do
     transaction = Transactions.Client.Key.new(outgoing_request)
 
     # Create a new client transaction now. The request is passed to the
     # transport once it starts.
-    case start_client(transaction, outgoing_request) do
-      {:ok, _} -> {:ok, transaction}
-      {:ok, _, _} -> {:ok, transaction}
+    case start_client(transaction, outgoing_request, core) do
+      {:ok, _} ->
+        {:ok, transaction}
+
+      {:ok, _, _} ->
+        {:ok, transaction}
+
       _errors ->
-        Logger.warn fn ->
+        Logger.warn(fn ->
           "client transaction #{transaction} already exists"
-        end
+        end)
+
         {:error, :already_started}
     end
   end
@@ -176,11 +176,14 @@ defmodule Sippet.Transactions do
   In case of success, returns `:ok`.
   """
   @spec send_response(response, server_key) :: :ok | {:error, reason}
-  def send_response(%Message{start_line: %StatusLine{}} = outgoing_response,
-                    %Transactions.Server.Key{} = server_key) do
+  def send_response(
+        %Message{start_line: %StatusLine{}} = outgoing_response,
+        %Transactions.Server.Key{} = server_key
+      ) do
     case Sippet.Transactions.Registry.lookup(server_key) do
       nil ->
         {:error, :no_transaction}
+
       pid ->
         # Send the response through the existing server transaction.
         Transactions.Server.send_response(pid, outgoing_response)
@@ -202,20 +205,24 @@ defmodule Sippet.Transactions do
       nil ->
         case key do
           %Transactions.Client.Key{} ->
-            Logger.warn fn ->
-              "client key #{inspect key} not found"
-            end
+            Logger.warn(fn ->
+              "client key #{inspect(key)} not found"
+            end)
+
           %Transactions.Server.Key{} ->
-            Logger.warn fn ->
-              "server key #{inspect key} not found"
-            end
+            Logger.warn(fn ->
+              "server key #{inspect(key)} not found"
+            end)
         end
+
         :ok
+
       pid ->
         # Send the response through the existing server key.
         case key do
           %Transactions.Client.Key{} ->
             Transactions.Client.receive_error(pid, reason)
+
           %Transactions.Server.Key{} ->
             Transactions.Server.receive_error(pid, reason)
         end
@@ -237,11 +244,13 @@ defmodule Sippet.Transactions do
     case Sippet.Transactions.Registry.lookup(key) do
       nil ->
         :ok
+
       pid ->
         # Send the response through the existing server key.
         case key do
           %Transactions.Client.Key{} ->
             Transactions.Client.terminate(pid)
+
           %Transactions.Server.Key{} ->
             Transactions.Server.terminate(pid)
         end
@@ -275,11 +284,48 @@ defmodule Sippet.Transactions do
     case String.split(string, "|") do
       [branch, method] ->
         Transactions.Client.Key.new(branch, sigil_to_method(method))
+
       [branch, method, sentby] ->
         [host, port] = String.split(sentby, ":")
-        Transactions.Server.Key.new(branch, sigil_to_method(method),
-                                    {host, String.to_integer(port)})
+
+        Transactions.Server.Key.new(
+          branch,
+          sigil_to_method(method),
+          {host, String.to_integer(port)}
+        )
     end
+  end
+
+  defp start_client(
+        %Transactions.Client.Key{} = key,
+        %Message{start_line: %RequestLine{}} = outgoing_request,
+        core
+      ) do
+    module =
+      case key.method do
+        :invite -> Transactions.Client.Invite
+        _otherwise -> Transactions.Client.NonInvite
+      end
+
+    initial_data = Transactions.Client.State.new(outgoing_request, key, core)
+
+    Supervisor.start_child(__MODULE__, {module, [initial_data, [name: via_tuple(key)]]})
+  end
+
+  def start_server(
+        %Transactions.Server.Key{} = key,
+        %Message{start_line: %RequestLine{}} = incoming_request,
+        core
+      ) do
+    module =
+      case key.method do
+        :invite -> Transactions.Server.Invite
+        _otherwise -> Transactions.Server.NonInvite
+      end
+
+    initial_data = Transactions.Server.State.new(incoming_request, key, core)
+
+    Supervisor.start_child(__MODULE__, {module, [initial_data, [name: via_tuple(key)]]})
   end
 
   defp sigil_to_method(method) do
