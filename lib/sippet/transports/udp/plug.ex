@@ -88,14 +88,14 @@ defmodule Sippet.Transports.UDP.Plug do
   @doc false
   defp open_socket(port, opts) do
     sock_opts =
-      [as: :binary, mode: :active] ++
+      [:binary, {:active, true}] ++
       if Keyword.has_key?(opts, :address) do
-        [local: [address: opts[:address]]]
+        [ip: opts[:address]]
       else
         []
       end
 
-    case Socket.UDP.open(port, sock_opts) do
+    case :gen_udp.open(port, sock_opts) do
       {:ok, socket} ->
         {:ok, {address, _port}} = :inet.sockname(socket)
         Logger.info("#{inspect self()} started plug " <>

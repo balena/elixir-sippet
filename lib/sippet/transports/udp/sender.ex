@@ -29,10 +29,10 @@ defmodule Sippet.Transports.UDP.Sender do
   @doc false
   def handle_cast({:send_message, message, host, port, key}, socket) do
     result =
-      case Socket.Address.for(host, :inet) do
+      case :inet.getaddrs(String.to_charlist(host), :inet) do
         {:ok, [address|_]} ->
           iodata = Message.to_iodata(message)
-          case Socket.Datagram.send(socket, iodata, {address, port}) do
+          case :gen_udp.send(socket, {address, port}, iodata) do
             :ok -> :ok
             other -> other
           end

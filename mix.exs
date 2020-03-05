@@ -35,13 +35,12 @@ defmodule Sippet.Mixfile do
   end
 
   def application do
-    [applications: [:logger, :gen_state_machine, :socket, :poolboy],
+    [applications: [:logger, :gen_state_machine, :poolboy],
      mod: {Sippet.Application, []}]
   end
 
   defp deps do
     [{:gen_state_machine, "~> 2.0"},
-     {:socket, "~> 0.3.13"},
      {:poolboy, "~> 1.5"},
 
      # Docs dependencies
