@@ -104,20 +104,22 @@ defmodule Sippet do
   In case of success, returns `:ok`.
   """
   @spec send(sippet, request | response) :: :ok | {:error, reason}
-  def send(sippet, %Message{start_line: %RequestLine{method: :ack}} = request)
-      when is_atom(sippet) do
-    Sippet.Router.send_transport_message(sippet, request, nil)
+  def send(sippet, message) when is_atom(sippet) do
+    unless Message.valid?(message) do
+      raise ArgumentError, "expected :message argument to be a valid SIP message"
+    end
+
+    do_send(sippet, message)
   end
 
-  def send(sippet, %Message{start_line: %RequestLine{}} = outgoing_request)
-      when is_atom(sippet) do
-    Sippet.Router.send_transaction_request(sippet, outgoing_request)
-  end
+  defp do_send(sippet, %Message{start_line: %RequestLine{method: :ack}} = request),
+    do: Sippet.Router.send_transport_message(sippet, request, nil)
 
-  def send(sippet, %Message{start_line: %StatusLine{}} = outgoing_response)
-      when is_atom(sippet) do
-    Sippet.Router.send_transaction_response(sippet, outgoing_response)
-  end
+  defp do_send(sippet, %Message{start_line: %RequestLine{}} = outgoing_request),
+    do: Sippet.Router.send_transaction_request(sippet, outgoing_request)
+
+  defp do_send(sippet, %Message{start_line: %StatusLine{}} = outgoing_response),
+    do: Sippet.Router.send_transaction_response(sippet, outgoing_response)
 
   @doc """
   Verifies if the transport protocol used to send the given message is

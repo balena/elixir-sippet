@@ -1543,6 +1543,29 @@ defmodule Sippet.Message do
   @doc """
   Checks whether a message is valid.
   """
+  @spec valid?(t) :: boolean
+  def valid?(message) do
+    case validate(message) do
+      :ok -> true
+      _ -> false
+    end
+  end
+
+  @doc """
+  Checks whether a message is valid, also checking if it corresponds to the
+  indicated incoming transport tuple `{protocol, host, port}`.
+  """
+  @spec valid?(t, {protocol, host :: String.t, port :: integer}) :: boolean
+  def valid?(message, from) do
+    case validate(message, from) do
+      :ok -> true
+      _ -> false
+    end
+  end
+
+  @doc """
+  Validates if a message is valid, returning errors if found.
+  """
   @spec validate(t) :: :ok | {:error, reason :: term}
   def validate(message) do
     validators = [
@@ -1627,18 +1650,20 @@ defmodule Sippet.Message do
   end
 
   defp has_matching_cseq(request) do
-    method1 = request.start_line.method
-    {_sequence, method2} = request.headers.cseq
-    if method1 == method2 do
-      :ok
-    else
-      {:error, "CSeq method and request method do no match"}
+    method = request.start_line.method
+    case request.headers.cseq do
+      {_sequence, ^method} ->
+        :ok
+
+      _ ->
+        {:error, "CSeq method and request method do no match"}
     end
   end
 
   @doc """
-  Checks whether a message is valid, also checking if it corresponds to the
-  indicated incoming transport tuple `{protocol, host, port}`.
+  Validates if a message is valid, also checking if it corresponds to the
+  indicated incoming transport tuple `{protocol, host, port}`. It returns the
+  error if found.
   """
   @spec validate(t, {protocol, host :: String.t, port :: integer}) ::
             :ok | {:error, reason :: term}
