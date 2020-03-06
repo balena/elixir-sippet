@@ -26,7 +26,7 @@ defmodule Sippet.Transactions.Server do
       require Logger
 
       def init(%State{key: key} = data) do
-        Logger.info("server transaction #{inspect(key)} started")
+        Logger.debug("server transaction #{inspect(key)} started")
 
         initial_state = unquote(opts)[:initial_state]
         {:ok, initial_state, data}
@@ -57,7 +57,7 @@ defmodule Sippet.Transactions.Server do
         do: Sippet.reliable?(sippet, request)
 
       def unhandled_event(:cast, :terminate, %State{key: key} = data) do
-        Logger.info("server transaction #{inspect(key)} terminated")
+        Logger.debug("server transaction #{inspect(key)} terminated")
 
         {:stop, :normal, data}
       end
