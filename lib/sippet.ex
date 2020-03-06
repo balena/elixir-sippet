@@ -206,6 +206,13 @@ defmodule Sippet do
     Supervisor.start_link(__MODULE__, options, name: :"#{name}_sup")
   end
 
+  def child_spec(options) do
+    %{
+      id: __MODULE__,
+      start: {__MODULE__, :start_link, [options]}
+    }
+  end
+
   @impl true
   def init(options) do
     children = [
