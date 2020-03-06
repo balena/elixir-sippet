@@ -130,7 +130,7 @@ defmodule Sippet.Router do
   def to_core(sippet, fun, args) do
     case Registry.meta(sippet, :core) do
       :error ->
-        exit({:noproc, {__MODULE__, :to_core, [sippet, fun, args]}})
+        raise RuntimeError, "Core not initialized"
 
       {:ok, module} ->
         apply(module, fun, args)
