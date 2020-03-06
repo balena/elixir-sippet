@@ -67,7 +67,8 @@ defmodule Sippet.Transactions.Client do
       def child_spec([%{key: client_key}, _] = args) do
         %{
           id: {__MODULE__, client_key},
-          start: {__MODULE__, :start_link, [args]}
+          start: {__MODULE__, :start_link, [args]},
+          restart: :transient
         }
       end
 
