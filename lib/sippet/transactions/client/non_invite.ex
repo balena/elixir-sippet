@@ -18,7 +18,7 @@ defmodule Sippet.Transactions.Client.NonInvite do
     extras = extras |> Map.put(:deadline_timer, deadline_timer)
 
     extras =
-      if reliable?(request) do
+      if reliable?(request, data) do
         extras
       else
         retry_timer = self() |> Process.send_after(@timer_e, @timer_e)
@@ -107,7 +107,7 @@ defmodule Sippet.Transactions.Client.NonInvite do
 
   def completed(:enter, _old_state, %State{request: request} = data) do
     data = cancel_timers(data)
-    if reliable?(request) do
+    if reliable?(request, data) do
       {:stop, :normal, data}
     else
       {:keep_state, data, [{:state_timeout, @timer_k, nil}]}

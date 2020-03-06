@@ -23,22 +23,6 @@ defmodule Sippet.Transports.UDP do
             sippet: nil
 
   @doc """
-  Send a message.
-
-  This function isn't used by the stack, it is provided as a facility function
-  case you need to send a message directly through the UDP socket.
-  """
-  def send_message(message, host, port, key) do
-    case Process.whereis(__MODULE__) do
-      nil ->
-        raise RuntimeError, message: "#{inspect(__MODULE__)} was not started"
-
-      pid ->
-        send(pid, {:send_message, message, host, port, key})
-    end
-  end
-
-  @doc """
   Starts the UDP transport.
   """
   def start_link(args) when is_list(args) do
@@ -87,7 +71,7 @@ defmodule Sippet.Transports.UDP do
 
   @impl true
   def init(args) do
-    Sippet.register_transport(:udp, false)
+    Sippet.register_transport(args[:sippet], :udp, false)
 
     {:ok, nil, {:continue, args}}
   end
@@ -130,13 +114,15 @@ defmodule Sippet.Transports.UDP do
 
   @impl true
   def handle_info({:udp, _socket, ip, from_port, packet}, %{sippet: sippet} = state) do
-    Sippet.handle_transport_message(sippet, packet, {:udp, ip, from_port})
+    Sippet.Router.handle_transport_message(sippet, packet, {:udp, ip, from_port})
 
     {:noreply, state}
   end
 
-  def handle_info(
+  @impl true
+  def handle_call(
         {:send_message, message, host, port, key},
+        _from,
         %{socket: socket, family: family, sippet: sippet} = state
       ) do
     with {:ok, ip} <- resolve_name(host, family),
@@ -151,7 +137,7 @@ defmodule Sippet.Transports.UDP do
         end)
 
         if key != nil do
-          send(sippet, {:receive_transport_error, key, reason})
+          Sippet.Router.receive_transport_error(sippet, key, reason)
         end
     end
 
@@ -166,6 +152,6 @@ defmodule Sippet.Transports.UDP do
         "reason: #{inspect(reason)}"
     )
 
-    :ok = :gen_udp.close(socket)
+    :gen_udp.close(socket)
   end
 end

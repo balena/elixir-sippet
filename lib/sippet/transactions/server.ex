@@ -37,19 +37,20 @@ defmodule Sippet.Transactions.Server do
       defp send_response(response, %State{key: key, sippet: sippet} = data) do
         extras = data.extras |> Map.put(:last_response, response)
         data = %{data | extras: extras}
-        send(sippet, {:send_transport_message, response, key})
+        Sippet.Router.send_transport_message(sippet, response, key)
         data
       end
 
-      defp receive_request(request, %State{key: key, sippet: sippet}),
-        do: send(sippet, {:to_core, :receive_request, [request, key]})
+      defp receive_request(request, %State{key: key, sippet: sippet}) do
+        Sippet.Router.to_core(sippet, :receive_request, [request, key])
+      end
 
       def shutdown(reason, %State{key: key, sippet: sippet} = data) do
         Logger.warn fn ->
           "server transaction #{inspect key} shutdown: #{reason}"
         end
 
-        send(sippet, {:to_core, :receive_error, [reason, key]})
+        Sippet.Router.to_core(sippet, :receive_error, [reason, key])
 
         {:stop, :shutdown, data}
       end
@@ -57,7 +58,9 @@ defmodule Sippet.Transactions.Server do
       def timeout(data),
         do: shutdown(:timeout, data)
 
-      defdelegate reliable?(request), to: Sippet
+      def reliable?(request, %State{sippet: sippet}) do
+        Sippet.reliable?(sippet, request)
+      end
 
       def unhandled_event(:cast, :terminate, %State{key: key} = data) do
         Logger.info fn ->

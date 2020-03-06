@@ -54,7 +54,7 @@ defmodule Sippet.Transactions.Server.NonInvite do
     do: unhandled_event(event_type, event_content, data)
 
   def completed(:enter, _old_state, %State{request: request} = data) do
-    if reliable?(request) do
+    if reliable?(request, data) do
       {:stop, :normal, data}
     else
       {:keep_state_and_data, [{:state_timeout, @timer_j, nil}]}

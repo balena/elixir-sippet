@@ -1,11 +1,23 @@
-defmodule Sippet.Test do
+defmodule Sippet.Router.Test do
   use ExUnit.Case, async: false
 
   import Mock
 
+  alias Sippet.Transactions.Server.State
+
   test "incoming datagram, empty body" do
-    with_mock GenServer,
-      call: fn _, {_, %{body: body}} -> assert body == "" end do
+    with_mocks [
+      {Registry, [],
+       [
+         lookup: fn _, _ -> [] end
+       ]},
+      {Supervisor, [],
+       [
+         start_child: fn _, {_, [%State{request: %{body: ""}}, _]} ->
+           {:ok, self()}
+         end
+       ]}
+    ] do
       from = {:tls, {10, 10, 1, 1}, 5060}
 
       packet = """
@@ -20,9 +32,16 @@ defmodule Sippet.Test do
       Content-Length: 0
       """
 
-      Sippet.handle_transport_message(self(), packet, from)
+      Sippet.Router.handle_transport_message(:sippet, packet, from)
 
-      assert called(GenServer.call(self(), {:receive_transport_message, :_}))
+      assert called(Registry.lookup(:sippet, {:transaction, :_}))
+
+      assert called(
+               Supervisor.start_child(
+                 {:via, Registry, {:sippet, :sup}},
+                 {Sippet.Transactions.Server.NonInvite, :_}
+               )
+             )
     end
   end
 
@@ -37,10 +56,18 @@ defmodule Sippet.Test do
   """
 
   test "incoming datagram, with body" do
-    with_mock GenServer,
-      call: fn _, {_, %{body: body}} ->
-        assert body == @test_body
-      end do
+    with_mocks [
+      {Registry, [],
+       [
+         lookup: fn _, _ -> [] end
+       ]},
+      {Supervisor, [],
+       [
+         start_child: fn _, {_, [%State{request: %{body: @test_body}}, _]} ->
+           {:ok, self()}
+         end
+       ]}
+    ] do
       from = {:tcp, "10.0.0.73", 12335}
 
       packet =
@@ -58,14 +85,30 @@ defmodule Sippet.Test do
 
         """ <> @test_body
 
-      Sippet.handle_transport_message(self(), packet, from)
+      Sippet.Router.handle_transport_message(:sippet, packet, from)
 
-      assert called(GenServer.call(self(), {:receive_transport_message, :_}))
+      assert called(Registry.lookup(:sippet, {:transaction, :_}))
+
+      assert called(
+               Supervisor.start_child(
+                 {:via, Registry, {:sippet, :sup}},
+                 {Sippet.Transactions.Server.Invite, :_}
+               )
+             )
     end
   end
 
   test "missing required headers" do
-    with_mock GenServer, call: fn _, _ -> :ok end do
+    with_mocks [
+      {Registry, [],
+       [
+         lookup: fn _, _ -> [] end
+       ]},
+      {Supervisor, [],
+       [
+         start_child: fn _, _ -> {:ok, self()} end
+       ]}
+    ] do
       from = {:tcp, "10.0.0.73", 12335}
 
       packet = """
@@ -78,23 +121,32 @@ defmodule Sippet.Test do
       Content-Length: 0
       """
 
-      Sippet.handle_transport_message(self(), packet, from)
+      Sippet.Router.handle_transport_message(:sippet, packet, from)
 
-      assert not called(GenServer.call(:_, :_))
+      assert not called(Registry.lookup(:_, :_))
     end
   end
 
   test "invalid message" do
-    with_mock GenServer, call: fn _, _ -> :ok end do
+    with_mocks [
+      {Registry, [],
+       [
+         lookup: fn _, _ -> [] end
+       ]},
+      {Supervisor, [],
+       [
+         start_child: fn _, _ -> {:ok, self()} end
+       ]}
+    ] do
       from = {:tcp, "10.0.0.73", 12335}
 
       packet = """
       REGISTER SIP/2.0
       """
 
-      Sippet.handle_transport_message(self(), packet, from)
+      Sippet.Router.handle_transport_message(:sippet, packet, from)
 
-      assert not called(GenServer.call(:_, :_))
+      assert not called(Registry.lookup(:_, :_))
     end
   end
 end

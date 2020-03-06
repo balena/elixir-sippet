@@ -60,7 +60,7 @@ defmodule Sippet.Transactions.Client.Invite do
     send_request(request, data)
 
     actions =
-      if reliable?(request) do
+      if reliable?(request, data) do
         [{:state_timeout, @timer_b, {@timer_b, @timer_b}}]
       else
         [{:state_timeout, @timer_a, {@timer_a, @timer_a}}]
@@ -120,7 +120,7 @@ defmodule Sippet.Transactions.Client.Invite do
     send_request(ack, data)
     data = %State{extras: extras |> Map.put(:ack, ack)}
 
-    if reliable?(request) do
+    if reliable?(request, data) do
       {:stop, :normal, data}
     else
       {:keep_state, data, [{:state_timeout, @timer_d, nil}]}

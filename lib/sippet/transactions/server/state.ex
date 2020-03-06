@@ -11,7 +11,7 @@ defmodule Sippet.Transactions.Server.State do
   @type t :: [
           request: Message.request(),
           key: key,
-          sippet: module | pid,
+          sippet: atom,
           extras: %{}
         ]
 
@@ -28,7 +28,7 @@ defmodule Sippet.Transactions.Server.State do
         %Transactions.Server.Key{} = key,
         sippet
       )
-      when is_pid(sippet) or is_atom(sippet) do
+      when is_atom(sippet) do
     %__MODULE__{
       request: incoming_request,
       key: key,

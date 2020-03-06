@@ -23,26 +23,28 @@ defmodule Sippet.Transactions.Client do
       require Logger
 
       def init(%State{key: key} = data) do
-        Logger.info fn ->
-          "client transaction #{inspect key} started"
-        end
+        Logger.info(fn ->
+          "client transaction #{inspect(key)} started"
+        end)
 
         initial_state = unquote(opts)[:initial_state]
         {:ok, initial_state, data}
       end
 
-      defp send_request(request, %State{key: key, sippet: sippet} = data),
-        do: send(sippet, {:send_transport_message, request, key})
+      defp send_request(request, %State{key: key, sippet: sippet} = data) do
+        Sippet.Router.send_transport_message(sippet, request, key)
+      end
 
-      defp receive_response(response, %State{key: key, sippet: sippet} = data),
-        do: send(sippet, {:to_core, :receive_response, [response, key]})
+      defp receive_response(response, %State{key: key, sippet: sippet} = data) do
+        Sippet.Router.to_core(sippet, :receive_response, [response, key])
+      end
 
       def shutdown(reason, %State{key: key, sippet: sippet} = data) do
-        Logger.warn fn ->
-          "client transaction #{inspect key} shutdown: #{reason}"
-        end
+        Logger.warn(fn ->
+          "client transaction #{inspect(key)} shutdown: #{reason}"
+        end)
 
-        send(sippet, {:to_core, :receive_error, [reason, key]})
+        Sippet.Router.to_core(sippet, :receive_error, [reason, key])
 
         {:stop, :shutdown, data}
       end
@@ -50,28 +52,34 @@ defmodule Sippet.Transactions.Client do
       def timeout(%State{} = data),
         do: shutdown(:timeout, data)
 
-      defdelegate reliable?(request), to: Sippet
+      def reliable?(request, %State{sippet: sippet}) do
+        Sippet.reliable?(sippet, request)
+      end
 
       def unhandled_event(:cast, :terminate, %State{key: key} = data) do
-        Logger.info fn ->
-          "client transaction #{inspect key} terminated"
-        end
+        Logger.info(fn ->
+          "client transaction #{inspect(key)} terminated"
+        end)
 
         {:stop, :normal, data}
       end
 
-      def unhandled_event(event_type, event_content,
-          %State{key: key} = data) do
-        Logger.error fn ->
-          "client transaction #{inspect key} got " <>
-          "unhandled_event/3: #{inspect event_type}, " <>
-          "#{inspect event_content}, #{inspect data}"
-        end
+      def unhandled_event(event_type, event_content, %State{key: key} = data) do
+        Logger.error(fn ->
+          "client transaction #{inspect(key)} got " <>
+            "unhandled_event/3: #{inspect(event_type)}, " <>
+            "#{inspect(event_content)}, #{inspect(data)}"
+        end)
+
         {:stop, :shutdown, data}
       end
 
-      defoverridable [init: 1, send_request: 2, receive_response: 2,
-                      shutdown: 2, timeout: 1, unhandled_event: 3]
+      defoverridable init: 1,
+                     send_request: 2,
+                     receive_response: 2,
+                     shutdown: 2,
+                     timeout: 1,
+                     unhandled_event: 3
     end
   end
 end
