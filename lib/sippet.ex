@@ -190,7 +190,8 @@ defmodule Sippet do
   end
 
   @doc false
-  def start_link(name), do: Supervisor.start_link(__MODULE__, name)
+  def start_link(name),
+    do: Supervisor.start_link(__MODULE__, name, name: :"#{name}_sup")
 
   @impl true
   def init(name) do
@@ -198,10 +199,6 @@ defmodule Sippet do
       {Registry, [name: name, keys: :unique, partitions: System.schedulers_online()]}
     ]
 
-    {:ok, tuple} = Supervisor.init(children, strategy: :one_for_one)
-
-    Registry.register(name, :sup, nil)
-
-    {:ok, tuple}
+    Supervisor.init(children, strategy: :one_for_one)
   end
 end

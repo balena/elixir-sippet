@@ -36,7 +36,7 @@ defmodule Sippet.Mixfile do
   end
 
   def application do
-    [applications: [:logger, :gen_state_machine], mod: {Sippet.Application, []}]
+    [applications: [:logger, :gen_state_machine]]
   end
 
   defp deps do

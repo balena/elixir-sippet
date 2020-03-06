@@ -229,7 +229,7 @@ defmodule Sippet.Router do
     initial_data = Transactions.Client.State.new(outgoing_request, key, sippet)
 
     Supervisor.start_child(
-      {:via, Registry, {sippet, :sup}},
+      :"#{sippet}_sup",
       {module, [initial_data, [name: {:via, Registry, {sippet, {:transaction, key}}}]]}
     )
   end
@@ -248,7 +248,7 @@ defmodule Sippet.Router do
     initial_data = Transactions.Server.State.new(incoming_request, key, sippet)
 
     Supervisor.start_child(
-      {:via, Registry, {sippet, :sup}},
+      :"#{sippet}_sup",
       {module, [initial_data, [name: {:via, Registry, {sippet, {:transaction, key}}}]]}
     )
   end
