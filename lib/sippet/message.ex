@@ -1706,10 +1706,16 @@ defmodule Sippet.Message do
         end
 
       _otherwise ->
-        if message.body == nil do
-          :ok
-        else
-          {:error, "No Content-Length header, but body is not nil"}
+        cond do
+          message.body == nil ->
+            :ok
+
+          message.headers.via |> List.last() |> elem(1) == :udp ->
+            # It is OK to not have Content-Length in an UDP message
+            :ok
+
+          true ->
+            {:error, "No Content-Length header, but body is not nil"}
         end
     end
   end
