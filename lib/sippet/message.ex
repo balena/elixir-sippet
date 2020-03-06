@@ -1212,9 +1212,10 @@ defmodule Sippet.Message do
   """
   @spec parse(iodata) :: {:ok, t} | {:error, atom}
   def parse(data) do
-    case Sippet.Parser.parse(IO.iodata_to_binary(data)) do
+    binary_data = IO.iodata_to_binary(data)
+    case Sippet.Parser.parse(IO.iodata_to_binary(binary_data)) do
       {:ok, message} ->
-        case do_parse(message) do
+        case do_parse(message, binary_data) do
           {:error, reason} ->
             {:error, reason}
 
@@ -1227,7 +1228,7 @@ defmodule Sippet.Message do
     end
   end
 
-  defp do_parse(message) do
+  defp do_parse(message, binary_data) do
     case do_parse_start_line(message.start_line) do
       {:error, reason} ->
         {:error, reason}
@@ -1240,9 +1241,17 @@ defmodule Sippet.Message do
           headers ->
             %__MODULE__{
               start_line: start_line,
-              headers: headers
+              headers: headers,
+              body: get_body(binary_data)
             }
         end
+    end
+  end
+
+  defp get_body(binary_data) do
+    case String.split(binary_data, ~r{\r?\n\r?\n}, parts: 2) do
+      [_, body] -> body
+      [_] -> nil
     end
   end
 
