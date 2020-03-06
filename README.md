@@ -126,7 +126,7 @@ Sippet.send(:sippet, request)
 
 If you prefer to specify messages directly in wire format, here you go:
 
-```
+```elixir
 request =
   """
   OPTIONS sip:sip.example.com SIP/2.0
