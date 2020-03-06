@@ -17,85 +17,92 @@ defmodule Sippet.Transports.UDP do
   require Logger
 
   defstruct socket: nil,
-            address: nil,
             family: :inet,
-            port: 0,
             sippet: nil
 
   @doc """
   Starts the UDP transport.
   """
-  def start_link(args) when is_list(args) do
-    if not Keyword.has_key?(args, :sippet) do
-      raise ArgumentError, message: "missing the sippet argument"
-    end
+  def start_link(options) when is_list(options) do
+    name =
+      case Keyword.fetch(options, :name) do
+        {:ok, name} when is_atom(name) ->
+          name
 
-    args =
-      args
-      |> Enum.flat_map(fn
-        {:port, port} ->
-          parse_port(port)
+        {:ok, other} ->
+          raise ArgumentError, "expected :name to be an atom, got: #{inspect(other)}"
 
-        {:address, address} ->
-          parse_address(address)
+        :error ->
+          raise ArgumentError, "expected :name option to be present"
+      end
 
-        {:sippet, _} = tuple -> tuple
-      end)
+    port =
+      case Keyword.fetch(options, :port) do
+        {:ok, port} when is_integer(port) and port > 0 and port < 65536 ->
+          port
 
-    GenServer.start_link(__MODULE__, args, name: __MODULE__)
-  end
+        {:ok, other} ->
+          raise ArgumentError,
+                "expected :port to be an integer between 1 and 65535, got: #{inspect(other)}"
 
-  defp parse_port(port) when port > 0 do
-    [port: port]
-  end
+        :error ->
+          5060
+      end
 
-  defp parse_address(address) when is_binary(address),
-    do: parse_address({address, :inet})
+    {ip, family} =
+      case Keyword.fetch(options, :address) do
+        {:ok, {address, family}} when family in [:inet, :inet6] and is_binary(address) ->
+          case resolve_name(address, family) do
+            {:ok, ip} ->
+              {ip, family}
 
-  defp parse_address({family, address})
-       when family in [:inet, :inet6] and is_binary(address) do
-    case resolve_name(address, family) do
-      {:ok, ip} ->
-        [sock_opts: [{:ip, ip}, family]]
+            {:error, reason} ->
+              raise ArgumentError,
+                    ":address contains an invalid IP or DNS name, got: #{inspect(reason)}"
+          end
 
-      {:error, reason} ->
-        raise ArgumentError, message: "address error #{inspect(reason)}"
-    end
-  end
+        {:ok, address} when is_binary(address) ->
+          case resolve_name(address, :inet) do
+            {:ok, ip} ->
+              {ip, :inet}
 
-  defp resolve_name(host, family) do
-    host
-    |> String.to_charlist()
-    |> :inet.getaddr(family)
+            {:error, reason} ->
+              raise ArgumentError,
+                    ":address contains an invalid IPv4 or DNS name, got: #{inspect(reason)}"
+          end
+
+        {:ok, other} ->
+          raise ArgumentError,
+                "expected :address to be an address or {address, family} tuple, got: " <>
+                  "#{inspect(other)}"
+
+        :error ->
+          {{0, 0, 0, 0}, :inet}
+      end
+
+    GenServer.start_link(__MODULE__, {name, ip, port, family}, name: __MODULE__)
   end
 
   @impl true
-  def init(args) do
-    Sippet.register_transport(args[:sippet], :udp, false)
+  def init({name, ip, port, family}) do
+    Sippet.register_transport(name, :udp, false)
 
-    {:ok, nil, {:continue, args}}
+    {:ok, nil, {:continue, {name, ip, port, family}}}
   end
 
   @impl true
-  def handle_continue(args, nil) do
-    port = Keyword.get(args, :port, 5060)
-    opts = [:binary, {:active, true}] ++ Keyword.get(args, :sock_opts, [])
-
-    case :gen_udp.open(port, opts) do
+  def handle_continue({name, ip, port, family}, nil) do
+    case :gen_udp.open(port, [:binary, {:active, true}, {:ip, ip}, family]) do
       {:ok, socket} ->
-        {:ok, {address, _port}} = :inet.sockname(socket)
-
-        Logger.info(
+        Logger.debug(
           "#{inspect(self())} started transport " <>
-            "#{:inet.ntoa(address)}:#{port}/udp"
+            "#{stringify_sockname(socket)}/udp"
         )
 
         state = %__MODULE__{
           socket: socket,
-          address: address,
-          family: if(:inet6 in opts, do: :inet6, else: :inet),
-          port: port,
-          sippet: args[:sippet]
+          family: family,
+          sippet: name
         }
 
         {:noreply, state}
@@ -108,50 +115,62 @@ defmodule Sippet.Transports.UDP do
 
         Process.sleep(10_000)
 
-        {:noreply, nil, {:continue, args}}
+        {:noreply, nil, {:continue, {name, ip, port, family}}}
     end
   end
 
   @impl true
-  def handle_info({:udp, _socket, ip, from_port, packet}, %{sippet: sippet} = state) do
-    Sippet.Router.handle_transport_message(sippet, packet, {:udp, ip, from_port})
+  def handle_info({:udp, _socket, from_ip, from_port, packet}, %{sippet: sippet} = state) do
+    Sippet.Router.handle_transport_message(sippet, packet, {:udp, from_ip, from_port})
 
     {:noreply, state}
   end
 
   @impl true
   def handle_call(
-        {:send_message, message, host, port, key},
+        {:send_message, message, to_host, to_port, key},
         _from,
         %{socket: socket, family: family, sippet: sippet} = state
       ) do
-    with {:ok, ip} <- resolve_name(host, family),
+    with {:ok, to_ip} <- resolve_name(to_host, family),
          iodata <- Message.to_iodata(message),
-         :ok <- :gen_udp.send(socket, {ip, port}, iodata) do
+         :ok <- :gen_udp.send(socket, {to_ip, to_port}, iodata) do
       :ok
     else
       {:error, reason} ->
-        Logger.warn(fn ->
-          "#{inspect(self())} udp transport error for " <>
-            "#{host}:#{port}: #{inspect(reason)}"
-        end)
+        Logger.warn("udp transport error for #{to_host}:#{to_port}: #{inspect(reason)}")
 
         if key != nil do
           Sippet.Router.receive_transport_error(sippet, key, reason)
         end
     end
 
-    {:noreply, state}
+    {:reply, :ok, state}
   end
 
   @impl true
-  def terminate(reason, {socket, address, port}) do
-    Logger.info(
-      "#{inspect(self())} stopped transport " <>
-        "#{:inet.ntoa(address)}:#{port}/udp, " <>
-        "reason: #{inspect(reason)}"
+  def terminate(reason, %{socket: socket}) do
+    Logger.debug(
+      "stopped transport #{stringify_sockname(socket)}/udp, reason: #{inspect(reason)}"
     )
 
     :gen_udp.close(socket)
+  end
+
+  defp resolve_name(host, family) do
+    host
+    |> String.to_charlist()
+    |> :inet.getaddr(family)
+  end
+
+  defp stringify_sockname(socket) do
+    {:ok, {ip, port}} = :inet.sockname(socket)
+
+    address =
+      ip
+      |> :inet_parse.ntoa()
+      |> to_string()
+
+    "#{address}:#{port}"
   end
 end

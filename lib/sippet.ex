@@ -190,13 +190,26 @@ defmodule Sippet do
   end
 
   @doc false
-  def start_link(name),
-    do: Supervisor.start_link(__MODULE__, name, name: :"#{name}_sup")
+  def start_link(options) when is_list(options) do
+    name =
+      case Keyword.fetch(options, :name) do
+        {:ok, name} when is_atom(name) ->
+          name
+
+        {:ok, other} ->
+          raise ArgumentError, "expected :name to be an atom, got: #{inspect(other)}"
+
+        :error ->
+          raise ArgumentError, "expected :name option to be present"
+      end
+
+    Supervisor.start_link(__MODULE__, options, name: :"#{name}_sup")
+  end
 
   @impl true
-  def init(name) do
+  def init(options) do
     children = [
-      {Registry, [name: name, keys: :unique, partitions: System.schedulers_online()]}
+      {Registry, [name: options[:name], keys: :unique, partitions: System.schedulers_online()]}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)
