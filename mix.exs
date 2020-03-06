@@ -36,22 +36,24 @@ defmodule Sippet.Mixfile do
   end
 
   def application do
-    [applications: [:logger, :gen_state_machine]]
+    [
+      extra_applications: [:logger]
+    ]
   end
 
   defp deps do
     [
-      {:gen_state_machine, "~> 2.0"},
+      {:gen_state_machine, "~> 2.1"},
 
       # Docs dependencies
-      {:ex_doc, "~> 0.19.3", only: :dev, runtime: false},
+      {:ex_doc, "~> 0.21", only: :dev, runtime: false},
       {:inch_ex, "~> 2.0", only: :docs},
 
       # Test dependencies
-      {:mock, "~> 0.3.3", only: :test},
-      {:excoveralls, "~> 0.10.6", only: :test},
-      {:credo, "~> 1.0", only: [:dev, :test]},
-      {:dialyxir, "~> 0.5", only: [:dev], runtime: false}
+      {:mock, "~> 0.3", only: :test},
+      {:excoveralls, "~> 0.10", only: :test},
+      {:credo, "~> 1.2", only: [:dev, :test]},
+      {:dialyxir, "~> 1.0.0-rc.7", only: [:dev], runtime: false}
     ]
   end
 

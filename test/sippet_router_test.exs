@@ -38,7 +38,7 @@ defmodule Sippet.Router.Test do
 
       assert called(
                Supervisor.start_child(
-                 {:via, Registry, {:sippet, :sup}},
+                 :sippet_sup,
                  {Sippet.Transactions.Server.NonInvite, :_}
                )
              )
@@ -91,7 +91,7 @@ defmodule Sippet.Router.Test do
 
       assert called(
                Supervisor.start_child(
-                 {:via, Registry, {:sippet, :sup}},
+                 :sippet_sup,
                  {Sippet.Transactions.Server.Invite, :_}
                )
              )

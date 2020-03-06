@@ -49,27 +49,13 @@ defmodule Sippet.Transports.UDP do
           5060
       end
 
-    {ip, family} =
+    {address, family} =
       case Keyword.fetch(options, :address) do
         {:ok, {address, family}} when family in [:inet, :inet6] and is_binary(address) ->
-          case resolve_name(address, family) do
-            {:ok, ip} ->
-              {ip, family}
-
-            {:error, reason} ->
-              raise ArgumentError,
-                    ":address contains an invalid IP or DNS name, got: #{inspect(reason)}"
-          end
+          {address, family}
 
         {:ok, address} when is_binary(address) ->
-          case resolve_name(address, :inet) do
-            {:ok, ip} ->
-              {ip, :inet}
-
-            {:error, reason} ->
-              raise ArgumentError,
-                    ":address contains an invalid IPv4 or DNS name, got: #{inspect(reason)}"
-          end
+          {address, :inet}
 
         {:ok, other} ->
           raise ArgumentError,
@@ -77,7 +63,17 @@ defmodule Sippet.Transports.UDP do
                   "#{inspect(other)}"
 
         :error ->
-          {{0, 0, 0, 0}, :inet}
+          {"0.0.0.0", :inet}
+      end
+
+    ip =
+      case resolve_name(address, family) do
+        {:ok, ip} ->
+          ip
+
+        {:error, reason} ->
+          raise ArgumentError,
+                ":address contains an invalid IP or DNS name, got: #{inspect(reason)}"
       end
 
     GenServer.start_link(__MODULE__, {name, ip, port, family}, name: __MODULE__)
@@ -132,6 +128,11 @@ defmodule Sippet.Transports.UDP do
         _from,
         %{socket: socket, family: family, sippet: sippet} = state
       ) do
+    Logger.debug([
+      "sending message to #{stringify_hostport(to_host, to_port)}/udp",
+      ", #{inspect(key)}"
+    ])
+
     with {:ok, to_ip} <- resolve_name(to_host, family),
          iodata <- Message.to_iodata(message),
          :ok <- :gen_udp.send(socket, {to_ip, to_port}, iodata) do
@@ -172,5 +173,9 @@ defmodule Sippet.Transports.UDP do
       |> to_string()
 
     "#{address}:#{port}"
+  end
+
+  defp stringify_hostport(host, port) do
+    "#{host}:#{port}"
   end
 end

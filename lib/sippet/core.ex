@@ -61,6 +61,25 @@ defmodule Sippet.Core do
   defmacro __using__(_opts) do
     quote location: :keep do
       @behaviour Sippet.Core
+
+      @doc false
+      def receive_request(_incoming_request, _server_key) do
+        raise "attempted to call Core but no receive_request/2 was provided"
+      end
+
+      @doc false
+      def receive_response(incoming_response, client_key) do
+        raise "attempted to call Core but no receive_response/2 was provided"
+      end
+
+      @doc false
+      def receive_error(reason, client_or_server_key) do
+        raise "attempted to call Core but no receive_error/2 was provided"
+      end
+
+      defoverridable receive_request: 2,
+                     receive_response: 2,
+                     receive_error: 2
     end
   end
 end

@@ -3,33 +3,32 @@ defmodule Sippet.Transactions.Server.Invite do
 
   use Sippet.Transactions.Server, initial_state: :proceeding
 
-  alias Sippet.Message, as: Message
-  alias Sippet.Message.StatusLine, as: StatusLine
-  alias Sippet.Transactions.Server.State, as: State
+  alias Sippet.Message
+  alias Sippet.Message.StatusLine
+  alias Sippet.Transactions.Server.State
 
-  @t2 4000
+  @t2 4_000
   @before_trying 200
   @timer_g 500
   @timer_h 64 * @timer_g
-  @timer_i 5000  # timer I is 5s
 
-  def init(%State{key: key} = data) do
+  # timer I is 5s
+  @timer_i 5_000
+
+  def init(%State{key: key, sippet: sippet} = data) do
     # add an alias for incoming ACK requests for status codes != 200
-    Registry.register(
-      Sippet.Registry,
-      {:transaction, %{key | method: :ack}},
-      nil
-    )
+    Registry.register(sippet, {:transaction, %{key | method: :ack}}, nil)
 
     super(data)
   end
 
-  defp retry({past_wait, passed_time},
-      %State{extras: %{last_response: last_response}} = data) do
+  defp retry(
+         {past_wait, passed_time},
+         %State{extras: %{last_response: last_response}} = data
+       ) do
     send_response(last_response, data)
     new_delay = min(past_wait * 2, @t2)
-    {:keep_state_and_data, [{:state_timeout, new_delay,
-       {new_delay, passed_time + new_delay}}]}
+    {:keep_state_and_data, [{:state_timeout, new_delay, {new_delay, passed_time + new_delay}}]}
   end
 
   def proceeding(:enter, _old_state, %State{request: request} = data) do
@@ -37,15 +36,17 @@ defmodule Sippet.Transactions.Server.Invite do
     {:keep_state_and_data, [{:state_timeout, @before_trying, :still_trying}]}
   end
 
-  def proceeding(:state_timeout, :still_trying,
-      %State{request: request} = data) do
+  def proceeding(:state_timeout, :still_trying, %State{request: request} = data) do
     response = request |> Message.to_response(100)
     data = send_response(response, data)
     {:keep_state, data}
   end
 
-  def proceeding(:cast, {:incoming_request, _request},
-      %State{extras: %{last_response: last_response}} = data) do
+  def proceeding(
+        :cast,
+        {:incoming_request, _request},
+        %State{extras: %{last_response: last_response}} = data
+      ) do
     send_response(last_response, data)
     :keep_state_and_data
   end
@@ -55,6 +56,7 @@ defmodule Sippet.Transactions.Server.Invite do
 
   def proceeding(:cast, {:outgoing_response, response}, data) do
     data = send_response(response, data)
+
     case StatusLine.status_code_class(response.start_line) do
       1 -> {:keep_state, data}
       2 -> {:stop, :normal, data}
@@ -81,6 +83,7 @@ defmodule Sippet.Transactions.Server.Invite do
 
   def completed(:state_timeout, time_event, data) do
     {_past_wait, passed_time} = time_event
+
     if passed_time >= @timer_h do
       timeout(data)
     else
@@ -88,14 +91,19 @@ defmodule Sippet.Transactions.Server.Invite do
     end
   end
 
-  def completed(:cast, {:incoming_request, request},
-      %State{extras: %{last_response: last_response}} = data) do
+  def completed(
+        :cast,
+        {:incoming_request, request},
+        %State{extras: %{last_response: last_response}} = data
+      ) do
     case request.start_line.method do
       :invite ->
         send_response(last_response, data)
         :keep_state_and_data
+
       :ack ->
         {:next_state, :confirmed, data}
+
       _otherwise ->
         shutdown(:invalid_method, data)
     end
