@@ -14,9 +14,13 @@ defmodule Sippet.DigestAuth do
 
   @type reason :: term
 
-  @type options :: [option]
+  @type req_options :: [req_option]
 
-  @type option :: {:cnonce, binary} | {:nc, binary}
+  @type req_option :: {:cnonce, binary} | {:nc, binary}
+
+  @type resp_options :: [resp_option]
+
+  @type resp_option :: {:nonce, binary} | {:opaque, binary}
 
   @doc """
   Adds an `Authorization` or `Proxy-Authorization` header for a request after
@@ -33,7 +37,7 @@ defmodule Sippet.DigestAuth do
           outgoing_request :: Message.request(),
           incoming_response :: Message.response(),
           (realm -> {:ok, username, password} | {:error, reason}),
-          options
+          req_options
         ) :: {:ok, Message.request()} | {:error, reason}
   def make_request(
         %Message{start_line: %RequestLine{method: req_method, request_uri: req_uri}, body: body} =
@@ -258,9 +262,70 @@ defmodule Sippet.DigestAuth do
 
   defp create_cnonce(), do: do_random_string(256)
 
+  defp create_nonce(), do: do_random_string(256)
+
+  defp create_opaque(), do: do_random_string(256)
+
   defp do_random_string(length) do
     round(Float.ceil(length / 8))
     |> :crypto.strong_rand_bytes()
     |> Base.url_encode64(padding: false)
   end
+
+  @doc """
+  Generates a response containing `WWW-Authenticate` or `Proxy-Authenticate`
+  header for an incoming request. Use this function to answer to a request with
+  a 401 or 407 response.
+
+  A new `nonce' will be generated to be used by the client in its response,
+  but will expire after the time configured indicated in `nonce_timeout'.
+  """
+  @spec make_response(
+          incoming_request :: Message.request(),
+          status :: 401 | 407,
+          realm,
+          resp_options
+        ) :: {:ok, Message.response()}
+  def make_response(
+        %Message{start_line: %RequestLine{}} = incoming_request,
+        status,
+        realm,
+        options \\ []
+      )
+      when is_binary(realm) and is_list(options) and status in [401, 407] do
+    nonce =
+      options
+      |> Keyword.get_lazy(:nonce, &create_nonce/0)
+
+    opaque =
+      options
+      |> Keyword.get_lazy(:opaque, &create_opaque/0)
+
+    algorithm =
+      options
+      |> Keyword.get(:algorithm, "MD5")
+
+    qop =
+      options
+      |> Keyword.get(:qop, "auth")
+
+    resp =
+      incoming_request
+      |> Message.to_response(status)
+      |> Message.put_header(status_to_header(status), [
+        {"Digest",
+         %{
+           "realm" => realm,
+           "nonce" => nonce,
+           "algorithm" => algorithm,
+           "qop" => qop,
+           "opaque" => opaque
+         }}
+      ])
+
+    {:ok, resp}
+  end
+
+  defp status_to_header(401), do: :www_authenticate
+  defp status_to_header(407), do: :proxy_authenticate
 end

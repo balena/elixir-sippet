@@ -10,6 +10,8 @@ defmodule Sippet.Message do
         ...
   """
 
+  @behaviour Access
+
   alias Sippet.URI, as: URI
   alias Sippet.Message.RequestLine, as: RequestLine
   alias Sippet.Message.StatusLine, as: StatusLine
@@ -1213,6 +1215,7 @@ defmodule Sippet.Message do
   @spec parse(iodata) :: {:ok, t} | {:error, atom}
   def parse(data) do
     binary_data = IO.iodata_to_binary(data)
+
     case Sippet.Parser.parse(IO.iodata_to_binary(binary_data)) do
       {:ok, message} ->
         case do_parse(message, binary_data) do
@@ -1576,15 +1579,14 @@ defmodule Sippet.Message do
 
   defp do_one_per_line(_, [], result), do: result
 
-  defp do_one_per_line(name, [head | tail], result) do
-    do_one_per_line(name, tail, [name, ": ", do_one_per_line_value(head), "\r\n" | result])
-  end
+  defp do_one_per_line(name, [head | tail], result),
+    do: do_one_per_line(name, tail, [name, ": ", do_one_per_line_value(head), "\r\n" | result])
 
   defp do_one_per_line_value(%{} = parameters),
     do: do_one_per_line_value(Map.to_list(parameters), [])
 
   defp do_one_per_line_value({scheme, %{} = parameters}),
-    do: [scheme, " ", do_one_per_line_value(Map.to_list(parameters), [])]
+    do: [scheme, " ", do_auth_parameters(parameters)]
 
   defp do_one_per_line_value([], result), do: result
 
@@ -1608,6 +1610,25 @@ defmodule Sippet.Message do
 
   defp upcase_atom_or_string(s),
     do: if(is_atom(s), do: String.upcase(Atom.to_string(s)), else: s)
+
+  defp do_auth_parameters(%{} = parameters),
+    do: do_auth_parameters(Map.to_list(parameters), [])
+
+  defp do_auth_parameters([], result), do: result |> Enum.reverse()
+
+  defp do_auth_parameters([{name, value} | tail], [])
+       when name in ["username", "realm", "nonce", "uri", "response", "cnonce", "opaque"],
+    do: do_auth_parameters(tail, [[name, "=\"", value, "\""]])
+
+  defp do_auth_parameters([{name, value} | tail], []),
+    do: do_auth_parameters(tail, [[name, "=", value]])
+
+  defp do_auth_parameters([{name, value} | tail], result)
+       when name in ["username", "realm", "nonce", "uri", "response", "cnonce", "opaque"],
+    do: do_auth_parameters(tail, [[";", name, "=\"", value, "\""] | result])
+
+  defp do_auth_parameters([{name, value} | tail], result),
+    do: do_auth_parameters(tail, [[";", name, "=", value] | result])
 
   @doc """
   Checks whether a message is valid.
@@ -1800,6 +1821,113 @@ defmodule Sippet.Message do
       end
     end
   end
+
+  @doc """
+  Extracts the remote address and port from an incoming request inspecting the
+  `Via` header. If `;rport` is present, use it instead of the topmost `Via`
+  port, if `;received` is present, use it instead of the topmost `Via` host.
+  """
+  @spec get_remote(request) ::
+          {:ok, {protocol :: atom | binary, host :: binary, port :: integer}}
+          | {:error, reason :: term}
+  def get_remote(%__MODULE__{start_line: %RequestLine{}, headers: %{via: [topmost_via | _]}}) do
+    {_version, protocol, {host, port}, params} = topmost_via
+
+    host =
+      case params do
+        %{"received" => received} ->
+          received
+
+        _otherwise ->
+          host
+      end
+
+    port =
+      case params do
+        %{"rport" => rport} ->
+          rport |> String.to_integer()
+
+        _otherwise ->
+          port
+      end
+
+    {:ok, {protocol, host, port}}
+  end
+
+  def get_remote(%__MODULE__{start_line: %RequestLine{}}),
+    do: {:error, "Missing Via header"}
+
+  def get_remote(%__MODULE__{}),
+    do: {:error, "Not a request"}
+
+  @doc """
+  Fetches the value for a specific `key` in the given `message`.
+  """
+  def fetch(%__MODULE__{} = message, key), do: Map.fetch(message, key)
+
+  @doc """
+  Gets the value from key and updates it, all in one pass.
+
+  About the same as `Map.get_and_update/3` except that this function actually
+  does not remove the key from the struct case the passed function returns
+  `:pop`; it puts `nil` for `:start_line`, `:body` and `:target` ands `%{}` for
+  the `:headers` key.
+  """
+  def get_and_update(%__MODULE__{} = message, key, fun)
+      when key in [:start_line, :headers, :body, :target] do
+    current = message[key]
+
+    case fun.(current) do
+      {get, update} ->
+        {get, message |> Map.put(key, update)}
+
+      :pop ->
+        {current, pop(message, key)}
+
+      other ->
+        raise "the given function must return a two-element tuple or :pop, got: #{inspect(other)}"
+    end
+  end
+
+  @doc """
+  Returns and removes the value associated with `key` in `message`.
+
+  About the same as `Map.pop/3` except that this function actually does not
+  remove the key from the struct case the passed function returns `:pop`; it
+  puts `nil` for `:start_line`, `:body` and `:target` ands `%{}` for the
+  `:headers` key.
+  """
+  def pop(message, key, default \\ nil)
+
+  def pop(%__MODULE__{} = message, :headers, default) when default == nil or is_map(default),
+    do: {message[:headers], %{message | headers: %{}}}
+
+  def pop(%__MODULE__{}, :headers, _),
+    do: raise("invalid :default, :headers must be nil or a map")
+
+  def pop(%__MODULE__{} = message, key, nil) when key in [:start_line, :body, :target],
+    do: {message[key], %{message | key => nil}}
+
+  def pop(%__MODULE__{} = message, :start_line, %RequestLine{} = start_line),
+    do: {message[:start_line], %{message | start_line: start_line}}
+
+  def pop(%__MODULE__{} = message, :start_line, %StatusLine{} = start_line),
+    do: {message[:start_line], %{message | start_line: start_line}}
+
+  def pop(%__MODULE__{}, :start_line, _),
+    do: raise("invalid :default, :start_line must be nil, RequestLine or StatusLine")
+
+  def pop(%__MODULE__{} = message, :body, default) when is_binary(default),
+    do: {message[:body], %{message | body: default}}
+
+  def pop(%__MODULE__{}, :body, _),
+    do: raise("invalid :default, :body must be nil or binary")
+
+  def pop(%__MODULE__{} = message, :target, {_protocol, _host, _port} = default),
+    do: {message[:target], %{message | target: default}}
+
+  def pop(%__MODULE__{}, :target, _),
+    do: raise("invalid :default, :target must be nil or {protocol, host, port} tuple")
 end
 
 defimpl String.Chars, for: Sippet.Message do
