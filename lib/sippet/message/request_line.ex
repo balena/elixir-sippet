@@ -25,7 +25,7 @@ defmodule Sippet.Message.RequestLine do
   defstruct [
     method: nil,
     request_uri: nil,
-    version: nil
+    version: {2, 0}
   ]
 
   @type method :: Sippet.Message.method
@@ -51,7 +51,6 @@ defmodule Sippet.Message.RequestLine do
     %__MODULE__{
       method: method,
       request_uri: request_uri,
-      version: {2, 0}
     }
   end
 

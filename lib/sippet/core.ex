@@ -6,8 +6,7 @@ defmodule Sippet.Core do
   to either a stateful or stateless proxy, a user agent or registrar.
   """
 
-  alias Sippet.Message, as: Message
-  alias Sippet.Transactions, as: Transactions
+  alias Sippet.{Message, Transactions}
 
   @doc """
   Receives a new incoming request from a remote host, or ACK.
