@@ -36,7 +36,7 @@ defmodule Sippet.DigestAuth do
           options
         ) :: {:ok, Message.request()} | {:error, reason}
   def make_request(
-        %Message{start_line: %RequestLine{method: req_method, request_uri: req_uri}} =
+        %Message{start_line: %RequestLine{method: req_method, request_uri: req_uri}, body: body} =
           outgoing_request,
         %Message{start_line: %StatusLine{}} = incoming_response,
         authenticate,
@@ -46,7 +46,7 @@ defmodule Sippet.DigestAuth do
            validate_challenge(outgoing_request, incoming_response),
          {:ok, username, password} <- authenticate.(realm),
          {:ok, req_parameters} <-
-           do_make_request(req_uri, req_method, resp_params, username, password, options) do
+           do_make_request(req_uri, req_method, resp_params, username, password, body, options) do
       req_header =
         case resp_header do
           :www_authenticate -> :authorization
@@ -110,6 +110,7 @@ defmodule Sippet.DigestAuth do
          %{"nonce" => nonce, "realm" => realm} = resp_params,
          username,
          password,
+         body,
          options
        ) do
     qop =
@@ -119,99 +120,114 @@ defmodule Sippet.DigestAuth do
 
     algorithm =
       resp_params
-      |> Map.get("algorithm", "MD5")
-      |> String.upcase()
+      |> Map.get("algorithm", "md5")
+      |> String.downcase()
 
-    if algorithm == "MD5" and (qop == [] or "auth" in qop) do
-      cnonce =
-        options
-        |> Keyword.get_lazy(:cnonce, &create_cnonce/0)
+    cnonce =
+      options
+      |> Keyword.get_lazy(:cnonce, &create_cnonce/0)
 
-      nc =
-        options
-        |> Keyword.get(:nc, 1)
+    nc =
+      options
+      |> Keyword.get(:nc, 1)
 
-      nc_hex = :io_lib.format("~8.16.0B", [nc]) |> to_string()
+    nc_hex = :io_lib.format("~8.16.0B", [nc]) |> to_string()
 
-      ha1 = make_ha1(username, password, realm)
-
-      method =
-        case req_method do
-          :ack -> :invite
-          method -> method
-        end
-
-      resp = make_auth_response(qop, method, req_uri, ha1, nonce, cnonce, nc_hex)
-
-      req_params = %{
-        "username" => username,
-        "realm" => realm,
-        "nonce" => nonce,
-        "uri" => req_uri |> to_string(),
-        "response" => resp,
-      }
-
-      req_params =
-        if resp_params["algorithm"] == nil do
-          req_params
-        else
-          req_params
-          |> Map.put("algorithm", "MD5")
-        end
-
-      req_params =
-        if qop == [] do
-          req_params
-        else
-          req_params
-          |> Map.put("qop", "auth")
-          |> Map.put("cnonce", cnonce)
-          |> Map.put("nc", nc_hex)
-        end
-
-      req_params =
-        case resp_params do
-          %{"opaque" => opaque} ->
-            req_params
-            |> Map.put("opaque", opaque)
-
-          _otherwise ->
-            req_params
-        end
-
-      {:ok, req_params}
-    else
-      {:error, :invalid_auth_header}
-    end
-  end
-
-  defp make_ha1(username, password, realm),
-    do: :crypto.hash(:md5, "#{username}:#{realm}:#{password}")
-
-  defp make_auth_response(qop, method, uri, ha1, nonce, cnonce, nc) do
-    ha1_hex =
-      ha1
+    ha1 =
+      :crypto.hash(:md5, "#{username}:#{realm}:#{password}")
       |> Base.encode16(case: :lower)
+
+    ha1 =
+      if algorithm == "md5-sess" do
+        :crypto.hash(:md5, ha1 <> ":#{nonce}:#{cnonce}")
+        |> Base.encode16(case: :lower)
+      else
+        ha1
+      end
+
+    method =
+      case req_method do
+        :ack -> :invite
+        method -> method
+      end
 
     method =
       method
       |> to_string()
       |> String.upcase()
 
-    ha2_base = "#{method}:#{uri |> to_string()}"
+    a2 = "#{method}:#{req_uri |> to_string()}"
+
+    a2 =
+      if "auth-int" in qop do
+        body_hash =
+          :crypto.hash(:md5, body)
+          |> Base.encode16(case: :lower)
+
+        a2 <> ":#{body_hash}"
+      else
+        a2
+      end
 
     ha2 =
-      :crypto.hash(:md5, ha2_base)
+      :crypto.hash(:md5, a2)
       |> Base.encode16(case: :lower)
 
-    cond do
-      qop == [] ->
-        :crypto.hash(:md5, "#{ha1_hex}:#{nonce}:#{ha2}")
-        |> Base.encode16(case: :lower)
+    nc_part =
+      if qop == [] do
+        ""
+      else
+        "#{nc_hex}:#{cnonce}:#{qop_to_string(qop)}:"
+      end
 
-      "auth" in qop ->
-        :crypto.hash(:md5, "#{ha1_hex}:#{nonce}:#{nc}:#{cnonce}:auth:#{ha2}")
-        |> Base.encode16(case: :lower)
+    resp =
+      :crypto.hash(:md5, "#{ha1}:#{nonce}:#{nc_part}#{ha2}")
+      |> Base.encode16(case: :lower)
+
+    req_params = %{
+      "username" => username,
+      "realm" => realm,
+      "nonce" => nonce,
+      "uri" => req_uri |> to_string(),
+      "response" => resp
+    }
+
+    req_params =
+      if resp_params["algorithm"] == nil do
+        req_params
+      else
+        req_params
+        |> Map.put("algorithm", resp_params["algorithm"])
+      end
+
+    req_params =
+      if qop == [] do
+        req_params
+      else
+        req_params
+        |> Map.put("qop", qop_to_string(qop))
+        |> Map.put("cnonce", cnonce)
+        |> Map.put("nc", nc_hex)
+      end
+
+    req_params =
+      case resp_params do
+        %{"opaque" => opaque} ->
+          req_params
+          |> Map.put("opaque", opaque)
+
+        _otherwise ->
+          req_params
+      end
+
+    {:ok, req_params}
+  end
+
+  defp qop_to_string(qop) do
+    if "auth-int" in qop do
+      "auth-int"
+    else
+      "auth"
     end
   end
 
