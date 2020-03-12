@@ -1,7 +1,7 @@
 defmodule Sippet.Mixfile do
   use Mix.Project
 
-  @version "1.0.6"
+  @version "1.0.7"
 
   def project do
     [
@@ -11,9 +11,7 @@ defmodule Sippet.Mixfile do
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
       # Add the make compiler
-      compilers: [:make] ++ Mix.compilers(),
-      # Configure aliases
-      aliases: aliases(),
+      compilers: [:elixir_make] ++ Mix.compilers(),
       deps: deps(),
       package: package(),
       name: "Sippet",
@@ -26,13 +24,10 @@ defmodule Sippet.Mixfile do
         "coveralls.detail": :test,
         "coveralls.post": :test,
         "coveralls.html": :test
-      ]
+      ],
+      make_clean: ["clean"],
+      make_cwd: "c_src"
     ]
-  end
-
-  defp aliases do
-    # Execute the usual mix clean and our Makefile clean task
-    [clean: ["clean", "clean.make"]]
   end
 
   def application do
@@ -44,6 +39,9 @@ defmodule Sippet.Mixfile do
   defp deps do
     [
       {:gen_state_machine, "~> 2.1"},
+
+      # Build the NIF
+      {:elixir_make, "~> 0.4", runtime: false},
 
       # Docs dependencies
       {:ex_doc, "~> 0.21", only: :dev, runtime: false},
@@ -59,7 +57,7 @@ defmodule Sippet.Mixfile do
 
   defp description do
     """
-    An Elixir library designed to be used as SIP protocol middleware.
+    An Elixir Session Initiation Protocol (SIP) stack.
     """
   end
 
@@ -70,38 +68,5 @@ defmodule Sippet.Mixfile do
       links: %{"GitHub" => "https://github.com/balena/elixir-sippet"},
       files: ~w"lib c_src/*.{h,cc} c_src/Makefile mix.exs README.md LICENSE"
     ]
-  end
-end
-
-# Make tasks
-
-defmodule Mix.Tasks.Compile.Make do
-  # Compiles helper in c_src
-
-  def run(_) do
-    {result, error_code} = System.cmd("make", ["-C", "c_src"], stderr_to_stdout: true)
-
-    # XXX(balena): Because the compiler changes the priv directory, we need to
-    # notify Mix to rebuild the project structure under _build, copying the new
-    # priv files.
-    # https://github.com/riverrun/comeonin/pull/41/commits/5670e424f7d4feba0839211090f5dcf79b340577
-    if error_code == 0 do
-      Mix.Project.build_structure()
-    end
-
-    Mix.shell().info(result)
-
-    :ok
-  end
-end
-
-defmodule Mix.Tasks.Clean.Make do
-  # Cleans helper in c_src
-
-  def run(_) do
-    {result, _error_code} = System.cmd("make", ["-C", "c_src", "clean"], stderr_to_stdout: true)
-    Mix.shell().info(result)
-
-    :ok
   end
 end
