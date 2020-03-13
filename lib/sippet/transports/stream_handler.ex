@@ -70,7 +70,10 @@ defmodule Sippet.Transports.StreamHandler do
         }
 
         setopts_active(state)
-        loop(set_timeout(state, :idle_timeout))
+
+        state
+        |> set_timeout(:idle_timeout)
+        |> loop()
 
       {{:error, reason}, _, _} ->
         terminate(
@@ -183,7 +186,9 @@ defmodule Sippet.Transports.StreamHandler do
         _ ->
           # Do a synchronous cancel and remove the message if any
           # to avoid receiving stray messages.
-          Process.cancel_timer(timer_ref)
+          if is_reference(timer_ref) do
+            Process.cancel_timer(timer_ref)
+          end
 
           receive do
             {:timeout, _timer_ref, _} -> :ok
@@ -214,16 +219,19 @@ defmodule Sippet.Transports.StreamHandler do
 
   defp parse(
          <<keep_alive, rest::binary>>,
-         %{in_state: :idle, transport: transport, socket: socket, connection_type: :server} =
+         %{in_state: :idle, transport: transport, socket: socket, connection_type: connection_type} =
            state
        )
        when keep_alive in ["\n", "\r\n"] do
-    # When remote sends CRLF (or just LF) ping, the idle timer is reset and an
-    # pong is sent back
-    state = set_timeout(state, :idle_timeout)
-    transport.send(socket, keep_alive)
+    if connection_type == :server do
+      # When remote sends CRLF (or just LF) ping, the idle timer is reset and an
+      # pong is sent back
+      transport.send(socket, keep_alive)
+    end
 
-    parse(rest, state)
+    state
+    |> set_timeout(:idle_timeout)
+    |> parse(rest)
   end
 
   defp parse(buffer, %{in_state: :idle} = state) do
@@ -237,7 +245,7 @@ defmodule Sippet.Transports.StreamHandler do
         loop(%{state | buffer: incomplete_header})
 
       [header, sep, body] ->
-        case Regex.run(~r/(Content-Length|l)[[:space:]]*:[[:space:]]*([0-9]+)/u, body,
+        case Regex.run(~r/(Content-Length|l)[[:space:]]*:[[:space:]]*([0-9]+)/u, header,
                captures: :first
              ) do
           [_, _, length] ->
@@ -269,7 +277,7 @@ defmodule Sippet.Transports.StreamHandler do
          %{
            clen: clen,
            header: header,
-           peer: {from_ip, from_port},
+           peer: {peer_ip, peer_port},
            transport: transport,
            sippet: sippet
          } = state
@@ -277,7 +285,7 @@ defmodule Sippet.Transports.StreamHandler do
     <<body::binary-size(clen), rest::binary>> = buffer
     message = header <> body
 
-    Router.handle_transport_message(sippet, message, {protocol(transport), from_ip, from_port})
+    Router.handle_transport_message(sippet, message, {protocol(transport), peer_ip, peer_port})
 
     %{state | buffer: rest}
   end

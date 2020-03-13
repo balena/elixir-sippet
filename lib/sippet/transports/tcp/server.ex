@@ -74,7 +74,7 @@ defmodule Sippet.Transports.TCP.Server do
       options
       |> Keyword.get(:num_acceptors, 10)
 
-    ref = :"#{name}_listener"
+    ref = :"#{name}_tcp_listener"
 
     trans_opts = %{
       socket_opts: [{:port, port}, {:ip, ip}, family],

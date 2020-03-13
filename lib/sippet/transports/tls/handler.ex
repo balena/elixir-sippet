@@ -15,7 +15,7 @@ defmodule Sippet.Transports.TLS.Handler do
 
   def connection_process(parent, ref, transport, opts) do
     proxy_info =
-      case Keyword.get(:proxy_header, opts, false) do
+      case Keyword.get(opts, :proxy_header, false) do
         true ->
           {:ok, proxy_info} = :ranch.recv_proxy_header(ref, 1000)
           proxy_info
