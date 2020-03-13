@@ -1,4 +1,4 @@
-defmodule Sippet.Transports.TCP.Handler do
+defmodule Sippet.Transports.TLS.Handler do
   @moduledoc false
 
   # Ranch 1

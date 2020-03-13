@@ -1,6 +1,6 @@
-defmodule Sippet.Transports.TCP do
+defmodule Sippet.Transports.TLS do
   @moduledoc """
-  Implements a TCP transport based on `ranch`.
+  Implements a TLS transport based on `ranch`.
   """
 
   def child_spec(options) when is_list(options) do
@@ -11,7 +11,7 @@ defmodule Sippet.Transports.TCP do
   end
 
   @doc """
-  Starts the TCP transport.
+  Starts the TLS transport.
   """
   def start_link(options) do
     name =
@@ -84,10 +84,12 @@ defmodule Sippet.Transports.TCP do
     ]
 
     proto_opts = [
-      sippet: name
+      sippet: name,
+      protocol: :tls,
+      connection_type: :server
     ]
 
-    :ranch.start_listener(ref, :ranch_tcp, trans_opts, Sippet.Transports.TCP.Handler, proto_opts)
+    :ranch.start_listener(ref, :ranch_tcp, trans_opts, Sippet.Transports.TLS.Handler, proto_opts)
   end
 
   defp resolve_name(host, family) do
