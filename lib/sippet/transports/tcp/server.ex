@@ -1,6 +1,6 @@
-defmodule Sippet.Transports.TCP do
+defmodule Sippet.Transports.TCP.Server do
   @moduledoc """
-  Implements a TCP transport based on `ranch`.
+  Implements a TCP server transport based on `ranch`.
   """
 
   def child_spec(options) when is_list(options) do
@@ -76,12 +76,11 @@ defmodule Sippet.Transports.TCP do
 
     ref = :"#{name}_listener"
 
-    trans_opts = [
-      port: port,
-      ip: ip,
+    trans_opts = %{
+      socket_opts: [{:port, port}, {:ip, ip}, family],
       max_connections: max_connections,
       num_acceptors: num_acceptors
-    ]
+    }
 
     proto_opts = [
       sippet: name,

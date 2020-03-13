@@ -1,6 +1,8 @@
 defmodule Sippet.Transports.StreamHandler do
   @moduledoc false
 
+  alias Sippet.{Message, Router}
+
   require Logger
 
   defstruct parent: nil,
@@ -18,10 +20,20 @@ defmodule Sippet.Transports.StreamHandler do
             header: nil,
             clen: 0,
             sippet: nil,
-            protocol: nil,
-            connection_type: :server
+            connection_type: nil
 
-  @ doc false
+  @type options :: [option]
+
+  @type option ::
+          {:connection_type, :client | :server}
+          | {:idle_timeout, integer}
+          | {:message_timeout, integer}
+          | {:linger_timeout, integer}
+          | {:inactivity_timeout, integer}
+          | {:max_header_length, integer}
+          | {:sippet, atom}
+
+  @doc false
   def init(parent, ref, socket, transport, proxy_info, opts) do
     peer = transport.peername(socket)
     sock = transport.sockname(socket)
@@ -54,7 +66,6 @@ defmodule Sippet.Transports.StreamHandler do
           sock: sock,
           cert: cert,
           sippet: Keyword.fetch!(opts, :sippet),
-          protocol: Keyword.fetch!(opts, :protocol),
           connection_type: Keyword.fetch!(opts, :connection_type)
         }
 
@@ -259,14 +270,14 @@ defmodule Sippet.Transports.StreamHandler do
            clen: clen,
            header: header,
            peer: {from_ip, from_port},
-           protocol: protocol,
+           transport: transport,
            sippet: sippet
          } = state
        ) do
     <<body::binary-size(clen), rest::binary>> = buffer
     message = header <> body
 
-    Sippet.Router.handle_transport_message(sippet, message, {protocol, from_ip, from_port})
+    Router.handle_transport_message(sippet, message, {protocol(transport), from_ip, from_port})
 
     %{state | buffer: rest}
   end
@@ -356,12 +367,11 @@ defmodule Sippet.Transports.StreamHandler do
            socket: socket,
            transport: transport,
            peer: {peer_ip, peer_port},
-           protocol: protocol,
            sippet: sippet
          } = state
        ) do
     Logger.debug([
-      "sending message to #{stringify_ipport(peer_ip, peer_port)}/#{protocol}",
+      "sending message to #{stringify_ipport(peer_ip, peer_port)}/#{protocol(transport)}",
       ", #{inspect(key)}"
     ])
 
@@ -371,12 +381,12 @@ defmodule Sippet.Transports.StreamHandler do
 
       {:error, reason} ->
         Logger.warn([
-          "#{protocol} transport error for",
+          "#{protocol(transport)} transport error for",
           " #{stringify_ipport(peer_ip, peer_port)}: #{inspect(reason)}"
         ])
 
         if key != nil do
-          Sippet.Router.receive_transport_error(sippet, key, reason)
+          Router.receive_transport_error(sippet, key, reason)
         end
     end
 
@@ -398,5 +408,12 @@ defmodule Sippet.Transports.StreamHandler do
       |> to_string()
 
     "#{address}:#{port}"
+  end
+
+  defp protocol(transport) do
+    case transport.name() do
+      :ssl -> :tls
+      other -> other
+    end
   end
 end

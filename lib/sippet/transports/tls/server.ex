@@ -1,6 +1,6 @@
-defmodule Sippet.Transports.TLS do
+defmodule Sippet.Transports.TLS.Server do
   @moduledoc """
-  Implements a TLS transport based on `ranch`.
+  Implements a TLS server transport based on `ranch`.
   """
 
   def child_spec(options) when is_list(options) do
@@ -36,7 +36,7 @@ defmodule Sippet.Transports.TLS do
                 "expected :port to be an integer between 1 and 65535, got: #{inspect(other)}"
 
         :error ->
-          5060
+          5061
       end
 
     {address, family} =
@@ -74,14 +74,13 @@ defmodule Sippet.Transports.TLS do
       options
       |> Keyword.get(:num_acceptors, 10)
 
-    ref = :"#{name}_listener"
+    ref = :"#{name}_tls_listener"
 
-    trans_opts = [
-      port: port,
-      ip: ip,
+    trans_opts = %{
+      socket_opts: [{:port, port}, {:ip, ip}, family],
       max_connections: max_connections,
       num_acceptors: num_acceptors
-    ]
+    }
 
     proto_opts = [
       sippet: name,
