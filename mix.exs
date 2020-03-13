@@ -39,6 +39,7 @@ defmodule Sippet.Mixfile do
   defp deps do
     [
       {:gen_state_machine, "~> 2.1"},
+      {:ranch, "~> 1.7"},
 
       # Build the NIF
       {:elixir_make, "~> 0.4", runtime: false},
