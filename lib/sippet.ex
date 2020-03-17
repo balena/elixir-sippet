@@ -155,15 +155,6 @@ defmodule Sippet do
   end
 
   @doc """
-  Registers the stack core.
-  """
-  @spec register_core(sippet, atom) :: :ok
-  def register_core(sippet, module)
-      when is_atom(sippet) and is_atom(module) do
-    Registry.put_meta(sippet, :core, module)
-  end
-
-  @doc """
   Terminates a client or server transaction forcefully.
 
   This function is not generally executed by entities; there is a single case
@@ -205,6 +196,17 @@ defmodule Sippet do
           raise ArgumentError, "expected :name option to be present"
       end
 
+    case Keyword.fetch(options, :core) do
+      {:ok, name} when is_atom(name) ->
+        :ok
+
+      {:ok, other} ->
+        raise ArgumentError, "expected :core to be a module, got: #{inspect(other)}"
+
+      :error ->
+        raise ArgumentError, "expected :core option to be present"
+    end
+
     Supervisor.start_link(__MODULE__, options, name: :"#{name}_sup")
   end
 
@@ -218,7 +220,13 @@ defmodule Sippet do
   @impl true
   def init(options) do
     children = [
-      {Registry, [name: options[:name], keys: :unique, partitions: System.schedulers_online()]}
+      {Registry,
+       [
+         name: options[:name],
+         keys: :unique,
+         partitions: System.schedulers_online(),
+         meta: [core: options[:core]]
+       ]}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

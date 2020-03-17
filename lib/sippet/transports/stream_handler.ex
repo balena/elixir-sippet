@@ -31,6 +31,7 @@ defmodule Sippet.Transports.StreamHandler do
           | {:linger_timeout, integer}
           | {:inactivity_timeout, integer}
           | {:max_header_length, integer}
+          | {:active_n, integer}
           | {:sippet, atom}
 
   @doc false
@@ -96,8 +97,15 @@ defmodule Sippet.Transports.StreamHandler do
     end
   end
 
-  defp setopts_active(%{socket: socket, transport: transport}),
-    do: transport.setopts(socket, active: true)
+  defp setopts_active(%{socket: socket, transport: transport, opts: opts}) do
+    # the following is used instead of [active: true] to avoid flooding the
+    # reading process with socket data messages, at the same time still
+    # providing good performance while reading data.
+    # See {active, N} option in https://erlang.org/doc/man/inet.html#setopts-2
+
+    n = Keyword.get(opts, :active_n, 100)
+    transport.setopts(socket, active: n)
+  end
 
   defp loop(
          %{
@@ -128,6 +136,13 @@ defmodule Sippet.Transports.StreamHandler do
       {^error, ^socket, reason} ->
         terminate(state, {:socket_error, reason, "An error has occurred on the socket."})
 
+      # Passive
+      {passive, ^socket}
+      when (tuple_size(messages) >= 4 and passive == elem(messages, 3)) or
+             passive in [:tcp_passive, :ssl_passive] ->
+        setopts_active(state)
+        loop(state)
+
       # Timeouts
       {:timeout, ^timer_ref, reason} ->
         timeout(state, reason)
@@ -143,7 +158,7 @@ defmodule Sippet.Transports.StreamHandler do
         :sys.handle_system_msg(request, from, parent, __MODULE__, [], state)
 
       # Calls from supervisor module
-      {'$gen_call', from, call} ->
+      {:"$gen_call", from, call} ->
         handle_call(call, from, state)
         loop(state)
 
@@ -219,8 +234,12 @@ defmodule Sippet.Transports.StreamHandler do
 
   defp parse(
          <<keep_alive, rest::binary>>,
-         %{in_state: :idle, transport: transport, socket: socket, connection_type: connection_type} =
-           state
+         %{
+           in_state: :idle,
+           transport: transport,
+           socket: socket,
+           connection_type: connection_type
+         } = state
        )
        when keep_alive in ["\n", "\r\n"] do
     if connection_type == :server do
@@ -348,6 +367,11 @@ defmodule Sippet.Transports.StreamHandler do
 
       {^error, ^socket, _} ->
         :ok
+  
+      {passive, ^socket}
+      when (tuple_size(messages) >= 4 and passive == elem(messages, 3)) or
+             passive in [:tcp_passive, :ssl_passive] ->
+        terminate_linger_before_loop(state, timer_ref, messages)
 
       {:timeout, _timer_ref, :linger_timeout} ->
         :ok
@@ -379,7 +403,7 @@ defmodule Sippet.Transports.StreamHandler do
          } = state
        ) do
     Logger.debug([
-      "sending message to #{stringify_ipport(peer_ip, peer_port)}/#{protocol(transport)}",
+      "sending message to #{stringify(peer_ip, peer_port, transport)}",
       ", #{inspect(key)}"
     ])
 
@@ -390,7 +414,7 @@ defmodule Sippet.Transports.StreamHandler do
       {:error, reason} ->
         Logger.warn([
           "#{protocol(transport)} transport error for",
-          " #{stringify_ipport(peer_ip, peer_port)}: #{inspect(reason)}"
+          " #{stringify(peer_ip, peer_port)}: #{inspect(reason)}"
         ])
 
         if key != nil do
@@ -409,13 +433,17 @@ defmodule Sippet.Transports.StreamHandler do
     end
   end
 
-  defp stringify_ipport(ip, port) do
+  defp stringify(ip, port) do
     address =
       ip
       |> :inet_parse.ntoa()
       |> to_string()
 
     "#{address}:#{port}"
+  end
+
+  defp stringify(ip, port, transport) do
+    "#{stringify(ip, port)}/#{protocol(transport)}"
   end
 
   defp protocol(transport) do

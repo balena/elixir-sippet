@@ -68,17 +68,7 @@ def deps do
 end
 ```
 
-  2. Give a name to your stack and build it:
-
-```elixir
-# Creates a :mystack Sippet instance
-Sippet.start_link(name: :mystack)
-
-# The below will create a default UDP transport listening on 0.0.0.0:5060/udp
-Sippet.Transports.UDP.start_link(name: :mystack)
-```
-
-  4. Create a `Sippet.Core` and register it:
+  2. Create a `Sippet.Core`:
 
 ```elixir
 defmodule MyCore do
@@ -96,9 +86,18 @@ defmodule MyCore do
     # route the error to your UA or proxy process
   end
 end
-
-Sippet.register_core(:mystack, MyCore)
 ```
+
+  3. Give a name to your stack and build it:
+
+```elixir
+# Creates a :mystack Sippet instance
+Sippet.start_link(name: :mystack, core: MyCore)
+
+# The below will create a default UDP transport listening on 0.0.0.0:5060/udp
+Sippet.Transports.UDP.start_link(name: :mystack)
+```
+
 
 Voilà! The SIP stack will be listening on the indicated address and port, and
 your `MyCore` module will receive callbacks from it whenever a SIP message
