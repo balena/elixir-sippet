@@ -127,7 +127,7 @@ defmodule Sippet.Transactions.Client.Invite do
   def completed(:enter, _old_state, %State{request: request, extras: extras} = data) do
     ack = build_ack(request, extras.last_response)
     send_request(ack, data)
-    data = %State{extras: extras |> Map.put(:ack, ack)}
+    data = %State{data | extras: extras |> Map.put(:ack, ack)}
 
     if reliable?(request, data) do
       {:stop, :normal, data}
