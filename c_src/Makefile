@@ -8,6 +8,7 @@ PROJECT := sippet_nif
 ERTS_INCLUDE_DIR ?= $(shell erl -noshell -s init stop -eval "io:format(\"~s/erts-~s/include/\", [code:root_dir(), erlang:system_info(version)]).")
 ERL_INTERFACE_INCLUDE_DIR ?= $(shell erl -noshell -s init stop -eval "io:format(\"~s\", [code:lib_dir(erl_interface, include)]).")
 ERL_INTERFACE_LIB_DIR ?= $(shell erl -noshell -s init stop -eval "io:format(\"~s\", [code:lib_dir(erl_interface, lib)]).")
+ERL_VERSION := $(shell erl -noshell -eval 'io:fwrite("~s\n", [erlang:system_info(otp_release)]).' -s erlang halt)
 
 C_SRC_DIR = $(CURDIR)
 C_SRC_OUTPUT ?= $(BASEDIR)/priv/$(PROJECT).so
@@ -30,7 +31,12 @@ endif
 CFLAGS += -fPIC -I $(ERTS_INCLUDE_DIR) -I $(ERL_INTERFACE_INCLUDE_DIR)
 CXXFLAGS += -fPIC -I $(ERTS_INCLUDE_DIR) -I $(ERL_INTERFACE_INCLUDE_DIR)
 
-LDLIBS += -L $(ERL_INTERFACE_LIB_DIR) -lerl_interface -lei
+ifeq ($(shell expr $(ERL_VERSION) \>= 23), 1)
+	LDLIBS += -L $(ERL_INTERFACE_LIB_DIR) -lei
+else
+	LDLIBS += -L $(ERL_INTERFACE_LIB_DIR) -lei -lerl_interface
+endif
+
 LDFLAGS += -shared -lstdc++
 
 # Verbosity.
