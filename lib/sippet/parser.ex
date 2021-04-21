@@ -3,8 +3,68 @@ defmodule Sippet.Parser do
   Parses the SIP header.
   """
 
-  alias Sippet.URI
+  alias Sippet.{URI, Message}
   alias Sippet.Message.{RequestLine, StatusLine}
+
+  @wsp ~c[ \t]
+  @digits ~c[0123456789]
+
+  def parse(iodata) when is_list(iodata),
+    do: iodata |> IO.iodata_to_binary() |> parse()
+
+  def parse(binary) when is_binary(binary),
+    do: binary |> split_lines() |> parse_lines()
+
+  defp parse_lines({[], _}), do: {:error, :ebadmsg}
+
+  defp parse_lines({[first_line | headers], body}) do
+    with {:ok, start_line} <- parse_first_line(first_line),
+         {:ok, parsed_headers} <- parse_headers(headers) do
+      %Message{
+        start_line: start_line,
+        headers: parsed_headers |> Map.new(),
+        body: body
+      }
+    end
+  end
+
+  defp parse_headers(headers), do: parse_headers(headers, [])
+
+  defp parse_headers([], parsed_headers), do: {:ok, parsed_headers}
+
+  defp parse_headers([header_line | headers], acc) do
+    with {:ok, header} <- parse_header(header_line) do
+      parse_headers(headers, [header | acc])
+    end
+  end
+
+  defp parse_header(header_line) do
+    with {:ok, header_name, header_value} <- split_header(header_line) do
+      parse_header_value(header_name, header_value)
+    end
+  end
+
+  defp split_header(header_line), do: split_header(header_line, "")
+
+  defp split_header(<<>>, _), do: {:error, :ebadheader}
+
+  defp split_header(<<c, header_value::binary>>, header_name) when c in @wsp,
+    do: split_header(header_value, header_name)
+
+  defp split_header(":" <> header_value, header_name),
+    do: {:ok, header_name |> String.downcase(), header_value}
+  
+  defp split_header(<<c, header_value::binary>>, header_name),
+    do: split_header(header_value, header_name <> <<c>>)
+
+  defp parse_header_value("accept", header_value) do
+    with {:ok, values} <- parse_multiple_type_subtype_params(header_value) do
+      {:ok, {:accept, values}}
+    end
+  end
+
+  defp parse_header_value(header_name, header_value),
+    do: {:ok, {header_name, header_value}}
 
   @doc """
   Parses the first line of a SIP message.
@@ -12,35 +72,38 @@ defmodule Sippet.Parser do
   ## Example:
 
       iex> Sippet.Parser.parse_first_line("INVITE sip:foo@bar.com SIP/2.0")
-      %Sippet.Message.RequestLine{
-        method: "INVITE",
-        request_uri: %Sippet.URI{
-          authority: "foo@bar.com",
-          headers: nil,
-          host: "bar.com",
-          parameters: nil,
-          port: 5060,
-          scheme: "sip",
-          userinfo: "foo"
-        },
-        version: {2, 0}
-      }
+      {:ok,
+       %Sippet.Message.RequestLine{
+         method: "INVITE",
+         request_uri: %Sippet.URI{
+           authority: "foo@bar.com",
+           headers: nil,
+           host: "bar.com",
+           parameters: nil,
+           port: 5060,
+           scheme: "sip",
+           userinfo: "foo"
+         },
+         version: {2, 0}
+       }}
 
       iex> Sippet.Parser.parse_first_line("SIP/2.0 200 OK")
-      %Sippet.Message.StatusLine{
-        version: {2, 0},
-        status_code: 200,
-        reason_phrase: "OK"
-      }
+      {:ok,
+       %Sippet.Message.StatusLine{
+         version: {2, 0},
+         status_code: 200,
+         reason_phrase: "OK"
+       }}
   """
   def parse_first_line("SIP/" <> _ = status_line) do
     with {:ok, version, rest} <- parse_sip_version(status_line),
          {:ok, code, reason_phrase} <- parse_status_code(rest) do
-      %StatusLine{
-        version: version,
-        status_code: code,
-        reason_phrase: reason_phrase
-      }
+      {:ok,
+       %StatusLine{
+         version: version,
+         status_code: code,
+         reason_phrase: reason_phrase
+       }}
     end
   end
 
@@ -48,11 +111,12 @@ defmodule Sippet.Parser do
     with {:ok, method, rest} <- parse_method(request_line),
          {:ok, uri, sip_version} <- parse_uri(rest),
          {:ok, version, _} <- parse_sip_version(sip_version) do
-      %RequestLine{
-        method: method,
-        request_uri: uri,
-        version: version
-      }
+      {:ok,
+       %RequestLine{
+         method: method,
+         request_uri: uri,
+         version: version
+       }}
     end
   end
 
@@ -102,7 +166,7 @@ defmodule Sippet.Parser do
   defp parse_version("." <> _, _), do: {:error, :ebadver}
 
   defp parse_version(<<n, rest::binary>>, [last | v])
-       when n in ~c[0123456789] do
+       when n in @digits do
     parse_version(rest, [last * 10 + (n - ?0) | v])
   end
 
@@ -128,7 +192,7 @@ defmodule Sippet.Parser do
   defp parse_status_code(" " <> _, _), do: {:error, :ebadcode}
 
   defp parse_status_code(<<n, rest::binary>>, code)
-       when n in ~c[0123456789] do
+       when n in @digits do
     parse_status_code(rest, code * 10 + (n - ?0))
   end
 
@@ -165,7 +229,7 @@ defmodule Sippet.Parser do
     do: {[line | lines] |> Enum.reverse(), rest}
 
   defp split_lines("\r\n" <> <<sp, rest::binary>>, line, lines)
-       when sp in ~c[ \t] do
+       when sp in @wsp do
     split_lines(<<sp, rest::binary>>, line, lines)
   end
 
@@ -176,7 +240,7 @@ defmodule Sippet.Parser do
     do: {[line | lines] |> Enum.reverse(), rest}
 
   defp split_lines("\n" <> <<sp, rest::binary>>, line, lines)
-       when sp in ~c[ \t] do
+       when sp in @wsp do
     split_lines(<<sp, rest::binary>>, line, lines)
   end
 
@@ -185,4 +249,89 @@ defmodule Sippet.Parser do
 
   defp split_lines(<<c, rest::binary>>, line, lines),
     do: split_lines(rest, line <> <<c>>, lines)
+
+  def parse_multiple_type_subtype_params(input),
+    do: parse_multiple_type_subtype_params(input, "", [])
+
+  defp parse_multiple_type_subtype_params(<<>>, <<>>, list), do: {:ok, list |> Enum.reverse()}
+
+  defp parse_multiple_type_subtype_params(<<>>, part, list) do
+    with {:ok, type_subtype, params} <- parse_single_type_subtype_params(part) do
+      {:ok, [{type_subtype, params} | list] |> Enum.reverse()}
+    end
+  end
+
+  defp parse_multiple_type_subtype_params("," <> input, part, list) do
+    with {:ok, type_subtype, params} <- parse_single_type_subtype_params(part) do
+      parse_multiple_type_subtype_params(input, "", [{type_subtype, params} | list])
+    end
+  end
+
+  defp parse_multiple_type_subtype_params(<<c, input::binary>>, part, list),
+    do: parse_multiple_type_subtype_params(input, part <> <<c>>, list)
+
+  def parse_single_type_subtype_params(input),
+    do: parse_single_type_subtype_params(input, "", "")
+
+  defp parse_single_type_subtype_params(<<>>, _subtype, ""),
+    do: {:error, :ebadtype}
+
+  defp parse_single_type_subtype_params(<<>>, "", _type),
+    do: {:error, :ebadtype}
+
+  defp parse_single_type_subtype_params(<<>>, subtype, type),
+    do: {:ok, {type, subtype}, %{}}
+
+  defp parse_single_type_subtype_params(<<c, input::binary>>, part, type) when c in @wsp,
+    do: parse_single_type_subtype_params(input, part, type)
+
+  defp parse_single_type_subtype_params("/" <> input, type, ""),
+    do: parse_single_type_subtype_params(input, "", type)
+
+  defp parse_single_type_subtype_params("/" <> _input, _subtype, _type),
+    do: {:error, :ebadtype}
+
+  defp parse_single_type_subtype_params(";" <> _input, "", _type),
+    do: {:error, :ebadtype}
+
+  defp parse_single_type_subtype_params(";" <> _input, _subtype, ""),
+    do: {:error, :ebadtype}
+
+  defp parse_single_type_subtype_params(";" <> input, subtype, type) do
+    with {:ok, params} <- parse_params(input) do
+      {:ok, {type, subtype}, params}
+    end
+  end
+
+  defp parse_single_type_subtype_params(<<c, input::binary>>, part, type),
+    do: parse_single_type_subtype_params(input, part <> <<c>>, type)
+
+  def parse_params(input), do: parse_params(input, "", "", [])
+
+  defp parse_params(<<>>, "", "", _list),
+    do: {:error, :ebadparam}
+
+  defp parse_params(<<>>, key, "", list),
+    do: {:ok, [{key, ""} | list] |> Map.new()}
+
+  defp parse_params(<<>>, value, key, list),
+    do: {:ok, [{key, value} | list] |> Map.new()}
+
+  defp parse_params(<<c, input::binary>>, part, key, list) when c in @wsp,
+    do: parse_params(input, part, key, list)
+
+  defp parse_params("=" <> input, key, "", list),
+    do: parse_params(input, "", key, list)
+
+  defp parse_params("=" <> _input, _value, _key, _list),
+    do: {:error, :ebadparam}
+
+  defp parse_params(";" <> _input, _value, "", _list),
+    do: {:error, :ebadparam}
+
+  defp parse_params(";" <> input, value, key, list),
+    do: parse_params(input, "", "", [{key, value} | list])
+
+  defp parse_params(<<c, input::binary>>, part, key, list),
+    do: parse_params(input, part <> <<c>>, key, list)
 end
