@@ -9,6 +9,10 @@ defmodule Sippet.Parser do
   @wsp ~c[ \t]
   @digits ~c[0123456789]
 
+  @known_headers [
+    {"accept", :accept, &Sippet.Parser.parse_multiple_type_subtype_params/1}
+  ]
+
   def parse(iodata) when is_list(iodata),
     do: iodata |> IO.iodata_to_binary() |> parse()
 
@@ -57,9 +61,11 @@ defmodule Sippet.Parser do
   defp split_header(<<c, header_value::binary>>, header_name),
     do: split_header(header_value, header_name <> <<c>>)
 
-  defp parse_header_value("accept", header_value) do
-    with {:ok, values} <- parse_multiple_type_subtype_params(header_value) do
-      {:ok, {:accept, values}}
+  for {header_name, header_key, parser} <- @known_headers do
+    defp parse_header_value(unquote(header_name), header_value) do
+      with {:ok, result} <- unquote(parser).(header_value) do
+        {:ok, {unquote(header_key), result}}
+      end
     end
   end
 
@@ -250,19 +256,33 @@ defmodule Sippet.Parser do
   defp split_lines(<<c, rest::binary>>, line, lines),
     do: split_lines(rest, line <> <<c>>, lines)
 
+  @doc """
+  Parse headers such as `Accept`.
+
+  ## Example:
+
+      iex> Sippet.Parser.parse_multiple_type_subtype_params("application/json;q=1")
+      {:ok, [{{"application", "json"}, %{"q" => "1"}}]}
+
+      iex> Sippet.Parser.parse_multiple_type_subtype_params("image/png;q=1, image/gif;q=0.9")
+      {:ok, [{{"image", "png"}, %{"q" => "1"}}, {{"image", "gif"}, %{"q" => "0.9"}}]}
+
+      iex> Sippet.Parser.parse_multiple_type_subtype_params("")
+      {:ok, []}
+  """
   def parse_multiple_type_subtype_params(input),
     do: parse_multiple_type_subtype_params(input, "", [])
 
   defp parse_multiple_type_subtype_params(<<>>, <<>>, list), do: {:ok, list |> Enum.reverse()}
 
   defp parse_multiple_type_subtype_params(<<>>, part, list) do
-    with {:ok, type_subtype, params} <- parse_single_type_subtype_params(part) do
+    with {:ok, {type_subtype, params}} <- parse_single_type_subtype_params(part) do
       {:ok, [{type_subtype, params} | list] |> Enum.reverse()}
     end
   end
 
   defp parse_multiple_type_subtype_params("," <> input, part, list) do
-    with {:ok, type_subtype, params} <- parse_single_type_subtype_params(part) do
+    with {:ok, {type_subtype, params}} <- parse_single_type_subtype_params(part) do
       parse_multiple_type_subtype_params(input, "", [{type_subtype, params} | list])
     end
   end
@@ -270,6 +290,14 @@ defmodule Sippet.Parser do
   defp parse_multiple_type_subtype_params(<<c, input::binary>>, part, list),
     do: parse_multiple_type_subtype_params(input, part <> <<c>>, list)
 
+  @doc """
+  Parse headers such as `Content-Type`.
+
+  ## Example:
+
+      iex> Sippet.Parser.parse_single_type_subtype_params("application/json;q=1")
+      {:ok, {{"application", "json"}, %{"q" => "1"}}}
+  """
   def parse_single_type_subtype_params(input),
     do: parse_single_type_subtype_params(input, "", "")
 
@@ -280,7 +308,7 @@ defmodule Sippet.Parser do
     do: {:error, :ebadtype}
 
   defp parse_single_type_subtype_params(<<>>, subtype, type),
-    do: {:ok, {type, subtype}, %{}}
+    do: {:ok, {{type, subtype}, %{}}}
 
   defp parse_single_type_subtype_params(<<c, input::binary>>, part, type) when c in @wsp,
     do: parse_single_type_subtype_params(input, part, type)
@@ -299,13 +327,21 @@ defmodule Sippet.Parser do
 
   defp parse_single_type_subtype_params(";" <> input, subtype, type) do
     with {:ok, params} <- parse_params(input) do
-      {:ok, {type, subtype}, params}
+      {:ok, {{type, subtype}, params}}
     end
   end
 
   defp parse_single_type_subtype_params(<<c, input::binary>>, part, type),
     do: parse_single_type_subtype_params(input, part <> <<c>>, type)
 
+  @doc """
+  Parse semicolon separated values.
+
+  ## Example:
+
+      iex> Sippet.Parser.parse_params("tag=abc;q=1")
+      {:ok, %{"tag" => "abc", "q" => "1"}}
+  """
   def parse_params(input), do: parse_params(input, "", "", [])
 
   defp parse_params(<<>>, "", "", _list),
