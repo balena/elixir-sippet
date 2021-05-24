@@ -37,9 +37,17 @@ defmodule Sippet.Parser do
     {"accept-encoding", :accept_encoding, &Sippet.Parser.parse_multiple_token_params/1},
     {"accept-language", :accept_language, &Sippet.Parser.parse_multiple_token_params/1},
     {"alert-info", :alert_info, &Sippet.Parser.parse_multiple_uri_params/1},
+    {"allow", :allow, &Sippet.Parser.parse_multiple_tokens/1},
+    {"content-encoding", :content_encoding, &Sippet.Parser.parse_multiple_tokens/1},
+    {"content-language", :content_language, &Sippet.Parser.parse_multiple_tokens/1},
     {"content-type", :content_type, &Sippet.Parser.parse_single_type_subtype_params/1},
     {"call-info", :call_info, &Sippet.Parser.parse_multiple_uri_params/1},
     {"error-info", :error_info, &Sippet.Parser.parse_multiple_uri_params/1},
+    {"in-reply-to", :in_reply_to, &Sippet.Parser.parse_multiple_tokens/1},
+    {"proxy-require", :proxy_require, &Sippet.Parser.parse_multiple_tokens/1},
+    {"require", :require, &Sippet.Parser.parse_multiple_tokens/1},
+    {"supported", :supported, &Sippet.Parser.parse_multiple_tokens/1},
+    {"unsupported", :unsupported, &Sippet.Parser.parse_multiple_tokens/1}
   ]
 
   def parse(iodata) when is_list(iodata),
@@ -372,6 +380,38 @@ defmodule Sippet.Parser do
 
   defp parse_params(<<c, input::binary>>, part, key, list),
     do: parse_params(input, part <> <<c>>, key, list)
+
+  @doc """
+  Parse multiple tokens.
+
+  ## Examples:
+
+      iex> Sippet.Parser.parse_multiple_tokens("")
+      {:ok, []}
+
+      iex> Sippet.Parser.parse_multiple_tokens("a")
+      {:ok, ["a"]}
+
+      iex> Sippet.Parser.parse_multiple_tokens("a, b")
+      {:ok, ["a", "b"]}
+  """
+  def parse_multiple_tokens(input), do: parse_multiple_tokens(input, [])
+
+  defp parse_multiple_tokens(<<>>, list), do: {:ok, Enum.reverse(list)}
+
+  defp parse_multiple_tokens("," <> rest, list),
+    do: parse_multiple_tokens(rest, [<<>> | list])
+
+  defp parse_multiple_tokens(<<c, rest::binary>>, list) when c in @wsp,
+    do: parse_multiple_tokens(rest, list)
+
+  defp parse_multiple_tokens(<<c, rest::binary>>, []) when c in @token,
+    do: parse_multiple_tokens(rest, [<<c>>])
+
+  defp parse_multiple_tokens(<<c, rest::binary>>, [token | list]) when c in @token,
+    do: parse_multiple_tokens(rest, [token <> <<c>> | list])
+
+  defp parse_multiple_tokens(_, _), do: {:error, :ebadtoken}
 
   @doc """
   Parse multiple token followed or not by semicolon separated values.
