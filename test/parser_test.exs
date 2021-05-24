@@ -15,7 +15,7 @@ defmodule ParserTest do
     {"INVITE sip:foo@bar.com SIP/2.zero", {:error, :ebadver}},
     {"INVITE SIP/2.0", {:error, :enosp}},
     {"INVITE", {:error, :enosp}},
-    {"SIP/2.0200 OK", {:error, :ebadcode}},
+    {"SIP/2.0200 OK", {:error, :ebadver}},
     {"SIP/2.0 99 OK", {:error, :ebadcode}}
   ]
 

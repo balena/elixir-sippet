@@ -3,14 +3,43 @@ defmodule Sippet.Parser do
   Parses the SIP header.
   """
 
-  alias Sippet.{URI, Message}
+  alias Sippet.Message
   alias Sippet.Message.{RequestLine, StatusLine}
 
   @wsp ~c[ \t]
   @digits ~c[0123456789]
+  @alpha Enum.map(?a..?z, & &1) ++ Enum.map(?A..?Z, & &1)
+  @alphanum @alpha ++ @digits
+  @token @alphanum ++ ~c[-.!%*_+`'~]
+
+  @methods %{
+    "ACK" => :ack,
+    "BYE" => :bye,
+    "CANCEL" => :cancel,
+    "INFO" => :info,
+    "INVITE" => :invite,
+    "MESSAGE" => :message,
+    "NOTIFY" => :notify,
+    "OPTIONS" => :options,
+    "PRACK" => :prack,
+    "PUBLISH" => :publish,
+    "PULL" => :pull,
+    "PUSH" => :push,
+    "REFER" => :refer,
+    "REGISTER" => :register,
+    "STORE" => :store,
+    "SUBSCRIBE" => :subscribe,
+    "UPDATE" => :update
+  }
 
   @known_headers [
-    {"accept", :accept, &Sippet.Parser.parse_multiple_type_subtype_params/1}
+    {"accept", :accept, &Sippet.Parser.parse_multiple_type_subtype_params/1},
+    {"accept-encoding", :accept_encoding, &Sippet.Parser.parse_multiple_token_params/1},
+    {"accept-language", :accept_language, &Sippet.Parser.parse_multiple_token_params/1},
+    {"alert-info", :alert_info, &Sippet.Parser.parse_multiple_uri_params/1},
+    {"content-type", :content_type, &Sippet.Parser.parse_single_type_subtype_params/1},
+    {"call-info", :call_info, &Sippet.Parser.parse_multiple_uri_params/1},
+    {"error-info", :error_info, &Sippet.Parser.parse_multiple_uri_params/1},
   ]
 
   def parse(iodata) when is_list(iodata),
@@ -57,7 +86,7 @@ defmodule Sippet.Parser do
 
   defp split_header(":" <> header_value, header_name),
     do: {:ok, header_name |> String.downcase(), header_value}
-  
+
   defp split_header(<<c, header_value::binary>>, header_name),
     do: split_header(header_value, header_name <> <<c>>)
 
@@ -80,7 +109,7 @@ defmodule Sippet.Parser do
       iex> Sippet.Parser.parse_first_line("INVITE sip:foo@bar.com SIP/2.0")
       {:ok,
        %Sippet.Message.RequestLine{
-         method: "INVITE",
+         method: :invite,
          request_uri: %Sippet.URI{
            authority: "foo@bar.com",
            headers: nil,
@@ -132,7 +161,8 @@ defmodule Sippet.Parser do
 
   defp parse_method(<<>>, _), do: {:error, :enosp}
 
-  defp parse_method(" " <> rest, method), do: {:ok, method, rest}
+  defp parse_method(<<c, rest::binary>>, method) when c in @wsp,
+    do: {:ok, Map.get(@methods, method, method), rest}
 
   defp parse_method(<<c, rest::binary>>, method),
     do: parse_method(rest, <<method::binary, c>>)
@@ -144,7 +174,7 @@ defmodule Sippet.Parser do
   defp parse_uri(<<>>, _), do: {:error, :enosp}
 
   defp parse_uri(" " <> rest, uri) do
-    with {:ok, uri} <- URI.parse(uri) do
+    with {:ok, uri} <- Sippet.URI.parse(uri) do
       {:ok, uri, rest}
     end
   end
@@ -152,55 +182,24 @@ defmodule Sippet.Parser do
   defp parse_uri(<<c, rest::binary>>, uri),
     do: parse_uri(rest, <<uri::binary, c>>)
 
-  defp parse_sip_version("SIP/" <> input), do: parse_version(input)
+  defp parse_sip_version("SIP/2.0"), do: {:ok, {2, 0}, <<>>}
+
+  defp parse_sip_version(<<"SIP/2.0", c, rest::binary>>) when c in @wsp,
+    do: {:ok, {2, 0}, rest}
 
   defp parse_sip_version(_), do: {:error, :ebadver}
 
-  defp parse_version(input), do: parse_version(input, [0])
-
-  defp parse_version(<<>>, [_, _] = v) do
-    {:ok, Enum.reverse(v) |> List.to_tuple(), ""}
-  end
-
-  defp parse_version(<<>>, _), do: {:error, :ebadver}
-
-  defp parse_version("." <> _, [0]), do: {:error, :ebadver}
-
-  defp parse_version("." <> rest, [major]),
-    do: parse_version(rest, [0, major])
-
-  defp parse_version("." <> _, _), do: {:error, :ebadver}
-
-  defp parse_version(<<n, rest::binary>>, [last | v])
-       when n in @digits do
-    parse_version(rest, [last * 10 + (n - ?0) | v])
-  end
-
-  defp parse_version(" " <> rest, [_major, _minor] = v),
-    do: {:ok, Enum.reverse(v) |> List.to_tuple(), rest}
-
-  defp parse_version(_, _), do: {:error, :ebadver}
-
   defp parse_status_code(input), do: parse_status_code(input, 0)
 
-  defp parse_status_code(<<>>, code)
-       when code <= 699 and code >= 100 do
-    {:ok, code, ""}
-  end
+  defp parse_status_code(<<>>, code) when code in 100..699, do: {:ok, code, ""}
 
   defp parse_status_code(<<>>, _), do: {:error, :ebadcode}
 
-  defp parse_status_code(" " <> rest, code)
-       when code <= 699 and code >= 100 do
-    {:ok, code, rest}
-  end
+  defp parse_status_code(<<c, rest::binary>>, code) when c in @wsp and code in 100..699,
+    do: {:ok, code, rest}
 
-  defp parse_status_code(" " <> _, _), do: {:error, :ebadcode}
-
-  defp parse_status_code(<<n, rest::binary>>, code)
-       when n in @digits do
-    parse_status_code(rest, code * 10 + (n - ?0))
-  end
+  defp parse_status_code(<<n, rest::binary>>, code) when n in @digits,
+    do: parse_status_code(rest, code * 10 + (n - ?0))
 
   defp parse_status_code(_, _), do: {:error, :ebadcode}
 
@@ -222,6 +221,9 @@ defmodule Sippet.Parser do
       {["Foo: bar", "Foo: qux"], ""}
 
       iex> Sippet.Parser.split_lines("Foo: bar\\r\\nFoo: qux\\r\\n\\r\\nrest")
+      {["Foo: bar", "Foo: qux"], "rest"}
+
+      iex> Sippet.Parser.split_lines("Foo: bar\\nFoo: qux\\n\\nrest")
       {["Foo: bar", "Foo: qux"], "rest"}
   """
   def split_lines(input), do: split_lines(input, "", [])
@@ -370,4 +372,167 @@ defmodule Sippet.Parser do
 
   defp parse_params(<<c, input::binary>>, part, key, list),
     do: parse_params(input, part <> <<c>>, key, list)
+
+  @doc """
+  Parse multiple token followed or not by semicolon separated values.
+
+  ## Examples:
+
+      iex> Sippet.Parser.parse_multiple_token_params("")
+      {:ok, []}
+
+      iex> Sippet.Parser.parse_multiple_token_params("a;q=0.9")
+      {:ok, [{"a", %{"q" => "0.9"}}]}
+
+      iex> Sippet.Parser.parse_multiple_token_params("a;q=0.9, b;q=0.1")
+      {:ok, [{"a", %{"q" => "0.9"}}, {"b", %{"q" => "0.1"}}]}
+  """
+  def parse_multiple_token_params(input), do: parse_multiple_token_params(input, [])
+
+  defp parse_multiple_token_params(<<>>, list), do: {:ok, Enum.reverse(list)}
+
+  defp parse_multiple_token_params("," <> rest, list),
+    do: parse_multiple_token_params(rest, [{<<>>, %{}} | list])
+
+  defp parse_multiple_token_params(";" <> rest, [{token, _} | list]) do
+    {params, rest} =
+      case String.split(rest, ",", parts: 2) do
+        [params] -> {params, <<>>}
+        [params, rest] -> {params, "," <> rest}
+      end
+
+    with {:ok, parsed_params} <- parse_params(params) do
+      parse_multiple_token_params(rest, [{token, parsed_params} | list])
+    end
+  end
+
+  defp parse_multiple_token_params(<<c, rest::binary>>, list) when c in @wsp,
+    do: parse_multiple_token_params(rest, list)
+
+  defp parse_multiple_token_params(<<c, rest::binary>>, []) when c in @token,
+    do: parse_multiple_token_params(rest, [{<<c>>, %{}}])
+
+  defp parse_multiple_token_params(<<c, rest::binary>>, [{token, _} | list]) when c in @token,
+    do: parse_multiple_token_params(rest, [{token <> <<c>>, %{}} | list])
+
+  defp parse_multiple_token_params(_, _), do: {:error, :ebadtoken}
+
+  @doc """
+  Parse multiple URI followed or not by semicolon separated values.
+
+  ## Examples:
+
+      iex> Sippet.Parser.parse_multiple_uri_params("")
+      {:ok, []}
+
+      iex> Sippet.Parser.parse_multiple_uri_params("<http://www.example.com/sounds/moo.wav>")
+      {:ok,
+       [
+         {%URI{
+           authority: "www.example.com",
+           fragment: nil,
+           host: "www.example.com",
+           path: "/sounds/moo.wav",
+           port: 80,
+           query: nil,
+           scheme: "http",
+           userinfo: nil
+          }, %{}}
+       ]}
+
+      iex> Sippet.Parser.parse_multiple_uri_params("<http://www.example.com/sounds/moo.wav>;q=1.0")
+      {:ok,
+       [
+         {%URI{
+           authority: "www.example.com",
+           fragment: nil,
+           host: "www.example.com",
+           path: "/sounds/moo.wav",
+           port: 80,
+           query: nil,
+           scheme: "http",
+           userinfo: nil
+          }, %{"q" => "1.0"}}
+       ]}
+
+      iex> Sippet.Parser.parse_multiple_uri_params("<http://www.example.com/alice/photo.jpg> ;purpose=icon, <http://www.example.com/alice/> ;purpose=info")
+      {:ok,
+       [
+         {
+           %URI{
+             authority: "www.example.com",
+             fragment: nil,
+             host: "www.example.com",
+             path: "/alice/photo.jpg",
+             port: 80,
+             query: nil,
+             scheme: "http",
+             userinfo: nil
+           },
+           %{"purpose" => "icon"}
+         },
+         {
+           %URI{
+             authority: "www.example.com",
+             fragment: nil,
+             host: "www.example.com",
+             path: "/alice/",
+             port: 80,
+             query: nil,
+             scheme: "http",
+             userinfo: nil
+           }, %{"purpose" => "info"}
+         }
+       ]}
+  """
+  def parse_multiple_uri_params(input), do: parse_multiple_uri_params(input, [])
+
+  defp parse_multiple_uri_params(<<>>, []), do: {:ok, []}
+
+  defp parse_multiple_uri_params(<<>>, [{%URI{}, _} | _] = list), do: {:ok, Enum.reverse(list)}
+
+  defp parse_multiple_uri_params(<<>>, _), do: {:error, :ebaduri}
+
+  defp parse_multiple_uri_params("," <> rest, [{%URI{}, _} | _] = list),
+    do: parse_multiple_uri_params(rest, [{<<>>, %{}} | list])
+
+  defp parse_multiple_uri_params("," <> _rest, _list), do: {:error, :ebaduri}
+
+  defp parse_multiple_uri_params(";" <> rest, [{%URI{} = uri, _} | list]) do
+    {params, rest} =
+      case String.split(rest, ",", parts: 2) do
+        [params] -> {params, <<>>}
+        [params, rest] -> {params, "," <> rest}
+      end
+
+    with {:ok, parsed_params} <- parse_params(params) do
+      parse_multiple_uri_params(rest, [{uri, parsed_params} | list])
+    end
+  end
+
+  defp parse_multiple_uri_params(";" <> _rest, _list), do: {:error, :baduri}
+
+  defp parse_multiple_uri_params(<<c, rest::binary>>, list) when c in @wsp,
+    do: parse_multiple_uri_params(rest, list)
+
+  defp parse_multiple_uri_params("<" <> rest, []),
+    do: parse_multiple_uri_params(rest, [{<<"<">>, %{}}])
+
+  defp parse_multiple_uri_params("<" <> rest, [{<<>>, _} | list]),
+    do: parse_multiple_uri_params(rest, [{<<"<">>, %{}} | list])
+
+  defp parse_multiple_uri_params(">" <> rest, [{"<" <> uri, _} | list]) do
+    case URI.parse(uri) do
+      %URI{scheme: scheme} = parsed_uri when is_binary(scheme) ->
+        parse_multiple_uri_params(rest, [{parsed_uri, %{}} | list])
+
+      _ ->
+        {:error, :baduri}
+    end
+  end
+
+  defp parse_multiple_uri_params(<<c, rest::binary>>, [{"<" <> uri, _} | list]),
+    do: parse_multiple_uri_params(rest, [{"<" <> uri <> <<c>>, %{}} | list])
+
+  defp parse_multiple_uri_params(_, _), do: {:error, :ebaduri}
 end
