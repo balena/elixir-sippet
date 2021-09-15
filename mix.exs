@@ -38,7 +38,7 @@ defmodule Sippet.Mixfile do
 
   defp deps do
     [
-      {:gen_state_machine, "~> 2.0"},
+      {:gen_state_machine, "~> 3.0"},
 
       # Build the NIF
       {:elixir_make, "~> 0.4", runtime: false},
@@ -47,14 +47,14 @@ defmodule Sippet.Mixfile do
       {:poolboy, "~> 1.5"},
 
       # Docs dependencies
-      {:ex_doc, "~> 0.19.3", only: :dev, runtime: false},
+      {:ex_doc, "~> 0.25.2", only: :dev, runtime: false},
       {:inch_ex, "~> 2.0", only: :docs},
 
       # Test dependencies
-      {:mock, "~> 0.3.3", only: :test},
-      {:excoveralls, "~> 0.10.6", only: :test},
-      {:credo, "~> 1.0", only: [:dev, :test]},
-      {:dialyxir, "~> 0.5", only: [:dev], runtime: false}
+      {:mock, "~> 0.3.7", only: :test},
+      {:excoveralls, "~> 0.14.2", only: :test},
+      {:credo, "~> 1.5", only: [:dev, :test]},
+      {:dialyxir, "~> 1.1", only: [:dev], runtime: false}
     ]
   end
 
