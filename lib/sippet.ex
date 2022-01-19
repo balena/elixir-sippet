@@ -193,20 +193,21 @@ defmodule Sippet do
 
   @doc false
   def start_link(options) when is_list(options) do
-    name =
-      case Keyword.fetch(options, :name) do
-        {:ok, name} when is_atom(name) ->
-          name
+    case Keyword.fetch(options, :name) do
+      {:ok, name} when is_atom(name) ->
+        :ok
 
-        {:ok, other} ->
-          raise ArgumentError, "expected :name to be an atom, got: #{inspect(other)}"
+      {:ok, other} ->
+        raise ArgumentError, "expected :name to be an atom, got: #{inspect(other)}"
 
-        :error ->
-          raise ArgumentError, "expected :name option to be present"
-      end
-    Supervisor.start_link(__MODULE__, options, name: :"#{name}_base_sup")
+      :error ->
+        raise ArgumentError, "expected :name option to be present"
+    end
+
+    Supervisor.start_link(__MODULE__, options)
   end
 
+  @doc false
   def child_spec(options) do
     %{
       id: __MODULE__,
@@ -217,10 +218,15 @@ defmodule Sippet do
   @impl true
   def init(options) do
     children = [
-      {Registry, [name: options[:name], keys: :unique, partitions: System.schedulers_online()]},
-      {DynamicSupervisor, strategy: :one_for_one, name: :"#{options[:name]}_sup"}
+      {Registry, name: options[:name], keys: :unique, partitions: System.schedulers_online()},
+      {DynamicSupervisor, strategy: :one_for_one, name: supervisor_name(options[:name])}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)
+  end
+
+  @doc false
+  def supervisor_name(name) do
+    Module.concat(name, "Supervisor")
   end
 end

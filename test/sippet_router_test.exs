@@ -11,7 +11,7 @@ defmodule Sippet.Router.Test do
        [
          lookup: fn _, _ -> [] end
        ]},
-      {Supervisor, [],
+      {DynamicSupervisor, [],
        [
          start_child: fn _, {_, [%State{request: %{body: ""}}, _]} ->
            {:ok, self()}
@@ -37,8 +37,8 @@ defmodule Sippet.Router.Test do
       assert called(Registry.lookup(:sippet, {:transaction, :_}))
 
       assert called(
-               Supervisor.start_child(
-                 :sippet_sup,
+               DynamicSupervisor.start_child(
+                 Sippet.supervisor_name(:sippet),
                  {Sippet.Transactions.Server.NonInvite, :_}
                )
              )
@@ -61,7 +61,7 @@ defmodule Sippet.Router.Test do
        [
          lookup: fn _, _ -> [] end
        ]},
-      {Supervisor, [],
+      {DynamicSupervisor, [],
        [
          start_child: fn _, {_, [%State{request: %{body: @test_body}}, _]} ->
            {:ok, self()}
@@ -90,8 +90,8 @@ defmodule Sippet.Router.Test do
       assert called(Registry.lookup(:sippet, {:transaction, :_}))
 
       assert called(
-               Supervisor.start_child(
-                 :sippet_sup,
+               DynamicSupervisor.start_child(
+                 Sippet.supervisor_name(:sippet),
                  {Sippet.Transactions.Server.Invite, :_}
                )
              )
@@ -104,7 +104,7 @@ defmodule Sippet.Router.Test do
        [
          lookup: fn _, _ -> [] end
        ]},
-      {Supervisor, [],
+      {DynamicSupervisor, [],
        [
          start_child: fn _, _ -> {:ok, self()} end
        ]}
@@ -133,7 +133,7 @@ defmodule Sippet.Router.Test do
        [
          lookup: fn _, _ -> [] end
        ]},
-      {Supervisor, [],
+      {DynamicSupervisor, [],
        [
          start_child: fn _, _ -> {:ok, self()} end
        ]}
