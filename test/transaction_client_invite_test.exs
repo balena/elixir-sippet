@@ -180,7 +180,7 @@ defmodule Sippet.Transactions.Client.Invite.Test do
       {:keep_state, data, actions} =
         Invite.completed(:enter, :proceeding, %{state | extras: extras})
 
-      assert action_timeout(actions, 32000)
+      assert action_timeout(actions, 32_000)
 
       %{extras: %{ack: ack}} = data
       assert :ack == ack.start_line.method
