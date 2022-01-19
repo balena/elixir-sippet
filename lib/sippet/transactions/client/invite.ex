@@ -3,19 +3,20 @@ defmodule Sippet.Transactions.Client.Invite do
 
   use Sippet.Transactions.Client, initial_state: :calling
 
-  alias Sippet.Message, as: Message
-  alias Sippet.Message.StatusLine, as: StatusLine
-  alias Sippet.Transactions.Client.State, as: State
+  alias Sippet.Message
+  alias Sippet.Message.StatusLine
+  alias Sippet.Transactions.Client.State
 
-  @timer_a 600  # optimization: transaction ends in 37.8s
+  # optimization: transaction ends in 37.8s
+  @timer_a 600
   @timer_b 64 * @timer_a
-  @timer_d 32_000  # timer D should be > 32s
+  # timer D should be > 32s
+  @timer_d 32_000
 
   defp retry({past_wait, passed_time}, %State{request: request} = data) do
     send_request(request, data)
     new_delay = past_wait * 2
-    {:keep_state_and_data, [{:state_timeout, new_delay,
-       {new_delay, passed_time + new_delay}}]}
+    {:keep_state_and_data, [{:state_timeout, new_delay, {new_delay, passed_time + new_delay}}]}
   end
 
   defp build_ack(request, last_response) do
@@ -41,10 +42,11 @@ defmodule Sippet.Transactions.Client.Invite do
     ack =
       case last_response.headers.to do
         {_, _, %{"tag" => to_tag}} ->
-          ack |> Message.update_header(:to, nil,
-                  fn {display_name, uri, params} ->
-                    {display_name, uri, params |> Map.put("tag", to_tag)}
-                  end)
+          ack
+          |> Message.update_header(:to, nil, fn {display_name, uri, params} ->
+            {display_name, uri, params |> Map.put("tag", to_tag)}
+          end)
+
         _otherwise ->
           ack
       end
@@ -60,7 +62,7 @@ defmodule Sippet.Transactions.Client.Invite do
     send_request(request, data)
 
     actions =
-      if reliable?(request) do
+      if reliable?(request, data) do
         [{:state_timeout, @timer_b, {@timer_b, @timer_b}}]
       else
         [{:state_timeout, @timer_a, {@timer_a, @timer_a}}]
@@ -79,12 +81,16 @@ defmodule Sippet.Transactions.Client.Invite do
 
   def calling(:cast, {:incoming_response, response}, data) do
     receive_response(response, data)
+
     case StatusLine.status_code_class(response.start_line) do
-      1 -> {:next_state, :proceeding, data}
-      2 -> {:stop, :normal, data}
+      1 ->
+        {:next_state, :proceeding, data}
+
+      2 ->
+        {:stop, :normal, data}
+
       _ ->
-        extras = data.extras |> Map.put(:last_response, response)
-        {:next_state, :completed, Map.put(data, :extras, extras)}
+        {:next_state, :completed, put_in(data.extras[:last_response], response)}
     end
   end
 
@@ -99,12 +105,16 @@ defmodule Sippet.Transactions.Client.Invite do
 
   def proceeding(:cast, {:incoming_response, response}, data) do
     receive_response(response, data)
+
     case StatusLine.status_code_class(response.start_line) do
-      1 -> {:keep_state, data}
-      2 -> {:stop, :normal, data}
+      1 ->
+        {:keep_state, data}
+
+      2 ->
+        {:stop, :normal, data}
+
       _ ->
-        extras = data.extras |> Map.put(:last_response, response)
-        {:next_state, :completed, Map.put(data, :extras, extras)}
+        {:next_state, :completed, put_in(data.extras[:last_response], response)}
     end
   end
 
@@ -114,13 +124,12 @@ defmodule Sippet.Transactions.Client.Invite do
   def proceeding(event_type, event_content, data),
     do: unhandled_event(event_type, event_content, data)
 
-  def completed(:enter, _old_state,
-      %State{request: request, extras: extras} = data) do
+  def completed(:enter, _old_state, %State{request: request, extras: extras} = data) do
     ack = build_ack(request, extras.last_response)
     send_request(ack, data)
-    data = %State{extras: extras |> Map.put(:ack, ack)}
+    data = %State{data | extras: extras |> Map.put(:ack, ack)}
 
-    if reliable?(request) do
+    if reliable?(request, data) do
       {:stop, :normal, data}
     else
       {:keep_state, data, [{:state_timeout, @timer_d, nil}]}
@@ -130,11 +139,11 @@ defmodule Sippet.Transactions.Client.Invite do
   def completed(:state_timeout, _nil, data),
     do: {:stop, :normal, data}
 
-  def completed(:cast, {:incoming_response, response},
-      %State{extras: %{ack: ack}} = data) do
+  def completed(:cast, {:incoming_response, response}, %State{extras: %{ack: ack}} = data) do
     if StatusLine.status_code_class(response.start_line) >= 3 do
       send_request(ack, data)
     end
+
     :keep_state_and_data
   end
 

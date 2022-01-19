@@ -1,3 +1,6 @@
+# Ignore vim files
+.*.sw[op]
+
 # The directory Mix will write compiled artifacts to.
 /_build
 

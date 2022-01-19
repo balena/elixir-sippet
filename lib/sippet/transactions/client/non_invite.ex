@@ -3,26 +3,32 @@ defmodule Sippet.Transactions.Client.NonInvite do
 
   use Sippet.Transactions.Client, initial_state: :trying
 
-  alias Sippet.Message.StatusLine, as: StatusLine
-  alias Sippet.Transactions.Client.State, as: State
+  import Map, only: [put: 3, delete: 2]
+  import Process, only: [send_after: 3, cancel_timer: 1]
+
+  alias Sippet.Message.StatusLine
+  alias Sippet.Transactions.Client.State
 
   require Logger
 
-  @t2 4000
+  @t2 4_000
   @timer_e 500
   @timer_f 64 * @timer_e
-  @timer_k 5000  # timer K is 5s
+
+  # timer K is 5s
+  @timer_k 5_000
 
   defp start_timers(%State{request: request, extras: extras} = data) do
-    deadline_timer = self() |> Process.send_after(:deadline, @timer_f)
-    extras = extras |> Map.put(:deadline_timer, deadline_timer)
+    extras =
+      extras
+      |> put(:deadline_timer, send_after(self(), :deadline, @timer_f))
 
     extras =
-      if reliable?(request) do
+      if reliable?(request, data) do
         extras
       else
-        retry_timer = self() |> Process.send_after(@timer_e, @timer_e)
-        extras |> Map.put(:retry_timer, retry_timer)
+        extras
+        |> put(:retry_timer, send_after(self(), @timer_e, @timer_e))
       end
 
     %{data | extras: extras}
@@ -32,8 +38,11 @@ defmodule Sippet.Transactions.Client.NonInvite do
     extras =
       case extras do
         %{deadline_timer: deadline_timer} ->
-          deadline_timer |> Process.cancel_timer()
-          extras |> Map.delete(:deadline_timer)
+          cancel_timer(deadline_timer)
+
+          extras
+          |> delete(:deadline_timer)
+
         _ ->
           extras
       end
@@ -41,8 +50,11 @@ defmodule Sippet.Transactions.Client.NonInvite do
     extras =
       case extras do
         %{retry_timer: retry_timer} ->
-          retry_timer |> Process.cancel_timer()
-          extras |> Map.delete(:retry_timer)
+          cancel_timer(retry_timer)
+
+          extras
+          |> delete(:retry_timer)
+
         _ ->
           extras
       end
@@ -52,13 +64,17 @@ defmodule Sippet.Transactions.Client.NonInvite do
 
   defp retry(next_wait, %State{request: request, extras: extras} = data) do
     send_request(request, data)
-    extras = extras |> Map.put(:retry_timer,
-        self() |> Process.send_after(next_wait, next_wait))
+
+    extras =
+      extras
+      |> put(:retry_timer, send_after(self(), next_wait, next_wait))
+
     {:keep_state, %{data | extras: extras}}
   end
 
   def trying(:enter, _old_state, %State{request: request} = data) do
     send_request(request, data)
+
     {:keep_state, start_timers(data)}
   end
 
@@ -70,6 +86,7 @@ defmodule Sippet.Transactions.Client.NonInvite do
 
   def trying(:cast, {:incoming_response, response}, data) do
     receive_response(response, data)
+
     case StatusLine.status_code_class(response.start_line) do
       1 -> {:next_state, :proceeding, data}
       _ -> {:next_state, :completed, data}
@@ -93,6 +110,7 @@ defmodule Sippet.Transactions.Client.NonInvite do
 
   def proceeding(:cast, {:incoming_response, response}, data) do
     receive_response(response, data)
+
     case StatusLine.status_code_class(response.start_line) do
       1 -> {:keep_state, data}
       _ -> {:next_state, :completed, data}
@@ -107,7 +125,8 @@ defmodule Sippet.Transactions.Client.NonInvite do
 
   def completed(:enter, _old_state, %State{request: request} = data) do
     data = cancel_timers(data)
-    if reliable?(request) do
+
+    if reliable?(request, data) do
       {:stop, :normal, data}
     else
       {:keep_state, data, [{:state_timeout, @timer_k, nil}]}

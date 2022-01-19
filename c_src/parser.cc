@@ -296,7 +296,7 @@ ERL_NIF_TERM ParseAuthParams(ErlNifEnv* env, Tokenizer* tok) {
   NameValuePairsIterator it(tok->current(), tok->end(), ',');
   while (it.GetNext()) {
     enif_make_map_put(env, result, MakeString(env, it.name()),
-        MakeString(env, it.raw_value()), &result);
+        MakeString(env, Unquote(it.value_begin(), it.value_end())), &result);
   }
   return result;
 }

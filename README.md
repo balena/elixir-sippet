@@ -13,11 +13,11 @@ An Elixir library designed to write Session Initiation Protocol middleware.
 
 # Introduction
 
-[SIP](https://tools.ietf.org/html/rfc3261) is a very flexible protocol that has great depth. It was designed to be a
-general-purpose way to set up real-time multimedia sessions between groups of
-participants. It is a text-based protocol modeled on the request/response model
-used in HTTP. This makes it easy to debug because the messages are relatively
-easy to construct and easy to see.
+[SIP](https://tools.ietf.org/html/rfc3261) is a very flexible protocol that has
+great depth. It was designed to be a general-purpose way to set up real-time
+multimedia sessions between groups of participants. It is a text-based protocol
+modeled on the request/response model used in HTTP. This makes it easy to debug
+because the messages are relatively easy to construct and easy to see.
 
 Sippet is designed as a simple SIP middleware library, aiming the developer to
 write any kind of function required to register users, get their availability,
@@ -37,8 +37,6 @@ the header name, and the value varies accordingly the header type. For
 instance, the header `:cseq` has the form `{sequence :: integer, method}` where
 the `method` is an atom with the method name (like `:invite`).
 
-Other than the `Sippet.Message`, you will find the `Sippet.Transports` and the
-`Sippet.Transactions` modules, which implement the two standard SIP layers.
 Message routing is performed just manipulating `Sippet.Message` headers;
 everything else is performed by these layers in a very standard way. That means
 you may not be able to build some non-standard behaviors, like routing the
@@ -53,12 +51,9 @@ Elixir behaviors and macros, and the developer may custom as he likes. Incoming
 messages and transport errors are directed to a `Sippet.Core` module behavior.
 
 Finally, there is no support for many different transport protocols; a simple
-`Sippet.Transports.UDP` (but still performatic) implementation is provided,
-which is enough for several SIP middleware apps. Transport protocols can be
-implemented quite easily using the `Sippet.Transports.Plug` behavior. In order
-to optimize the message processing, there's a `Sippet.Transports.Queue` which
-receives datagrams, case the transport protocol is datagram-based, or a
-`Sippet.Message.t` message, generally performed by stream-based protocols.
+`Sippet.Transports.UDP` implementation is provided, which is enough for general
+purpose SIP middleware. Transport protocols can be implemented quite easily
+using the same logic of `Sippet.Transport.UDP`.
 
 
 ## Installation
@@ -69,55 +64,82 @@ The package can be installed from [Hex](https://hex.pm/docs/publish) as:
 
 ```elixir
 def deps do
-  [{:sippet, "~> 0.6"}]
+  [{:sippet, "~> 1.0"}]
 end
 ```
 
-  2. Ensure `sippet` is started before your application:
+  2. Give a name to your stack and build it:
 
 ```elixir
-def application do
-  [applications: [:sippet]]
+# Creates a :mystack Sippet instance
+Sippet.start_link(name: :mystack)
+
+# The below will create a default UDP transport listening on 0.0.0.0:5060/udp
+Sippet.Transports.UDP.start_link(name: :mystack)
+```
+
+  4. Create a `Sippet.Core` and register it:
+
+```elixir
+defmodule MyCore do
+  use Sippet.Core
+
+  def receive_request(incoming_request, server_key) do
+    # route the request to your UA or proxy process
+  end
+
+  def receive_response(incoming_response, client_key) do
+    # route the response to your UA or proxy process
+  end
+
+  def receive_error(reason, client_or_server_key) do
+    # route the error to your UA or proxy process
+  end
 end
-```
 
-  3. Configure the transport layer. For using the bundled UDP plug, add the
-     following to your `config/config.exs` file:
-
-```elixir
-# Sets the UDP plug settings:
-#
-# * `:port` is the UDP port to listen (required).
-# * `:address` is the local address to bind (optional, defaults to "0.0.0.0")
-config :sippet, Sippet.Transports.UDP.Plug,
-  port: 5060,
-  address: "127.0.0.1"
-
-# Sets the transport plugs, or the supported SIP transport protocols.
-config :sippet, Sippet.Transports,
-  udp: Sippet.Transports.UDP.Plug
-```
-
-  4. Set your Sippet.Core behavior implementation in your `config/config.exs`
-     too:
-
-```elixir
-# Configures the sippet core
-config :sippet, Sippet.Core, MyCore
-```
-
-After the above steps, you should see a similar output when you `iex -S mix`
-your project:
-
-```
-16:05:08.167 [info]  #PID<0.185.0> started plug 127.0.0.1:5060/udp
-Interactive Elixir (1.4.2) - press Ctrl+C to exit (type h() ENTER for help)
-iex(1)> 
+Sippet.register_core(:mystack, MyCore)
 ```
 
 Voilà! The SIP stack will be listening on the indicated address and port, and
 your `MyCore` module will receive callbacks from it whenever a SIP message
 arrives on it.
+
+You may send messages this way:
+
+```elixir
+request = %Message{
+  start_line: RequestLine.new(:options, "sip:sip.example.com"),
+  headers: %{
+    via: [
+      {{2, 0}, :udp, {"localhost", 5060}, %{"branch" => Message.create_branch()}}
+    ],
+    from: {"", URI.parse!("sip:localhost"), %{"tag" => Message.create_tag()}},
+    to: {"", URI.parse!("sip:sip.example.com"), %{}},
+    cseq: {1, :options},
+    user_agent: "Sippet/1.0",
+    call_id: Message.create_call_id()
+  }
+}
+
+Sippet.send(:sippet, request)
+```
+
+If you prefer to specify messages directly in wire format, here you go:
+
+```elixir
+request =
+  """
+  OPTIONS sip:sip.example.com SIP/2.0
+  Via: SIP/2.0/UDP localhost:5060;branch=#{Message.create_branch()}
+  From: sip:localhost;tag=#{Message.create_tag()}
+  To: sip:sip.example.com
+  CSeq: 1 OPTIONS
+  User-Agent: Sippet/1.0
+  Call-ID: #{Message.create_call_id()}
+  """ |> Message.parse!()
+
+Sippet.send(:sippet, request)
+```
 
 Further documentation can found at
 [https://hexdocs.pm/sippet](https://hexdocs.pm/sippet).
@@ -200,5 +222,5 @@ Further documentation can found at
 
 ## Copyright
 
-Copyright (c) 2016-2017 Guilherme Balena Versiani. See [LICENSE](LICENSE) for
+Copyright (c) 2016-2020 Guilherme Balena Versiani. See [LICENSE](LICENSE) for
 further details.

@@ -10,18 +10,18 @@ defmodule Sippet.Message do
         ...
   """
 
+  @behaviour Access
+
   alias Sippet.URI, as: URI
   alias Sippet.Message.RequestLine, as: RequestLine
   alias Sippet.Message.StatusLine, as: StatusLine
 
-  defstruct [
-    start_line: nil,
-    headers: %{},
-    body: nil,
-    target: nil
-  ]
+  defstruct start_line: nil,
+            headers: %{},
+            body: nil,
+            target: nil
 
-  @type uri :: URI.t
+  @type uri :: URI.t()
 
   @type method :: atom | binary
 
@@ -34,131 +34,134 @@ defmodule Sippet.Message do
   @type params :: %{binary => binary}
 
   @type token_params ::
-    {token :: binary, params}
+          {token :: binary, params}
 
   @type type_subtype_params ::
-    {{type :: binary, subtype :: binary}, params}
+          {{type :: binary, subtype :: binary}, params}
 
   @type uri_params ::
-    {display_name :: binary, uri :: URI.t, params}
+          {display_name :: binary, uri :: URI.t(), params}
 
   @type name_uri_params ::
-    {display_name :: binary, uri :: URI.t, params}
+          {display_name :: binary, uri :: URI.t(), params}
 
   @type auth_params ::
-    {scheme :: binary, params}
+          {scheme :: binary, params}
 
   @type via_value ::
-    {{major :: integer, minor :: integer}, protocol,
-        {host :: binary, port :: integer}, params}
+          {{major :: integer, minor :: integer}, protocol, {host :: binary, port :: integer},
+           params}
 
   @type headers :: %{
-    optional(:accept)              => [type_subtype_params, ...],
-    optional(:accept_encoding)     => [token_params, ...],
-    optional(:accept_language)     => [token_params, ...],
-    optional(:alert_info)          => [uri_params, ...],
-    optional(:allow)               => [token, ...],
-    optional(:authentication_info) => params,
-    optional(:authorization)       => [auth_params, ...],
-    required(:call_id)             => token,
-    optional(:call_info)           => [uri_params, ...],
-    optional(:contact)             => <<_::1>> | [name_uri_params, ...],
-    optional(:content_disposition) => token_params,
-    optional(:content_encoding)    => [token, ...],
-    optional(:content_language)    => [token, ...],
-    optional(:content_length)      => integer,
-    optional(:content_type)        => type_subtype_params,
-    required(:cseq)                => {integer, method},
-    optional(:date)                => NaiveDateTime.t,
-    optional(:error_info)          => [uri_params, ...],
-    optional(:expires)             => integer,
-    required(:from)                => name_uri_params,
-    optional(:in_reply_to)         => [token, ...],
-    required(:max_forwards)        => integer,
-    optional(:mime_version)        => {major :: integer, minor :: integer},
-    optional(:min_expires)         => integer,
-    optional(:organization)        => binary,
-    optional(:priority)            => token,
-    optional(:proxy_authenticate)  => [auth_params, ...],
-    optional(:proxy_authorization) => [auth_params, ...],
-    optional(:proxy_require)       => [token, ...],
-    optional(:reason)              => {binary, params},
-    optional(:record_route)        => [name_uri_params, ...],
-    optional(:reply_to)            => name_uri_params,
-    optional(:require)             => [token, ...],
-    optional(:retry_after)         => {integer, binary, params},
-    optional(:route)               => [name_uri_params, ...],
-    optional(:server)              => binary,
-    optional(:subject)             => binary,
-    optional(:supported)           => [token, ...],
-    optional(:timestamp)           => {timestamp :: float, delay :: float},
-    required(:to)                  => name_uri_params,
-    optional(:unsupported)         => [token, ...],
-    optional(:user_agent)          => binary,
-    required(:via)                 => [via_value, ...],
-    optional(:warning)             => [{integer, agent :: binary, binary}, ...],
-    optional(:www_authenticate)    => [auth_params, ...],
-    optional(binary)               => [binary, ...]
-  }
+          optional(:accept) => [type_subtype_params, ...],
+          optional(:accept_encoding) => [token_params, ...],
+          optional(:accept_language) => [token_params, ...],
+          optional(:alert_info) => [uri_params, ...],
+          optional(:allow) => [token, ...],
+          optional(:authentication_info) => params,
+          optional(:authorization) => [auth_params, ...],
+          required(:call_id) => token,
+          optional(:call_info) => [uri_params, ...],
+          optional(:contact) => <<_::1>> | [name_uri_params, ...],
+          optional(:content_disposition) => token_params,
+          optional(:content_encoding) => [token, ...],
+          optional(:content_language) => [token, ...],
+          optional(:content_length) => integer,
+          optional(:content_type) => type_subtype_params,
+          required(:cseq) => {integer, method},
+          optional(:date) => NaiveDateTime.t(),
+          optional(:error_info) => [uri_params, ...],
+          optional(:expires) => integer,
+          required(:from) => name_uri_params,
+          optional(:in_reply_to) => [token, ...],
+          required(:max_forwards) => integer,
+          optional(:mime_version) => {major :: integer, minor :: integer},
+          optional(:min_expires) => integer,
+          optional(:organization) => binary,
+          optional(:priority) => token,
+          optional(:proxy_authenticate) => [auth_params, ...],
+          optional(:proxy_authorization) => [auth_params, ...],
+          optional(:proxy_require) => [token, ...],
+          optional(:reason) => {binary, params},
+          optional(:record_route) => [name_uri_params, ...],
+          optional(:reply_to) => name_uri_params,
+          optional(:require) => [token, ...],
+          optional(:retry_after) => {integer, binary, params},
+          optional(:route) => [name_uri_params, ...],
+          optional(:server) => binary,
+          optional(:subject) => binary,
+          optional(:supported) => [token, ...],
+          optional(:timestamp) => {timestamp :: float, delay :: float},
+          required(:to) => name_uri_params,
+          optional(:unsupported) => [token, ...],
+          optional(:user_agent) => binary,
+          required(:via) => [via_value, ...],
+          optional(:warning) => [{integer, agent :: binary, binary}, ...],
+          optional(:www_authenticate) => [auth_params, ...],
+          optional(binary) => [binary, ...]
+        }
 
   @type single_value ::
-    binary |
-    integer |
-    {sequence :: integer, method} |
-    {major :: integer, minor :: integer} |
-    token_params |
-    type_subtype_params |
-    uri_params |
-    name_uri_params |
-    {delta_seconds :: integer, comment :: binary, params} |
-    {timestamp :: integer, delay :: integer} |
-    <<_::1>> | [name_uri_params, ...] |
-    NaiveDateTime.t
+          binary
+          | integer
+          | {sequence :: integer, method}
+          | {major :: integer, minor :: integer}
+          | token_params
+          | type_subtype_params
+          | uri_params
+          | name_uri_params
+          | {delta_seconds :: integer, comment :: binary, params}
+          | {timestamp :: integer, delay :: integer}
+          | <<_::1>>
+          | [name_uri_params, ...]
+          | NaiveDateTime.t()
 
   @type multiple_value ::
-    token_params |
-    type_subtype_params |
-    uri_params |
-    name_uri_params |
-    via_value |
-    auth_params |
-    params |
-    {code :: integer, agent :: binary, text :: binary}
+          token_params
+          | type_subtype_params
+          | uri_params
+          | name_uri_params
+          | via_value
+          | auth_params
+          | params
+          | {code :: integer, agent :: binary, text :: binary}
 
   @type value ::
-    single_value |
-    [multiple_value]
+          single_value
+          | [multiple_value]
 
   @type t :: %__MODULE__{
-    start_line: RequestLine.t | StatusLine.t,
-    headers: %{header => value},
-    body: binary | nil,
-    target: nil | {
-      protocol :: atom | binary,
-      host :: binary,
-      dport :: integer
-    }
-  }
+          start_line: RequestLine.t() | StatusLine.t(),
+          headers: %{header => value},
+          body: binary | nil,
+          target:
+            nil
+            | {
+                protocol :: atom | binary,
+                host :: binary,
+                dport :: integer
+              }
+        }
 
   @type request :: %__MODULE__{
-    start_line: RequestLine.t
-  }
+          start_line: RequestLine.t()
+        }
 
   @type response :: %__MODULE__{
-    start_line: StatusLine.t
-  }
+          start_line: StatusLine.t()
+        }
 
-  @external_resource protocols_path =
-    Path.join([__DIR__, "..", "..", "c_src", "protocol_list.h"])
+  @external_resource protocols_path = Path.join([__DIR__, "..", "..", "c_src", "protocol_list.h"])
 
   known_protocols =
     for line <- File.stream!(protocols_path, [], :line),
         line |> String.starts_with?("SIP_PROTOCOL") do
-      [_, protocol] =
-        Regex.run(~r/SIP_PROTOCOL\(([^,]+)\)/, line)
+      [_, protocol] = Regex.run(~r/SIP_PROTOCOL\(([^,]+)\)/, line)
       atom = protocol |> String.downcase() |> String.to_atom()
+
       defp string_to_protocol(unquote(protocol)),
         do: unquote(atom)
+
       protocol
     end
 
@@ -173,7 +176,7 @@ defmodule Sippet.Message do
       iex> Sippet.Message.known_protocols()
       ["AMQP", "DCCP", "DTLS", "SCTP", "STOMP", "TCP", "TLS", "UDP", "WS", "WSS"]
   """
-  @spec known_protocols() :: [String.t]
+  @spec known_protocols() :: [String.t()]
   def known_protocols(), do: unquote(known_protocols)
 
   @doc """
@@ -192,20 +195,20 @@ defmodule Sippet.Message do
       "AAA"
 
   """
-  @spec to_protocol(String.t) :: protocol
+  @spec to_protocol(String.t()) :: protocol
   def to_protocol(string), do: string_to_protocol(string |> String.upcase())
 
-  @external_resource methods_path =
-    Path.join([__DIR__, "..", "..", "c_src", "method_list.h"])
+  @external_resource methods_path = Path.join([__DIR__, "..", "..", "c_src", "method_list.h"])
 
   known_methods =
     for line <- File.stream!(methods_path, [], :line),
         line |> String.starts_with?("SIP_METHOD") do
-      [_, method] =
-        Regex.run(~r/SIP_METHOD\(([^,]+)\)/, line)
+      [_, method] = Regex.run(~r/SIP_METHOD\(([^,]+)\)/, line)
       atom = method |> String.downcase() |> String.to_atom()
+
       defp string_to_method(unquote(method)),
         do: unquote(atom)
+
       method
     end
 
@@ -221,7 +224,7 @@ defmodule Sippet.Message do
        "PRACK", "PUBLISH", "PULL", "PUSH", "REFER", "REGISTER", "STORE", "SUBSCRIBE",
        "UPDATE"]
   """
-  @spec known_methods() :: [String.t]
+  @spec known_methods() :: [String.t()]
   def known_methods(), do: unquote(known_methods)
 
   @doc """
@@ -240,7 +243,7 @@ defmodule Sippet.Message do
       "AAA"
 
   """
-  @spec to_method(String.t) :: method
+  @spec to_method(String.t()) :: method
   def to_method(string), do: string_to_method(string |> String.upcase())
 
   @doc """
@@ -310,7 +313,7 @@ defmodule Sippet.Message do
       true
 
   """
-  @spec build_response(100..699 | StatusLine.t) :: response | no_return
+  @spec build_response(100..699 | StatusLine.t()) :: response | no_return
   def build_response(status)
 
   def build_response(%StatusLine{} = status_line),
@@ -332,10 +335,10 @@ defmodule Sippet.Message do
         status_code: 400, version: {2, 0}}, target: nil}
 
   """
-  @spec build_response(100..699, String.t) :: response
+  @spec build_response(100..699, String.t()) :: response
   def build_response(status_code, reason_phrase)
-    when is_integer(status_code) and is_binary(reason_phrase),
-    do: build_response(StatusLine.new(status_code, reason_phrase))
+      when is_integer(status_code) and is_binary(reason_phrase),
+      do: build_response(StatusLine.new(status_code, reason_phrase))
 
   @doc ~S'''
   Returns a response created from a request, using a given status code.
@@ -374,14 +377,16 @@ defmodule Sippet.Message do
       :ok
 
   '''
-  @spec to_response(request, integer | StatusLine.t) :: response | no_return
+  @spec to_response(request, integer | StatusLine.t()) :: response | no_return
   def to_response(request, status)
 
   def to_response(request, status_code) when is_integer(status_code),
     do: to_response(request, StatusLine.new(status_code))
 
-  def to_response(%__MODULE__{start_line: %RequestLine{}} = request,
-      %StatusLine{} = status_line) do
+  def to_response(
+        %__MODULE__{start_line: %RequestLine{}} = request,
+        %StatusLine{} = status_line
+      ) do
     response =
       status_line
       |> build_response()
@@ -393,7 +398,7 @@ defmodule Sippet.Message do
 
     response =
       if status_line.status_code > 100 and
-          not Map.has_key?(elem(response.headers.to, 2), "tag") do
+           not Map.has_key?(elem(response.headers.to, 2), "tag") do
         {display_name, uri, params} = response.headers.to
         params = Map.put(params, "tag", create_tag())
         response |> put_header(:to, {display_name, uri, params})
@@ -449,10 +454,10 @@ defmodule Sippet.Message do
       :ok
 
   '''
-  @spec to_response(request, integer, String.t) :: response
+  @spec to_response(request, integer, String.t()) :: response
   def to_response(request, status_code, reason_phrase)
-    when is_integer(status_code) and is_binary(reason_phrase),
-    do: to_response(request, StatusLine.new(status_code, reason_phrase))
+      when is_integer(status_code) and is_binary(reason_phrase),
+      do: to_response(request, StatusLine.new(status_code, reason_phrase))
 
   @doc """
   Creates a local tag (48-bit random string, 8 characters long).
@@ -650,7 +655,7 @@ defmodule Sippet.Message do
     new_list =
       case value do
         nil -> existing
-        _ -> [value|existing]
+        _ -> [value | existing]
       end
 
     put_header(message, header, new_list)
@@ -681,7 +686,7 @@ defmodule Sippet.Message do
     new_list =
       case value do
         nil -> existing
-        _ -> List.foldr(existing, [value], fn(x, acc) -> [x|acc] end)
+        _ -> List.foldr(existing, [value], fn x, acc -> [x | acc] end)
       end
 
     put_header(message, header, new_list)
@@ -732,7 +737,7 @@ defmodule Sippet.Message do
     case get_header(message, header) do
       nil -> message
       [_] -> delete_header(message, header)
-      [_|tail] -> put_header(message, header, tail)
+      [_ | tail] -> put_header(message, header, tail)
     end
   end
 
@@ -759,7 +764,7 @@ defmodule Sippet.Message do
     case get_header(message, header) do
       nil -> message
       [_] -> delete_header(message, header)
-      [_|_] = values -> put_header(message, header, do_remove_last(values))
+      [_ | _] = values -> put_header(message, header, do_remove_last(values))
     end
   end
 
@@ -831,13 +836,15 @@ defmodule Sippet.Message do
 
   """
   @spec fetch_header_front(t, header) ::
-            {:ok, multiple_value} | :error
+          {:ok, multiple_value} | :error
   def fetch_header_front(message, header) do
     case fetch_header(message, header) do
       {:ok, []} ->
         {:ok, nil}
-      {:ok, [first|_]} ->
+
+      {:ok, [first | _]} ->
         {:ok, first}
+
       _otherwise ->
         :error
     end
@@ -868,10 +875,13 @@ defmodule Sippet.Message do
     case fetch_header(message, header) do
       {:ok, []} ->
         {:ok, nil}
+
       {:ok, [value]} ->
         {:ok, value}
-      {:ok, [_|rest]} ->
+
+      {:ok, [_ | rest]} ->
         {:ok, List.last(rest)}
+
       _otherwise ->
         :error
     end
@@ -900,6 +910,7 @@ defmodule Sippet.Message do
   @spec fetch_header_front!(t, header) :: multiple_value | no_return
   def fetch_header_front!(message, header) do
     values = fetch_header!(message, header)
+
     if Enum.empty?(values) do
       nil
     else
@@ -918,6 +929,7 @@ defmodule Sippet.Message do
   @spec fetch_header_back!(t, header) :: multiple_value | no_return
   def fetch_header_back!(message, header) do
     values = fetch_header!(message, header)
+
     if Enum.empty?(values) do
       nil
     else
@@ -988,12 +1000,10 @@ defmodule Sippet.Message do
   of `header` front.  If `header` is not present in `message`, or it is an empty
   list, `initial` is inserted as the single value of `header`.
   """
-  @spec update_header_front(t, header, value | nil,
-                            (multiple_value -> multiple_value)) :: t
+  @spec update_header_front(t, header, value | nil, (multiple_value -> multiple_value)) :: t
   def update_header_front(message, header, initial \\ nil, fun)
       when is_function(fun, 1) do
-    update_header(message, header, List.wrap(initial),
-        fn [head|tail] -> [fun.(head)|tail] end)
+    update_header(message, header, List.wrap(initial), fn [head | tail] -> [fun.(head) | tail] end)
   end
 
   @doc """
@@ -1004,17 +1014,17 @@ defmodule Sippet.Message do
   `header` back.  If `header` is not present in `message`, or it is an empty
   list, `initial` is inserted as the single value of `header`.
   """
-  @spec update_header_back(t, header, value | nil,
-                           (multiple_value -> multiple_value)) :: t
+  @spec update_header_back(t, header, value | nil, (multiple_value -> multiple_value)) :: t
   def update_header_back(message, header, initial \\ nil, fun)
       when is_function(fun, 1) do
-    update_header(message, header, List.wrap(initial),
-        fn values -> do_update_last(values, fun) end)
+    update_header(message, header, List.wrap(initial), fn values ->
+      do_update_last(values, fun)
+    end)
   end
 
   defp do_update_last(values, fun) do
-    [last|tail] = Enum.reverse(values)
-    Enum.reduce(tail, [fun.(last)], fn(x, acc) -> [x|acc] end)
+    [last | tail] = Enum.reverse(values)
+    Enum.reduce(tail, [fun.(last)], fn x, acc -> [x | acc] end)
   end
 
   @doc """
@@ -1046,13 +1056,16 @@ defmodule Sippet.Message do
   @spec pop_header_front(t, header, any) :: {multiple_value | any, t}
   def pop_header_front(message, header, default \\ nil) do
     {values, new_headers} = Map.pop(message.headers, header, [])
+
     case values do
       [] ->
-          {default, %{message | headers: new_headers}}
+        {default, %{message | headers: new_headers}}
+
       [value] ->
-          {value, %{message | headers: new_headers}}
-      [head|tail] ->
-          {head, %{message | headers: Map.put(message.headers, header, tail)}}
+        {value, %{message | headers: new_headers}}
+
+      [head | tail] ->
+        {head, %{message | headers: Map.put(message.headers, header, tail)}}
     end
   end
 
@@ -1070,14 +1083,16 @@ defmodule Sippet.Message do
   @spec pop_header_back(t, header, any) :: {multiple_value | any, t}
   def pop_header_back(message, header, default \\ nil) do
     {values, new_headers} = Map.pop(message.headers, header, [])
+
     case Enum.reverse(values) do
       [] ->
-          {default, %{message | headers: new_headers}}
+        {default, %{message | headers: new_headers}}
+
       [value] ->
-          {value, %{message | headers: new_headers}}
-      [last|tail] ->
-          {last, %{message | headers:
-              Map.put(message.headers, header, Enum.reverse(tail))}}
+        {value, %{message | headers: new_headers}}
+
+      [last | tail] ->
+        {last, %{message | headers: Map.put(message.headers, header, Enum.reverse(tail))}}
     end
   end
 
@@ -1094,9 +1109,9 @@ defmodule Sippet.Message do
   with the "get" value returned by `fun` and a new message with the updated
   values under `header`.
   """
-  @spec get_and_update_header(t, header,
-            (value -> {get, value} | :pop)) ::
-                {get, t} when get: value
+  @spec get_and_update_header(t, header, (value -> {get, value} | :pop)) ::
+          {get, t}
+        when get: value
   def get_and_update_header(message, header, fun) when is_function(fun, 1) do
     {get, new_headers} = Map.get_and_update(message.headers, header, fun)
     {get, %{message | headers: new_headers}}
@@ -1115,13 +1130,14 @@ defmodule Sippet.Message do
   value is a tuple with the "get" value returned by `fun` and a new message
   with the updated values under `header`.
   """
-  @spec get_and_update_header_front(t, header,
-            (multiple_value -> {get, multiple_value} | :pop)) ::
-                {get, t} when get: multiple_value
+  @spec get_and_update_header_front(t, header, (multiple_value -> {get, multiple_value} | :pop)) ::
+          {get, t}
+        when get: multiple_value
   def get_and_update_header_front(message, header, fun)
       when is_function(fun, 1) do
-    {get, new_headers} = Map.get_and_update(message.headers, header,
-        &do_get_and_update_header_front(&1, fun))
+    {get, new_headers} =
+      Map.get_and_update(message.headers, header, &do_get_and_update_header_front(&1, fun))
+
     {get, %{message | headers: new_headers}}
   end
 
@@ -1141,10 +1157,10 @@ defmodule Sippet.Message do
     end
   end
 
-  defp do_get_and_update_header_front([head|tail], fun) do
+  defp do_get_and_update_header_front([head | tail], fun) do
     case fun.(head) do
       {get, nil} -> {get, [tail]}
-      {get, value} -> {get, [value|tail]}
+      {get, value} -> {get, [value | tail]}
       :pop -> {head, tail}
     end
   end
@@ -1162,13 +1178,14 @@ defmodule Sippet.Message do
   value is a tuple with the "get" value returned by `fun` and a new message
   with the updated values under `header`.
   """
-  @spec get_and_update_header_back(t, header,
-            (multiple_value -> {get, multiple_value} | :pop)) ::
-                {get, t} when get: multiple_value
+  @spec get_and_update_header_back(t, header, (multiple_value -> {get, multiple_value} | :pop)) ::
+          {get, t}
+        when get: multiple_value
   def get_and_update_header_back(message, header, fun)
       when is_function(fun, 1) do
-    {get, new_headers} = Map.get_and_update(message.headers, header,
-        &do_get_and_update_header_back(&1, fun))
+    {get, new_headers} =
+      Map.get_and_update(message.headers, header, &do_get_and_update_header_back(&1, fun))
+
     {get, %{message | headers: new_headers}}
   end
 
@@ -1180,10 +1197,10 @@ defmodule Sippet.Message do
   end
 
   defp do_get_and_update_header_back(values, fun) do
-    [last|tail] = Enum.reverse(values)
+    [last | tail] = Enum.reverse(values)
+
     case fun.(last) do
-      {get, new_value} -> {get, Enum.reduce(tail, [new_value],
-          fn(x, acc) -> [x|acc] end)}
+      {get, new_value} -> {get, Enum.reduce(tail, [new_value], fn x, acc -> [x | acc] end)}
       :pop -> {last, Enum.reverse(last)}
     end
   end
@@ -1197,33 +1214,47 @@ defmodule Sippet.Message do
   """
   @spec parse(iodata) :: {:ok, t} | {:error, atom}
   def parse(data) do
-    case Sippet.Parser.parse(IO.iodata_to_binary(data)) do
+    binary_data = IO.iodata_to_binary(data)
+
+    case Sippet.Parser.parse(IO.iodata_to_binary(binary_data)) do
       {:ok, message} ->
-        case do_parse(message) do
+        case do_parse(message, binary_data) do
           {:error, reason} ->
             {:error, reason}
+
           message ->
             {:ok, message}
         end
+
       reason ->
         {:error, reason}
     end
   end
 
-  defp do_parse(message) do
+  defp do_parse(message, binary_data) do
     case do_parse_start_line(message.start_line) do
       {:error, reason} ->
         {:error, reason}
+
       start_line ->
         case do_parse_headers(message.headers) do
           {:error, reason} ->
             {:error, reason}
+
           headers ->
             %__MODULE__{
               start_line: start_line,
-              headers: headers
+              headers: headers,
+              body: get_body(binary_data)
             }
         end
+    end
+  end
+
+  defp get_body(binary_data) do
+    case String.split(binary_data, ~r{\r?\n\r?\n}, parts: 2) do
+      [_, body] -> body
+      [_] -> nil
     end
   end
 
@@ -1235,6 +1266,7 @@ defmodule Sippet.Message do
           request_uri: uri,
           version: start_line.version
         }
+
       other ->
         other
     end
@@ -1252,10 +1284,12 @@ defmodule Sippet.Message do
     do: do_parse_headers(Map.to_list(headers), [])
 
   defp do_parse_headers([], result), do: Map.new(result)
+
   defp do_parse_headers([{name, value} | tail], result) do
     case do_parse_header_value(value) do
       {:error, reason} ->
         {:error, reason}
+
       value ->
         do_parse_headers(tail, [{name, value} | result])
     end
@@ -1264,16 +1298,18 @@ defmodule Sippet.Message do
   defp do_parse_header_value(values) when is_list(values),
     do: do_parse_each_header_value(values, [])
 
-  defp do_parse_header_value({{year, month, day}, {hour, minute, second},
-      microsecond}) do
-    NaiveDateTime.from_erl!({{year, month, day}, {hour, minute, second}},
-        microsecond)
+  defp do_parse_header_value({{year, month, day}, {hour, minute, second}, microsecond}) do
+    NaiveDateTime.from_erl!(
+      {{year, month, day}, {hour, minute, second}},
+      microsecond
+    )
   end
 
   defp do_parse_header_value({display_name, uri, %{} = parameters}) do
     case URI.parse(uri) do
       {:ok, uri} ->
         {display_name, uri, parameters}
+
       other ->
         other
     end
@@ -1282,10 +1318,12 @@ defmodule Sippet.Message do
   defp do_parse_header_value(value), do: value
 
   defp do_parse_each_header_value([], result), do: Enum.reverse(result)
+
   defp do_parse_each_header_value([head | tail], result) do
     case do_parse_header_value(head) do
       {:error, reason} ->
         {:error, reason}
+
       value ->
         do_parse_each_header_value(tail, [value | result])
     end
@@ -1300,14 +1338,16 @@ defmodule Sippet.Message do
   `:content_length` header; if it exists, it reflects the body size and you
   have to set it manually on the returned message.
   """
-  @spec parse!(String.t | charlist) :: t | no_return
+  @spec parse!(String.t() | charlist) :: t | no_return
   def parse!(data) do
     case parse(data) do
       {:ok, message} ->
         message
+
       {:error, reason} ->
-        raise ArgumentError, "cannot convert #{inspect data} to SIP " <>
-            "message, reason: #{inspect reason}"
+        raise ArgumentError,
+              "cannot convert #{inspect(data)} to SIP " <>
+                "message, reason: #{inspect(reason)}"
     end
   end
 
@@ -1337,14 +1377,19 @@ defmodule Sippet.Message do
         %{message | headers: Map.put(message.headers, :content_length, len)}
       end
 
-    [start_line, "\r\n",
-      do_headers(message.headers), "\r\n",
-      if(message.body == nil, do: "", else: message.body)]
+    [
+      start_line,
+      "\r\n",
+      do_headers(message.headers),
+      "\r\n",
+      if(message.body == nil, do: "", else: message.body)
+    ]
   end
 
   defp do_headers(%{} = headers), do: do_headers(Map.to_list(headers), [])
   defp do_headers([], result), do: result
-  defp do_headers([{name, value}|tail], result),
+
+  defp do_headers([{name, value} | tail], result),
     do: do_headers(tail, [do_header(name, value) | result])
 
   defp do_header(name, value) do
@@ -1407,7 +1452,8 @@ defmodule Sippet.Message do
   end
 
   defp do_header_values([], values), do: values |> Enum.reverse()
-  defp do_header_values([head|tail], values),
+
+  defp do_header_values([head | tail], values),
     do: do_header_values(tail, do_join(do_header_value(head), values, ", "))
 
   defp do_header_values(value, _), do: do_header_value(value)
@@ -1420,47 +1466,60 @@ defmodule Sippet.Message do
     do: [Integer.to_string(sequence), " ", upcase_atom_or_string(method)]
 
   defp do_header_value({major, minor})
-      when is_integer(major) and is_integer(minor),
-    do: [Integer.to_string(major), ".", Integer.to_string(minor)]
+       when is_integer(major) and is_integer(minor),
+       do: [Integer.to_string(major), ".", Integer.to_string(minor)]
 
   defp do_header_value({token, %{} = parameters}) when is_binary(token),
     do: [token, do_parameters(parameters)]
 
   defp do_header_value({{type, subtype}, %{} = parameters})
-      when is_binary(type) and is_binary(subtype),
-    do: [type, "/", subtype, do_parameters(parameters)]
+       when is_binary(type) and is_binary(subtype),
+       do: [type, "/", subtype, do_parameters(parameters)]
 
   defp do_header_value({display_name, %URI{} = uri, %{} = parameters})
-      when is_binary(display_name) do
-    [if(display_name == "", do: "", else: ["\"", display_name, "\" "]),
-      "<", URI.to_string(uri), ">", do_parameters(parameters)]
+       when is_binary(display_name) do
+    [
+      if(display_name == "", do: "", else: ["\"", display_name, "\" "]),
+      "<",
+      URI.to_string(uri),
+      ">",
+      do_parameters(parameters)
+    ]
   end
 
   defp do_header_value({delta_seconds, comment, %{} = parameters})
-      when is_integer(delta_seconds) and is_binary(comment) do
-    [Integer.to_string(delta_seconds),
+       when is_integer(delta_seconds) and is_binary(comment) do
+    [
+      Integer.to_string(delta_seconds),
       if(comment != "", do: [" (", comment, ") "], else: ""),
-      do_parameters(parameters)]
+      do_parameters(parameters)
+    ]
   end
 
   defp do_header_value({timestamp, delay})
-      when is_float(timestamp) and is_float(delay) do
-    [Float.to_string(timestamp),
-      if(delay > 0, do: [" ", Float.to_string(delay)], else: "")]
+       when is_float(timestamp) and is_float(delay) do
+    [Float.to_string(timestamp), if(delay > 0, do: [" ", Float.to_string(delay)], else: "")]
   end
 
-  defp do_header_value({{major, minor}, protocol, {host, port},
-      %{} = parameters}) when is_integer(major) and is_integer(minor)
-          and is_binary(host) and is_integer(port) do
-    ["SIP/", Integer.to_string(major), ".", Integer.to_string(minor),
-      "/", upcase_atom_or_string(protocol),
-      " ", host,
+  defp do_header_value({{major, minor}, protocol, {host, port}, %{} = parameters})
+       when is_integer(major) and is_integer(minor) and
+              is_binary(host) and is_integer(port) do
+    [
+      "SIP/",
+      Integer.to_string(major),
+      ".",
+      Integer.to_string(minor),
+      "/",
+      upcase_atom_or_string(protocol),
+      " ",
+      host,
       if(port > 0, do: [":", Integer.to_string(port)], else: ""),
-      do_parameters(parameters)]
+      do_parameters(parameters)
+    ]
   end
 
   defp do_header_value({code, agent, text})
-      when is_integer(code) and is_binary(agent) and is_binary(text) do
+       when is_integer(code) and is_binary(agent) and is_binary(text) do
     [Integer.to_string(code), " ", agent, " \"", text, "\""]
   end
 
@@ -1494,13 +1553,22 @@ defmodule Sippet.Message do
 
     # Microsecond is explicitly removed here, as the RFC 3261 does not define
     # it. Therefore, while it is accepted, it won't be forwarded.
-    [day_of_week, ", ",
-      String.pad_leading(Integer.to_string(value.day), 2, "0"), " ",
-      month, " ",
-      Integer.to_string(value.year), " ",
-      String.pad_leading(Integer.to_string(value.hour), 2, "0"), ":",
-      String.pad_leading(Integer.to_string(value.minute), 2, "0"), ":",
-      String.pad_leading(Integer.to_string(value.second), 2, "0"), " GMT"]
+    [
+      day_of_week,
+      ", ",
+      String.pad_leading(Integer.to_string(value.day), 2, "0"),
+      " ",
+      month,
+      " ",
+      Integer.to_string(value.year),
+      " ",
+      String.pad_leading(Integer.to_string(value.hour), 2, "0"),
+      ":",
+      String.pad_leading(Integer.to_string(value.minute), 2, "0"),
+      ":",
+      String.pad_leading(Integer.to_string(value.second), 2, "0"),
+      " GMT"
+    ]
   end
 
   defp do_one_per_line(name, %{} = value),
@@ -1510,28 +1578,31 @@ defmodule Sippet.Message do
     do: do_one_per_line(name, values |> Enum.reverse(), [])
 
   defp do_one_per_line(_, [], result), do: result
-  defp do_one_per_line(name, [head|tail], result) do
-    do_one_per_line(name, tail,
-      [name, ": ", do_one_per_line_value(head), "\r\n" | result])
-  end
+
+  defp do_one_per_line(name, [head | tail], result),
+    do: do_one_per_line(name, tail, [name, ": ", do_one_per_line_value(head), "\r\n" | result])
 
   defp do_one_per_line_value(%{} = parameters),
     do: do_one_per_line_value(Map.to_list(parameters), [])
 
   defp do_one_per_line_value({scheme, %{} = parameters}),
-    do: [scheme, " ", do_one_per_line_value(Map.to_list(parameters), [])]
+    do: [scheme, " ", do_auth_parameters(parameters)]
 
   defp do_one_per_line_value([], result), do: result
-  defp do_one_per_line_value([{name, value}|tail], result) do
+
+  defp do_one_per_line_value([{name, value} | tail], result) do
     do_one_per_line_value(tail, do_join([name, "=", value], result, ", "))
   end
 
   defp do_parameters(%{} = parameters),
     do: do_parameters(Map.to_list(parameters), [])
+
   defp do_parameters([], result), do: result
-  defp do_parameters([{name, ""}|tail], result),
+
+  defp do_parameters([{name, ""} | tail], result),
     do: do_parameters(tail, [";", name | result])
-  defp do_parameters([{name, value}|tail], result),
+
+  defp do_parameters([{name, value} | tail], result),
     do: do_parameters(tail, [";", name, "=", value | result])
 
   defp do_join(head, [], _joiner), do: [head]
@@ -1540,8 +1611,50 @@ defmodule Sippet.Message do
   defp upcase_atom_or_string(s),
     do: if(is_atom(s), do: String.upcase(Atom.to_string(s)), else: s)
 
+  defp do_auth_parameters(%{} = parameters),
+    do: do_auth_parameters(Map.to_list(parameters), [])
+
+  defp do_auth_parameters([], result), do: result |> Enum.reverse()
+
+  defp do_auth_parameters([{name, value} | tail], [])
+       when name in ["username", "realm", "nonce", "uri", "response", "cnonce", "opaque"],
+    do: do_auth_parameters(tail, [[name, "=\"", value, "\""]])
+
+  defp do_auth_parameters([{name, value} | tail], []),
+    do: do_auth_parameters(tail, [[name, "=", value]])
+
+  defp do_auth_parameters([{name, value} | tail], result)
+       when name in ["username", "realm", "nonce", "uri", "response", "cnonce", "opaque"],
+    do: do_auth_parameters(tail, [[",", name, "=\"", value, "\""] | result])
+
+  defp do_auth_parameters([{name, value} | tail], result),
+    do: do_auth_parameters(tail, [[",", name, "=", value] | result])
+
   @doc """
   Checks whether a message is valid.
+  """
+  @spec valid?(t) :: boolean
+  def valid?(message) do
+    case validate(message) do
+      :ok -> true
+      _ -> false
+    end
+  end
+
+  @doc """
+  Checks whether a message is valid, also checking if it corresponds to the
+  indicated incoming transport tuple `{protocol, host, port}`.
+  """
+  @spec valid?(t, {protocol, host :: String.t(), port :: integer}) :: boolean
+  def valid?(message, from) do
+    case validate(message, from) do
+      :ok -> true
+      _ -> false
+    end
+  end
+
+  @doc """
+  Validates if a message is valid, returning errors if found.
   """
   @spec validate(t) :: :ok | {:error, reason :: term}
   def validate(message) do
@@ -1554,9 +1667,10 @@ defmodule Sippet.Message do
 
     validators =
       if request?(message) do
-        validators ++ [
-          &has_matching_cseq/1
-        ]
+        validators ++
+          [
+            &has_matching_cseq/1
+          ]
       else
         validators
       end
@@ -1565,6 +1679,7 @@ defmodule Sippet.Message do
   end
 
   defp do_validate([], _message), do: :ok
+
   defp do_validate([f | rest], message) do
     case f.(message) do
       :ok -> do_validate(rest, message)
@@ -1574,81 +1689,102 @@ defmodule Sippet.Message do
 
   defp has_valid_start_line_version(message) do
     %{version: version} = message.start_line
+
     if version == {2, 0} do
       :ok
     else
-      {:error, "invalid status line version #{inspect version}"}
+      {:error, "invalid status line version #{inspect(version)}"}
     end
   end
 
   defp has_required_headers(message) do
     required = [:to, :from, :cseq, :call_id, :via]
+
     missing_headers =
       for header <- required, not (message |> has_header?(header)) do
         header
       end
+
     if Enum.empty?(missing_headers) do
       :ok
     else
-      {:error, "missing headers: #{inspect missing_headers}"}
+      {:error, "missing headers: #{inspect(missing_headers)}"}
     end
   end
 
   defp has_valid_body(message) do
     case message.headers do
       %{content_length: content_length} ->
-        if message.body != nil and
-           byte_size(message.body) == content_length do
-          :ok
-        else
-          {:error, "Content-Length and message body size do not match"}
+        cond do
+          message.body != nil and byte_size(message.body) == content_length ->
+            :ok
+
+          message.body == nil and content_length == 0 ->
+            :ok
+
+          true ->
+            {:error, "Content-Length and message body size do not match"}
         end
+
       _otherwise ->
-        if message.body == nil do
-          :ok
-        else
-          {:error, "No Content-Length header, but body is not nil"}
+        cond do
+          message.body == nil ->
+            :ok
+
+          message.headers.via |> List.last() |> elem(1) == :udp ->
+            # It is OK to not have Content-Length in an UDP message
+            :ok
+
+          true ->
+            {:error, "No Content-Length header, but body is not nil"}
         end
     end
   end
 
   defp has_tag_on(message, header) do
     {_display_name, _uri, params} = message.headers[header]
+
     case params do
       %{"tag" => value} ->
         if String.length(value) > 0 do
           :ok
         else
-          {:error, "empty #{inspect header} tag"}
+          {:error, "empty #{inspect(header)} tag"}
         end
+
       _otherwise ->
-        {:error, "#{inspect header} does not have tag"}
+        {:error, "#{inspect(header)} does not have tag"}
     end
   end
 
   defp has_matching_cseq(request) do
-    method1 = request.start_line.method
-    {_sequence, method2} = request.headers.cseq
-    if method1 == method2 do
-      :ok
-    else
-      {:error, "CSeq method and request method do no match"}
+    method = request.start_line.method
+
+    case request.headers.cseq do
+      {_sequence, ^method} ->
+        :ok
+
+      _ ->
+        {:error, "CSeq method and request method do no match"}
     end
   end
 
   @doc """
-  Checks whether a message is valid, also checking if it corresponds to the
-  indicated incoming transport tuple `{protocol, host, port}`.
+  Validates if a message is valid, also checking if it corresponds to the
+  indicated incoming transport tuple `{protocol, host, port}`. It returns the
+  error if found.
   """
-  @spec validate(t, {protocol, host :: String.t, port :: integer}) ::
-            :ok | {:error, reason :: term}
+  @spec validate(t, {protocol, host :: String.t(), port :: integer}) ::
+          :ok | {:error, reason :: term}
   def validate(message, from) do
     case validate(message) do
       :ok ->
         validators = [
           &has_valid_via(&1, from)
         ]
+
         do_validate(validators, message)
+
       other ->
         other
     end
@@ -1656,6 +1792,7 @@ defmodule Sippet.Message do
 
   defp has_valid_via(message, {protocol1, _ip, _port}) do
     {_version, protocol2, _sent_by, _params} = hd(message.headers.via)
+
     if protocol1 != protocol2 do
       {:error, "Via protocol doesn't match transport protocol"}
     else
@@ -1664,10 +1801,12 @@ defmodule Sippet.Message do
   end
 
   defp has_valid_via(_, []), do: :ok
+
   defp has_valid_via(message, [via | rest]) do
     {version, _protocol, _sent_by, params} = via
+
     if version != {2, 0} do
-      {:error, "Via version #{inspect version} is unknown"}
+      {:error, "Via version #{inspect(version)} is unknown"}
     else
       case params do
         %{"branch" => branch} ->
@@ -1676,14 +1815,122 @@ defmodule Sippet.Message do
           else
             {:error, "Via branch doesn't start with the magic cookie"}
           end
+
         _otherwise ->
           {:error, "Via header doesn't have branch parameter"}
       end
     end
   end
+
+  @doc """
+  Extracts the remote address and port from an incoming request inspecting the
+  `Via` header. If `;rport` is present, use it instead of the topmost `Via`
+  port, if `;received` is present, use it instead of the topmost `Via` host.
+  """
+  @spec get_remote(request) ::
+          {:ok, {protocol :: atom | binary, host :: binary, port :: integer}}
+          | {:error, reason :: term}
+  def get_remote(%__MODULE__{start_line: %RequestLine{}, headers: %{via: [topmost_via | _]}}) do
+    {_version, protocol, {host, port}, params} = topmost_via
+
+    host =
+      case params do
+        %{"received" => received} ->
+          received
+
+        _otherwise ->
+          host
+      end
+
+    port =
+      case params do
+        %{"rport" => rport} ->
+          rport |> String.to_integer()
+
+        _otherwise ->
+          port
+      end
+
+    {:ok, {protocol, host, port}}
+  end
+
+  def get_remote(%__MODULE__{start_line: %RequestLine{}}),
+    do: {:error, "Missing Via header"}
+
+  def get_remote(%__MODULE__{}),
+    do: {:error, "Not a request"}
+
+  @doc """
+  Fetches the value for a specific `key` in the given `message`.
+  """
+  def fetch(%__MODULE__{} = message, key), do: Map.fetch(message, key)
+
+  @doc """
+  Gets the value from key and updates it, all in one pass.
+
+  About the same as `Map.get_and_update/3` except that this function actually
+  does not remove the key from the struct case the passed function returns
+  `:pop`; it puts `nil` for `:start_line`, `:body` and `:target` ands `%{}` for
+  the `:headers` key.
+  """
+  def get_and_update(%__MODULE__{} = message, key, fun)
+      when key in [:start_line, :headers, :body, :target] do
+    current = message[key]
+
+    case fun.(current) do
+      {get, update} ->
+        {get, message |> Map.put(key, update)}
+
+      :pop ->
+        {current, pop(message, key)}
+
+      other ->
+        raise "the given function must return a two-element tuple or :pop, got: #{inspect(other)}"
+    end
+  end
+
+  @doc """
+  Returns and removes the value associated with `key` in `message`.
+
+  About the same as `Map.pop/3` except that this function actually does not
+  remove the key from the struct case the passed function returns `:pop`; it
+  puts `nil` for `:start_line`, `:body` and `:target` ands `%{}` for the
+  `:headers` key.
+  """
+  def pop(message, key, default \\ nil)
+
+  def pop(%__MODULE__{} = message, :headers, default) when default == nil or is_map(default),
+    do: {message[:headers], %{message | headers: %{}}}
+
+  def pop(%__MODULE__{}, :headers, _),
+    do: raise("invalid :default, :headers must be nil or a map")
+
+  def pop(%__MODULE__{} = message, key, nil) when key in [:start_line, :body, :target],
+    do: {message[key], %{message | key => nil}}
+
+  def pop(%__MODULE__{} = message, :start_line, %RequestLine{} = start_line),
+    do: {message[:start_line], %{message | start_line: start_line}}
+
+  def pop(%__MODULE__{} = message, :start_line, %StatusLine{} = start_line),
+    do: {message[:start_line], %{message | start_line: start_line}}
+
+  def pop(%__MODULE__{}, :start_line, _),
+    do: raise("invalid :default, :start_line must be nil, RequestLine or StatusLine")
+
+  def pop(%__MODULE__{} = message, :body, default) when is_binary(default),
+    do: {message[:body], %{message | body: default}}
+
+  def pop(%__MODULE__{}, :body, _),
+    do: raise("invalid :default, :body must be nil or binary")
+
+  def pop(%__MODULE__{} = message, :target, {_protocol, _host, _port} = default),
+    do: {message[:target], %{message | target: default}}
+
+  def pop(%__MODULE__{}, :target, _),
+    do: raise("invalid :default, :target must be nil or {protocol, host, port} tuple")
 end
 
 defimpl String.Chars, for: Sippet.Message do
   def to_string(%Sippet.Message{} = message),
-    do: message |> Sippet.Message.to_iodata() |> IO.iodata_to_binary
+    do: message |> Sippet.Message.to_iodata() |> IO.iodata_to_binary()
 end
