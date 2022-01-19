@@ -11,25 +11,94 @@ ERL_INTERFACE_LIB_DIR ?= $(shell erl -noshell -s init stop -eval "io:format(\"~s
 ERL_VERSION := $(shell erl -noshell -eval 'io:fwrite("~s\n", [erlang:system_info(otp_release)]).' -s erlang halt)
 
 C_SRC_DIR = $(CURDIR)
-C_SRC_OUTPUT ?= $(BASEDIR)/priv/$(PROJECT).so
+
+# Platform detection.
+
+ifeq ($(PLATFORM),)
+UNAME_S := $(shell uname -s)
+
+ifeq ($(UNAME_S),Linux)
+	PLATFORM = linux
+else ifeq ($(UNAME_S),Darwin)
+	PLATFORM = darwin
+else ifeq ($(UNAME_S),SunOS)
+	PLATFORM = solaris
+else ifeq ($(UNAME_S),GNU)
+	PLATFORM = gnu
+else ifeq ($(UNAME_S),FreeBSD)
+	PLATFORM = freebsd
+else ifeq ($(UNAME_S),NetBSD)
+	PLATFORM = netbsd
+else ifeq ($(UNAME_S),OpenBSD)
+	PLATFORM = openbsd
+else ifeq ($(UNAME_S),DragonFly)
+	PLATFORM = dragonfly
+else ifeq ($(shell uname -o),Msys)
+	PLATFORM = msys2
+else
+	$(error Unable to detect platform. Please open a ticket with the output of uname -a.)
+endif
+endif
 
 # System type and C compiler/flags.
 
-UNAME_SYS := $(shell uname -s)
-ifeq ($(UNAME_SYS), Darwin)
-	CFLAGS += -O3 -arch x86_64 -Wall -Wmissing-prototypes
-	CXXFLAGS += -O3 -arch x86_64 -std=c++11 -Wall
-	LDFLAGS += -arch x86_64 -flat_namespace -undefined suppress
-else ifeq ($(UNAME_SYS), FreeBSD)
-	CFLAGS ?= -O3 -Wall -Wmissing-prototypes
-	CXXFLAGS ?= -O3 -std=c++11 -Wall
-else ifeq ($(UNAME_SYS), Linux)
-	CFLAGS ?= -O3 -Wall -Wmissing-prototypes
-	CXXFLAGS ?= -O3 -std=c++11 -Wall
+ifeq ($(PLATFORM),msys2)
+	C_SRC_SHARED_EXTENSION ?= .dll
+else
+	C_SRC_SHARED_EXTENSION ?= .so
 endif
 
-CFLAGS += -fPIC -I $(ERTS_INCLUDE_DIR) -I $(ERL_INTERFACE_INCLUDE_DIR)
-CXXFLAGS += -fPIC -I $(ERTS_INCLUDE_DIR) -I $(ERL_INTERFACE_INCLUDE_DIR)
+C_SRC_OUTPUT ?= $(BASEDIR)/priv/$(PROJECT)$(C_SRC_SHARED_EXTENSION)
+
+ifeq ($(PLATFORM),msys2)
+# We hardcode the compiler used on MSYS2. The default CC=cc does
+# not produce working code. The "gcc" MSYS2 package also doesn't.
+	CC = /mingw64/bin/gcc
+	CFLAGS ?= -O3 -std=c11 -finline-functions -fstack-protector -Wall -Wmissing-prototypes
+	CXXFLAGS ?= -O3 -std=c++11 -finline-functions -fstack-protector -Wall
+else ifeq ($(PLATFORM),darwin)
+
+ifeq ($(ARCHFLAGS),)
+UNAME_M := $(shell uname -m)
+
+ifeq ($(UNAME_M),arm64)
+	ARCHFLAGS := -arch arm64
+else ifeq ($(UNAME_M),x86_64)
+	ARCHFLAGS := -arch x86_64
+else
+	$(error Unable to detect architecture. Please open a ticket with the output of uname -a.)
+endif
+endif
+
+	CC ?= cc
+	CFLAGS ?= -O3 -std=c11 $(ARCHFLAGS) -fstack-protector -Wall -Wmissing-prototypes
+	CXXFLAGS ?= -O3 -std=c++11 $(ARCHFLAGS) -fstack-protector -Wall
+	LDFLAGS ?= $(ARCHFLAGS) -flat_namespace -undefined suppress
+else ifeq ($(PLATFORM),freebsd)
+	CC ?= cc
+	CFLAGS ?= -O3 -std=c11 -finline-functions -fstack-protector -Wall -Wmissing-prototypes
+	CXXFLAGS ?= -O3 -std=c++11 -finline-functions -fstack-protector -Wall
+else ifeq ($(PLATFORM),linux)
+	CC ?= gcc
+	CFLAGS ?= -O3 -std=c11 -finline-functions -fstack-protector -Wall -Wmissing-prototypes
+	CXXFLAGS ?= -O3 -std=c++11 -finline-functions -fstack-protector -Wall
+else ifeq ($(PLATFORM),solaris)
+	CC ?= cc
+	CFLAGS ?= -O3 -std=c11 -finline-functions -fstack-protector -Wall -Wmissing-prototypes -fPIC
+	CXXFLAGS ?= -O3 -std=c++11 -finline-functions -fstack-protector -Wall -fPIC
+endif
+
+ifneq ($(PLATFORM),msys2)
+	CFLAGS += -fPIC
+	CXXFLAGS += -fPIC
+endif
+
+ifneq ($(CROSSCOMPILER),)
+	CC = $(CROSSCOMPILER)gcc
+endif
+
+CFLAGS += -I $(ERTS_INCLUDE_DIR) -I $(ERL_INTERFACE_INCLUDE_DIR)
+CXXFLAGS += -I $(ERTS_INCLUDE_DIR) -I $(ERL_INTERFACE_INCLUDE_DIR)
 
 ifeq ($(shell expr $(ERL_VERSION) \>= 23), 1)
 	LDLIBS += -L $(ERL_INTERFACE_LIB_DIR) -lei
