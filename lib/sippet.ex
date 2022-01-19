@@ -204,8 +204,7 @@ defmodule Sippet do
         :error ->
           raise ArgumentError, "expected :name option to be present"
       end
-
-    Supervisor.start_link(__MODULE__, options, name: :"#{name}_sup")
+    Supervisor.start_link(__MODULE__, options, name: :"#{name}_base_sup")
   end
 
   def child_spec(options) do
@@ -218,7 +217,8 @@ defmodule Sippet do
   @impl true
   def init(options) do
     children = [
-      {Registry, [name: options[:name], keys: :unique, partitions: System.schedulers_online()]}
+      {Registry, [name: options[:name], keys: :unique, partitions: System.schedulers_online()]},
+      {DynamicSupervisor, strategy: :one_for_one, name: :"#{options[:name]}_sup"}
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

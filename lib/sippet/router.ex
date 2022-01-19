@@ -63,6 +63,7 @@ defmodule Sippet.Router do
   defp ip_to_string(ip) when is_tuple(ip), do: :inet.ntoa(ip) |> to_string()
 
   defp update_via(%Message{start_line: %RequestLine{}} = request, {:wss, _ip, _from_port}), do: request
+
   defp update_via(%Message{start_line: %RequestLine{}} = request, {:ws, _ip, _from_port}), do: request
 
   defp update_via(%Message{start_line: %RequestLine{}} = request, {_protocol, ip, from_port}) do
@@ -231,7 +232,7 @@ defmodule Sippet.Router do
 
     initial_data = Transactions.Client.State.new(outgoing_request, key, sippet)
 
-    Supervisor.start_child(
+    DynamicSupervisor.start_child(
       :"#{sippet}_sup",
       {module, [initial_data, [name: {:via, Registry, {sippet, {:transaction, key}}}]]}
     )
@@ -250,7 +251,7 @@ defmodule Sippet.Router do
 
     initial_data = Transactions.Server.State.new(incoming_request, key, sippet)
 
-    Supervisor.start_child(
+    DynamicSupervisor.start_child(
       :"#{sippet}_sup",
       {module, [initial_data, [name: {:via, Registry, {sippet, {:transaction, key}}}]]}
     )
