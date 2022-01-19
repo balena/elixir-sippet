@@ -6,6 +6,8 @@ defmodule Sippet.Router do
 
   require Logger
 
+  import Sippet, only: [supervisor_name: 1]
+
   @doc false
   def handle_transport_message(sippet, iodata, from) when is_list(iodata) do
     binary =
@@ -63,6 +65,7 @@ defmodule Sippet.Router do
   defp ip_to_string(ip) when is_tuple(ip), do: :inet.ntoa(ip) |> to_string()
 
   defp update_via(%Message{start_line: %RequestLine{}} = request, {:wss, _ip, _from_port}), do: request
+
   defp update_via(%Message{start_line: %RequestLine{}} = request, {:ws, _ip, _from_port}), do: request
 
   defp update_via(%Message{start_line: %RequestLine{}} = request, {_protocol, ip, from_port}) do
@@ -231,8 +234,8 @@ defmodule Sippet.Router do
 
     initial_data = Transactions.Client.State.new(outgoing_request, key, sippet)
 
-    Supervisor.start_child(
-      :"#{sippet}_sup",
+    DynamicSupervisor.start_child(
+      supervisor_name(sippet),
       {module, [initial_data, [name: {:via, Registry, {sippet, {:transaction, key}}}]]}
     )
   end
@@ -250,8 +253,8 @@ defmodule Sippet.Router do
 
     initial_data = Transactions.Server.State.new(incoming_request, key, sippet)
 
-    Supervisor.start_child(
-      :"#{sippet}_sup",
+    DynamicSupervisor.start_child(
+      supervisor_name(sippet),
       {module, [initial_data, [name: {:via, Registry, {sippet, {:transaction, key}}}]]}
     )
   end
