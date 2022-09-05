@@ -76,7 +76,7 @@ defmodule Sippet.Transports.UDP do
                 ":address contains an invalid IP or DNS name, got: #{inspect(reason)}"
       end
 
-    GenServer.start_link(__MODULE__, {name, ip, port, family}, name: __MODULE__)
+    GenServer.start_link(__MODULE__, {name, ip, port, family})
   end
 
   @impl true
