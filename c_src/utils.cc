@@ -16,7 +16,7 @@
 namespace {
 
 // Utility to convert a character to a digit in a given base
-template<typename CHAR, int BASE, bool BASE_LTE_10> class BaseCharToDigit {
+ template<typename CHAR, int BASE, bool BASE_LTE_10> class BaseCharToDigit {
 };
 
 // Faster specialization for bases <= 10
