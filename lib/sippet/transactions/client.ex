@@ -36,7 +36,7 @@ defmodule Sippet.Transactions.Client do
         do: Sippet.Router.to_core(sippet, :receive_response, [response, key])
 
       def shutdown(reason, %State{key: key, sippet: sippet} = data) do
-        Logger.warn("client transaction #{inspect(key)} shutdown: #{reason}")
+        Logger.warning("client transaction #{inspect(key)} shutdown: #{reason}")
 
         Sippet.Router.to_core(sippet, :receive_error, [reason, key])
 

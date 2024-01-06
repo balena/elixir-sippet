@@ -22,7 +22,7 @@ defmodule Sippet.Core do
   """
   @callback receive_request(
               incoming_request :: Message.request(),
-              server_key :: Transactions.Server.t() | nil
+              server_key :: Transactions.Server.Key.t() | nil
             ) ::
               any
 
@@ -39,7 +39,7 @@ defmodule Sippet.Core do
   """
   @callback receive_response(
               incoming_response :: Message.response(),
-              client_key :: Transactions.Client.t() | nil
+              client_key :: Transactions.Client.Key.t() | nil
             ) ::
               any
 
@@ -52,8 +52,8 @@ defmodule Sippet.Core do
   @callback receive_error(
               reason :: term,
               client_or_server_key ::
-                Transactions.Client.t()
-                | Transactions.Server.t()
+                Transactions.Client.Key.t()
+                | Transactions.Server.Key.t()
             ) ::
               any
 

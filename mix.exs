@@ -1,13 +1,13 @@
 defmodule Sippet.Mixfile do
   use Mix.Project
 
-  @version "1.0.10"
+  @version "1.0.11"
 
   def project do
     [
       app: :sippet,
       version: @version,
-      elixir: "~> 1.10",
+      elixir: "~> 1.14",
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
       # Add the make compiler
@@ -42,7 +42,7 @@ defmodule Sippet.Mixfile do
       {:gen_state_machine, ">= 3.0.0"},
 
       # Build the NIF
-      {:elixir_make, "~> 0.4", runtime: false},
+      {:elixir_make, "~> 0.7", runtime: false},
 
       # Docs dependencies
       {:ex_doc, "~> 0.21", only: :dev, runtime: false},

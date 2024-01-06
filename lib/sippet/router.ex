@@ -98,7 +98,7 @@ defmodule Sippet.Router do
   def receive_transport_error(sippet, transaction_key, reason) do
     case Registry.lookup(sippet, {:transaction, transaction_key}) do
       [] ->
-        Logger.warn(fn ->
+        Logger.warning(fn ->
           case transaction_key do
             %Transactions.Client.Key{} ->
               "client key #{inspect(transaction_key)} not found"
@@ -157,7 +157,7 @@ defmodule Sippet.Router do
         :ok
 
       _errors ->
-        Logger.warn(fn ->
+        Logger.warning(fn ->
           "client transaction #{transaction} already exists"
         end)
 

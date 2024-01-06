@@ -139,7 +139,7 @@ defmodule Sippet.Transports.UDP do
       :ok
     else
       {:error, reason} ->
-        Logger.warn("udp transport error for #{to_host}:#{to_port}: #{inspect(reason)}")
+        Logger.warning("udp transport error for #{to_host}:#{to_port}: #{inspect(reason)}")
 
         if key != nil do
           Sippet.Router.receive_transport_error(sippet, key, reason)
