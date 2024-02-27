@@ -73,7 +73,9 @@ endif
 	CC ?= cc
 	CFLAGS ?= -O3 -std=c11 $(ARCHFLAGS) -fstack-protector -Wall -Wmissing-prototypes
 	CXXFLAGS ?= -O3 -std=c++11 $(ARCHFLAGS) -fstack-protector -Wall
-	LDFLAGS ?= $(ARCHFLAGS) -flat_namespace -undefined suppress
+	LDFLAGS ?= $(ARCHFLAGS) -flat_namespace
+	# Necessary to link successfully on Apple Silicon
+	LDFLAGS += -undefined suppress
 else ifeq ($(PLATFORM),freebsd)
 	CC ?= cc
 	CFLAGS ?= -O3 -std=c11 -finline-functions -fstack-protector -Wall -Wmissing-prototypes
