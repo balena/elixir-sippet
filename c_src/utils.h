@@ -12,6 +12,7 @@
 #define UTILS_H_
 
 #include <string>
+#include <cstdint>
 
 #include "string_tokenizer.h"
 
