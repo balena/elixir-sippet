@@ -1413,6 +1413,7 @@ defmodule Sippet.Message do
         :cseq -> {"CSeq", true}
         :date -> {"Date", true}
         :error_info -> {"Error-Info", true}
+        :event -> {"Event", true}
         :expires -> {"Expires", true}
         :from -> {"From", true}
         :in_reply_to -> {"In-Reply-To", true}
