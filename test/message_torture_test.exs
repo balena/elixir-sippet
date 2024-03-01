@@ -274,7 +274,7 @@ defmodule Sippet.Message.TortureTest do
 
     request = options |> Message.parse!()
 
-    assert elem(request.headers.p_asserted_identity, 1).authority == "jdrosen@example.com"
+      assert elem(request.headers.p_asserted_identity |> hd, 1).authority == "jdrosen@example.com"
   end
 
   test "P-Asserted-Identity with name-addr like format" do
@@ -286,6 +286,6 @@ defmodule Sippet.Message.TortureTest do
 
     request = options |> Message.parse!()
 
-    assert elem(request.headers.p_asserted_identity, 1).authority == "jdrosen@example.com"
+    assert elem(request.headers.p_asserted_identity |> hd, 1).authority == "jdrosen@example.com"
   end
 end
