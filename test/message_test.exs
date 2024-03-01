@@ -256,10 +256,10 @@ defmodule Sippet.Message.Test do
 
     message =
       "INVITE sip:5531999921578@85.90.232.52 SIP/2.0\r\n" <>
+      "Content-Length: 0\r\n" <>
       "Via: SIP/2.0/UDP 192.168.65.17:5566;branch=z9hG4bKMD3xTURX0heu, " <>
           "SIP/2.0/STOMP D6wU5SvE.invalid;rport=5672;received=192.168.65.30" <>
           ";branch=z9hG4bKRtAc6V4VeIuR\r\n" <>
-      "Content-Length: 0\r\n" <>
       "\r\n"
 
     assert message == req |> to_string
@@ -274,8 +274,8 @@ defmodule Sippet.Message.Test do
 
     message =
       "INVITE sip:foo@bar.com SIP/2.0\r\n" <>
-      "Via: SIP/2.0/UDP 205.205.74.6:5060;rport;branch=z9hG4bK-26320-1-0\r\n" <>
       "Content-Length: 0\r\n" <>
+      "Via: SIP/2.0/UDP 205.205.74.6:5060;rport;branch=z9hG4bK-26320-1-0\r\n" <>
       "\r\n"
 
     assert message == req |> to_string
