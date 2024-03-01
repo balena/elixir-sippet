@@ -83,7 +83,7 @@ X(Proxy-Authenticate,              0, proxy_authenticate,            SchemeAndAu
 X(Proxy-Authorization,             0, proxy_authorization,           SchemeAndAuthParams)
 X(Proxy-Require,                   0, proxy_require,                 MultipleTokens)
 //X(RAck,                          0, rack,                          x)
-X(Reason,                          0, reason,                        SingleTokenParams)
+X(Reason,                          0, reason,                        MultipleTokenParams)
 X(Record-Route,                    0, record_route,                  MultipleContactParams)
 //X(Recv-Info,                     0, recv_info,                     x)
 //X(ReferSub,                      0, refer_sub,                     x)

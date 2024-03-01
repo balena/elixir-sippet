@@ -299,4 +299,21 @@ defmodule Sippet.Message.Test do
     assert parsed_request.body == expected_body
   end
 
+  test "parse multiple Reason headers" do
+    req =
+      """
+      CANCEL sip:bob@biloxi.com SIP/2.0
+      Reason: X.int;reasoncode=0x0000030A;add-info=068C.0001.0001
+      Reason: SIP;cause=200;text="Call Rejected By User"
+      """ |> Message.parse!()
+
+    message =
+      "CANCEL sip:bob@biloxi.com SIP/2.0\r\n" <>
+      "Content-Length: 0\r\n" <>
+      "Reason: X.int;reasoncode=0x0000030A;add-info=068C.0001.0001, " <>
+      "SIP;text=\"Call Rejected By User\";cause=200\r\n" <>
+        "\r\n"
+
+    assert message == req |> to_string
+  end
 end

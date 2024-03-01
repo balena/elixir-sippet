@@ -1603,7 +1603,15 @@ defmodule Sippet.Message do
     do: do_parameters(tail, [";", name | result])
 
   defp do_parameters([{name, value} | tail], result),
-    do: do_parameters(tail, [";", name, "=", value | result])
+    do: do_parameters(tail, [";", name, "=", do_maybe_double_quote(value) | result])
+
+  defp do_maybe_double_quote(value) do
+    if String.contains?(value, [" ", "\t", "\""]) do
+      "\"" <> String.replace(value, "\"", "\\\"") <> "\""
+    else
+      value
+    end
+  end
 
   defp do_join(head, [], _joiner), do: [head]
   defp do_join(head, tail, joiner), do: [head, joiner | tail]
