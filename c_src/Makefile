@@ -57,10 +57,8 @@ ifeq ($(PLATFORM),msys2)
 	CFLAGS ?= -O3 -std=c11 -finline-functions -fstack-protector -Wall -Wmissing-prototypes
 	CXXFLAGS ?= -O3 -std=c++11 -finline-functions -fstack-protector -Wall
 else ifeq ($(PLATFORM),darwin)
-
 ifeq ($(ARCHFLAGS),)
-UNAME_M := $(shell uname -m)
-
+	UNAME_M := $(shell uname -m)
 ifeq ($(UNAME_M),arm64)
 	ARCHFLAGS := -arch arm64
 else ifeq ($(UNAME_M),x86_64)
@@ -69,13 +67,10 @@ else
 	$(error Unable to detect architecture. Please open a ticket with the output of uname -a.)
 endif
 endif
-
 	CC ?= cc
 	CFLAGS ?= -O3 -std=c11 $(ARCHFLAGS) -fstack-protector -Wall -Wmissing-prototypes
 	CXXFLAGS ?= -O3 -std=c++11 $(ARCHFLAGS) -fstack-protector -Wall
-	LDFLAGS ?= $(ARCHFLAGS) -flat_namespace
-	# Necessary to link successfully on Apple Silicon
-	LDFLAGS += -undefined dynamic_lookup
+	LDFLAGS ?= $(ARCHFLAGS) -flat_namespace -undefined dynamic_lookup
 else ifeq ($(PLATFORM),freebsd)
 	CC ?= cc
 	CFLAGS ?= -O3 -std=c11 -finline-functions -fstack-protector -Wall -Wmissing-prototypes
