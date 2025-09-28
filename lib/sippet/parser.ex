@@ -13,7 +13,7 @@ defmodule Sippet.Parser do
   Initializes and loads the C++ NIF module.
   """
   def init() do
-    path = :filename.join(:code.priv_dir(unquote(app)), 'sippet_nif')
+    path = :filename.join(:code.priv_dir(unquote(app)), ~c'sippet_nif')
     :ok = :erlang.load_nif(path, 0)
   end
 
