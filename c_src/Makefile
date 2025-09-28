@@ -8,6 +8,7 @@ PROJECT := sippet_nif
 ERTS_INCLUDE_DIR ?= $(shell erl -noshell -s init stop -eval "io:format(\"~s/erts-~s/include/\", [code:root_dir(), erlang:system_info(version)]).")
 ERL_INTERFACE_INCLUDE_DIR ?= $(shell erl -noshell -s init stop -eval "io:format(\"~s\", [code:lib_dir(erl_interface, include)]).")
 ERL_INTERFACE_LIB_DIR ?= $(shell erl -noshell -s init stop -eval "io:format(\"~s\", [code:lib_dir(erl_interface, lib)]).")
+ERL_ROOT ?= $(shell erl -noshell -s init stop -eval "io:format(\"~s\", [code:root_dir()]).")
 ERL_VERSION := $(shell erl -noshell -eval 'io:fwrite("~s\n", [erlang:system_info(otp_release)]).' -s erlang halt)
 
 C_SRC_DIR = $(CURDIR)
@@ -102,7 +103,13 @@ ifeq ($(shell expr $(ERL_VERSION) \>= 23), 1)
 else
 	LDLIBS += -L $(ERL_INTERFACE_LIB_DIR) -lei -lerl_interface
 endif
-LDFLAGS += -shared -lstdc++
+
+ifeq ($(PLATFORM),darwin)
+	LDFLAGS += -bundle -bundle_loader $(ERL_ROOT)/erts-*/bin/beam.smp
+else
+	LDFLAGS += -shared
+endif
+LDFLAGS += -lstdc++
 
 # Verbosity.
 
