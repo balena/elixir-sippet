@@ -42,6 +42,11 @@ everything else is performed by these layers in a very standard way. That means
 you may not be able to build some non-standard behaviors, like routing the
 message to a given host that wasn't correctly added to the topmost Via header.
 
+The `:alert_info`, `:call_info` and `:error_info` headers use lists of
+`{uri_string, parameters_map}` tuples. Serialization encloses each URI in angle
+brackets, including call-waiting URNs such as
+`Alert-Info: <urn:alert:service:call-waiting>`.
+
 As Sippet is a simple SIP library, the developer has to understand the protocol
 very well before writing a middleware. This design decision came up because all
 attempts to hide any inherent SIP complexity by other frameworks have failed.

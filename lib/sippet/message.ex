@@ -43,7 +43,7 @@ defmodule Sippet.Message do
           {{type :: binary, subtype :: binary}, params}
 
   @type uri_params ::
-          {display_name :: binary, uri :: URI.t(), params}
+          {uri :: binary, params}
 
   @type name_uri_params ::
           {display_name :: binary, uri :: URI.t(), params}
@@ -1480,10 +1480,20 @@ defmodule Sippet.Message do
         other -> {other, true}
       end
 
-    if multiple do
-      [name, ": ", do_header_values(value, []), "\r\n"]
-    else
-      do_one_per_line(name, value, auth_mode(key))
+    cond do
+      key in [:alert_info, :call_info, :error_info] ->
+        values =
+          Enum.map_intersperse(value, ", ", fn {uri, parameters} ->
+            ["<", uri, ">", do_parameters(parameters)]
+          end)
+
+        [name, ": ", values, "\r\n"]
+
+      multiple ->
+        [name, ": ", do_header_values(value, []), "\r\n"]
+
+      true ->
+        do_one_per_line(name, value, auth_mode(key))
     end
   end
 

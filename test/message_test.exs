@@ -19,6 +19,46 @@ defmodule Sippet.Message.Test do
     assert Message.response?(response)
   end
 
+  test "call-waiting Alert-Info survives parsing and serialization" do
+    raw =
+      "SIP/2.0 180 Ringing\r\n" <>
+        "Via: SIP/2.0/UDP 192.0.2.1:5060;branch=z9hG4bKcw\r\n" <>
+        "From: <sip:c@ims.test>;tag=c\r\nTo: <sip:b@ims.test>;tag=b\r\n" <>
+        "Call-ID: cw\r\nCSeq: 1 INVITE\r\n" <>
+        "Alert-Info: <urn:alert:service:call-waiting>\r\nContent-Length: 0\r\n\r\n"
+
+    assert {:ok, msg} = Message.parse(raw)
+    assert msg.headers.alert_info == [{"urn:alert:service:call-waiting", %{}}]
+    wire = to_string(msg)
+    assert wire =~ "Alert-Info: <urn:alert:service:call-waiting>\r\n"
+    assert {:ok, reparsed} = Message.parse(wire)
+    assert reparsed.headers.alert_info == msg.headers.alert_info
+  end
+
+  test "URI info headers preserve brackets, parameters and multiple values" do
+    for {key, name} <- [
+          {:alert_info, "Alert-Info"},
+          {:call_info, "Call-Info"},
+          {:error_info, "Error-Info"}
+        ] do
+      values = [
+        {"https://example.com/first", %{"purpose" => "icon"}},
+        {"https://example.com/second", %{}}
+      ]
+
+      wire =
+        Message.build_response(180)
+        |> Message.put_header(key, values)
+        |> to_string()
+
+      assert wire =~
+               "#{name}: <https://example.com/first>;purpose=icon, <https://example.com/second>\r\n"
+
+      assert {:ok, reparsed} = Message.parse(wire)
+      assert reparsed.headers[key] == values
+    end
+  end
+
   test "Contact feature-tag parameters round-trip quoted" do
     raw =
       "REGISTER sip:ims.test SIP/2.0\r\n" <>
