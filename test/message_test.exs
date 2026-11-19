@@ -19,6 +19,21 @@ defmodule Sippet.Message.Test do
     assert Message.response?(response)
   end
 
+  test "INVITE keeps the telephone subscriber context in Request-URI userinfo" do
+    ruri = "sip:3470001234;phone-context=domain@domain;user=phone"
+    raw = "INVITE #{ruri} SIP/2.0\r\nContent-Length: 0\r\n\r\n"
+
+    assert {:ok, message} = Message.parse(raw)
+
+    assert %Sippet.URI{
+             userinfo: "3470001234;phone-context=domain",
+             host: "domain",
+             parameters: ";user=phone"
+           } = message.start_line.request_uri
+
+    assert to_string(message) == raw
+  end
+
   test "call-waiting Alert-Info survives parsing and serialization" do
     raw =
       "SIP/2.0 180 Ringing\r\n" <>

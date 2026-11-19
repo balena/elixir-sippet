@@ -47,6 +47,10 @@ The `:alert_info`, `:call_info` and `:error_info` headers use lists of
 brackets, including call-waiting URNs such as
 `Alert-Info: <urn:alert:service:call-waiting>`.
 
+In SIP telephone subscriber URIs, `phone-context` before `@` is part of
+`Sippet.URI.userinfo`; parameters after the host, such as `;user=phone`, are
+stored separately in `Sippet.URI.parameters`.
+
 As Sippet is a simple SIP library, the developer has to understand the protocol
 very well before writing a middleware. This design decision came up because all
 attempts to hide any inherent SIP complexity by other frameworks have failed.

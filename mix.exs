@@ -36,7 +36,8 @@ defmodule Sippet.Mixfile do
 
   defp deps do
     [
-      {:sippet_uri, git: "https://github.com/sini-hpe/elixir-sippet-uri.git", tag: "hpe-2.0.0"},
+      {:sippet_uri,
+       git: "https://github.com/sini-hpe/elixir-sippet-uri.git", branch: "patch/sip-phone-context"},
       {:gen_state_machine, ">= 3.0.0"},
       {:telemetry, "~> 1.0"},
       {:elixir_make, "~> 0.8", runtime: false},
